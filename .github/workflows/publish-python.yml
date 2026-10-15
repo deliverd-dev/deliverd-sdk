@@ -1,0 +1,151 @@
+name: Publish Python SDK
+
+# Tag-driven, so publishing is a deliberate act with a name on it rather than
+# something that happens because somebody merged.
+on:
+  push:
+    tags:
+      - "python-v*"
+  # And by hand, for a re-run after a failed upload.
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The version the publish job asks PyPI about. Taken from the tree that
+    # produced the artifact rather than from a second checkout, which could in
+    # principle be a different commit.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The tests again, on the floor the package promises. A release is the
+      # worst possible moment to find out 3.9 broke, and this job does not
+      # depend on the main CI run having passed.
+      - name: Test on the oldest supported Python
+        run: |
+          python -m pip install --quiet --upgrade uv
+          uv python install 3.9
+          PYTHONPATH=src uv run --python 3.9 python -m unittest discover -s tests
+        working-directory: packages/sdk-python
+
+      - name: Build
+        run: |
+          python -m pip install --quiet build twine
+          python -m build
+          twine check dist/*
+        working-directory: packages/sdk-python
+
+      # Checked here rather than discovered by PyPI: uploading a version that
+      # already exists fails the whole job with a 400, and the tag says which
+      # version this is meant to be.
+      - name: The tag and the version must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/python-v}"
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag says $TAG, pyproject.toml says $VERSION."
+            exit 1
+          fi
+        working-directory: packages/sdk-python
+
+      - name: Read the version being released
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        working-directory: packages/sdk-python
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: packages/sdk-python/dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # A GitHub environment, so a human approval can be required on it in the
+    # repository settings if you ever want one before an upload.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/deliverd/
+    permissions:
+      # Trusted Publishing: GitHub mints a short-lived OIDC token that PyPI
+      # verifies against the publisher you configured. **No API token is
+      # stored anywhere** — not in secrets, not on a laptop, not in a shell
+      # history — so there is nothing to leak and nothing to rotate. That is
+      # the whole reason this workflow exists rather than a `twine upload`
+      # somebody runs locally.
+      #
+      # The publisher is configured once on pypi.org, under the `deliverd`
+      # project → Publishing: owner deliverd-dev, repository deliverd-sdk,
+      # workflow `publish-python.yml`, environment `pypi`.
+      id-token: write
+    steps:
+      # No checkout here, deliberately. Declaring `permissions:` above replaces
+      # the default set rather than adding to it, so this job's token carries
+      # `id-token: write` and *not* `contents: read` — and a checkout under
+      # that token fails with "Repository not found", which reads like the repo
+      # is gone rather than like a missing scope. It cost a run to find out.
+      # The version comes from the build job instead, which is the better
+      # source anyway: the tree that produced the artifact.
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Is this version already on PyPI?
+      #
+      # A tag can arrive *after* the version it names is published — a release
+      # cut by workflow_dispatch, or a tag pushed later for the record — and
+      # the upload then fails the run with a 400 for a version that is
+      # correctly published. A red run that means "everything is fine" is a
+      # run people stop reading.
+      #
+      # Deliberately not `skip-existing: true` on the upload step. That flag
+      # skips silently and would make every re-upload green, including the one
+      # case worth shouting about. This asks the question, says the answer out
+      # loud in the run summary, and skips only the upload.
+      #
+      # Anything other than a clear "yes, that version is there" leaves
+      # `already` false, so an unreachable PyPI attempts the upload and fails
+      # the way it does today. The dangerous direction is the other one:
+      # treating "could not tell" as "already published" would skip a real
+      # release and report success.
+      - name: Ask PyPI whether this version exists
+        id: published
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "The build job reported no version, so this cannot tell whether"
+            echo "it is already published. Attempting the upload."
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if curl -sf "https://pypi.org/pypi/deliverd/$VERSION/json" > /dev/null; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### deliverd $VERSION was already on PyPI"
+              echo
+              echo "Nothing was uploaded, and that is the expected outcome for a tag"
+              echo "pushed after the release it names."
+              echo
+              echo "PyPI versions are immutable, so if this tag carries *changed*"
+              echo "code it is not published and cannot be: bump the version and"
+              echo "tag again."
+              echo
+              echo "<https://pypi.org/project/deliverd/$VERSION/>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            echo "### Publishing deliverd $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.published.outputs.already != 'true'

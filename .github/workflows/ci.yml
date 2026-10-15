@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No `version:`: action-setup reads `packageManager` from package.json,
+      # and errors out when given both.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      # Before the suite: packages/sdk/src/release.test.ts reads dist/, because
+      # its question is what is in the tarball, not what is in the source.
+      - run: pnpm --filter @deliverd/sdk build
+      - run: pnpm vitest run
+      # The package is named `deliverd`. pnpm exits 0 when a filter matches
+      # nothing, so the name has to be the real one.
+      - run: pnpm --filter deliverd build
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # The floor the package claims and the newest it lists.
+          python-version: |
+            3.14
+            3.9
+      # No install step: the package has no dependencies and its tests are
+      # standard-library unittest.
+      - run: |
+          python3.9 -m unittest discover -s tests
+          python3.14 -m unittest discover -s tests
+        working-directory: packages/sdk-python
+        env:
+          PYTHONPATH: src

@@ -1,0 +1,84 @@
+name: Publish npm SDK
+
+# Tag-driven, so publishing is a deliberate act with a name on it rather than
+# something that happens because somebody merged.
+on:
+  push:
+    tags:
+      - "sdk-v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@deliverd/sdk
+    permissions:
+      contents: read
+      # Trusted Publishing. GitHub mints a short-lived OIDC token that npm
+      # verifies against the publisher configured once on the package's
+      # settings page, so **no token is stored anywhere** — not in repository
+      # secrets, not on a laptop, not in a shell history. Nothing to leak and
+      # nothing to rotate. Because this repository is public, npm also attaches
+      # build provenance, so anyone can see which commit and which workflow
+      # produced the tarball.
+      #
+      # That one-time configuration is the prerequisite. On npmjs.com, under
+      # @deliverd/sdk → Settings → Trusted Publisher: deliverd-dev/deliverd-sdk,
+      # workflow `publish-npm.yml`, environment `npm`. npm also refuses the
+      # publish unless package.json's `repository.url` names this repository.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs a recent npm; the one bundled with Node 22 is
+      # older than the feature. Pinned to latest rather than a floor, because
+      # this job runs rarely and an old client fails with an auth error that
+      # reads like a misconfigured publisher.
+      - run: npm install --global npm@latest
+
+      - run: pnpm install --frozen-lockfile
+
+      # The whole suite in this repository. The checks that hold the SDK to the
+      # API it calls and to its documentation run in Deliverd's own repository
+      # on every change, before the change is copied here.
+      - run: pnpm -r typecheck
+
+      # Before the suite, not after. `release.test.ts` reads `dist/` — it
+      # exists to check that what ships behaves the way the docs say, which it
+      # can only do against a build — so on a clean runner it would fail with
+      # ENOENT and take the publish with it.
+      - run: pnpm --filter @deliverd/sdk build
+
+      - run: pnpm vitest run
+
+      # Checked here rather than discovered by npm: a republish is refused with
+      # a 403 after everything else has passed, and the tag says which version
+      # this is meant to be.
+      - name: The tag and the version must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/sdk-v}"
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag says $TAG, package.json says $VERSION."
+            exit 1
+          fi
+        working-directory: packages/sdk
+
+      # What actually goes in the tarball, printed before it is sent. The
+      # package ships `dist` and `src`, and a build that silently produced
+      # nothing would otherwise publish an empty one.
+      - name: Show what will be published
+        run: npm pack --dry-run
+        working-directory: packages/sdk
+
+      - run: npm publish --access public
+        working-directory: packages/sdk

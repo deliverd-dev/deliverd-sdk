@@ -1,0 +1,298 @@
+{
+  "_readme": "One table, two SDKs. See README.md beside this file before editing.",
+  "durations": {
+    "_why": "Both SDKs accept the same strings and must read them the same way. The unit a bare number means is deliberately different per language and is listed under `divergent`, where each entry has to say why.",
+    "shared": [
+      {
+        "input": "1s",
+        "seconds": 1
+      },
+      {
+        "input": "45s",
+        "seconds": 45
+      },
+      {
+        "input": "30m",
+        "seconds": 1800
+      },
+      {
+        "input": "4h",
+        "seconds": 14400
+      },
+      {
+        "input": "2d",
+        "seconds": 172800
+      },
+      {
+        "input": "1.5h",
+        "seconds": 5400
+      },
+      {
+        "input": "0s",
+        "seconds": 0
+      },
+      {
+        "input": " 30m ",
+        "seconds": 1800
+      }
+    ],
+    "divergent": [
+      {
+        "input": 30,
+        "ts_milliseconds": 30,
+        "py_seconds": 30,
+        "why": "A bare number is the unit that language's own timers take: setTimeout counts milliseconds and time.sleep counts seconds. Reading either as the other is wrong by a factor of a thousand in code that looks correct."
+      }
+    ],
+    "rejected": [
+      "",
+      "30",
+      "30x",
+      "m30",
+      "-5m",
+      "30 m",
+      "1,5h",
+      "PT30M"
+    ]
+  },
+  "retries": {
+    "_why": "Which answers are worth asking again. A wrong answer repeated three times costs the caller seconds and tells them nothing new; a transient one not retried costs them the call.",
+    "_maxAttempts": 3,
+    "cases": [
+      {
+        "status": 429,
+        "attempts": 3,
+        "why": "Rate limited: the whole point is that later is better."
+      },
+      {
+        "status": 500,
+        "attempts": 3,
+        "why": "The server fell over and may not next time."
+      },
+      {
+        "status": 502,
+        "attempts": 3,
+        "why": "A bad gateway is somebody else's restart."
+      },
+      {
+        "status": 503,
+        "attempts": 3,
+        "why": "Unavailable now is the definition of try later."
+      },
+      {
+        "status": 504,
+        "attempts": 3,
+        "why": "A timeout upstream may not time out twice."
+      },
+      {
+        "status": 501,
+        "attempts": 1,
+        "why": "Not implemented is a fact about the server, not about this moment. The same argument as a 4xx, and the reason development mode took two and a half seconds to say a call is not built."
+      },
+      {
+        "status": 400,
+        "attempts": 1,
+        "why": "A malformed request is malformed again in a second."
+      },
+      {
+        "status": 401,
+        "attempts": 1,
+        "why": "The key does not become valid by asking twice."
+      },
+      {
+        "status": 403,
+        "attempts": 1,
+        "why": "A rule that refused will refuse again."
+      },
+      {
+        "status": 404,
+        "attempts": 1,
+        "why": "Nothing arrives at a URL by waiting."
+      },
+      {
+        "status": 409,
+        "attempts": 1,
+        "why": "A conflict needs the caller to do something different."
+      },
+      {
+        "status": 422,
+        "attempts": 1,
+        "why": "The body is wrong and stays wrong."
+      }
+    ]
+  },
+  "retryAfter": {
+    "_why": "A Retry-After header is seconds on the wire, and each SDK has to turn it into the unit its own sleep takes. A slip here is not a wrong answer, it is a thousandfold wait — a two second pause becoming half an hour, or a half hour pause becoming two seconds and a stampede.",
+    "header": "2",
+    "ts_milliseconds": 2000,
+    "py_seconds": 2,
+    "honoured": true
+  },
+  "idempotency": {
+    "_why": "The key exists so a retried POST cannot create a second thing. A client that mints a fresh key per attempt has the bug the header was added to prevent, and it only shows up under a retry — which is exactly when nobody is looking.",
+    "retryStatus": 500,
+    "expectedAttempts": 3,
+    "sameKeyOnEveryAttempt": true,
+    "header": "idempotency-key"
+  },
+  "signatures": {
+    "_why": "A receiver written against one SDK and verified against the other must agree, or a customer's endpoint drops real deliveries. Fixed vectors rather than a round trip: a round trip passes even when both sides are wrong in the same way.",
+    "secret": "whsec_conformance_do_not_use",
+    "body": "{\"event\":\"report.published\",\"data\":{\"reportId\":\"rep_conformance\"}}",
+    "timestamp": 1750000000,
+    "toleranceSeconds": 300,
+    "validSignature": "b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+    "cases": [
+      {
+        "name": "signed now",
+        "header": "t=1750000000,v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1750000000,
+        "verifies": true
+      },
+      {
+        "name": "inside the window",
+        "header": "t=1750000000,v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1750000299,
+        "verifies": true
+      },
+      {
+        "name": "one second past the window",
+        "header": "t=1750000000,v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1750000301,
+        "verifies": false
+      },
+      {
+        "name": "a timestamp from the future",
+        "header": "t=1750000000,v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1749999699,
+        "verifies": false
+      },
+      {
+        "name": "spaces around the parts",
+        "header": "t = 1750000000 , v1 = b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1750000000,
+        "verifies": true
+      },
+      {
+        "name": "reversed order",
+        "header": "v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db,t=1750000000",
+        "now": 1750000000,
+        "verifies": true
+      },
+      {
+        "name": "signed with another secret",
+        "header": "t=1750000000,v1=2ecd49efd36be9c7d0cb0f916b5af00594538e6c3cf4a225a992f52d3412afc9",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "signed over a different body",
+        "header": "t=1750000000,v1=d953eb44dc6ed959c03fdfae1e5051aee958a02cf0f93ccd153e6988e4a99398",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "no v1",
+        "header": "t=1750000000",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "no t",
+        "header": "v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "a timestamp that is not a number",
+        "header": "t=yesterday,v1=b533977c4fd9db83c9b5ed0b75dd8276bd661de5043a4cb102af6dd6127ba8db",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "the right length, the wrong bytes",
+        "header": "t=1750000000,v1=0000000000000000000000000000000000000000000000000000000000000000",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "empty header",
+        "header": "",
+        "now": 1750000000,
+        "verifies": false
+      },
+      {
+        "name": "no header at all",
+        "header": null,
+        "now": 1750000000,
+        "verifies": false
+      }
+    ]
+  },
+  "gate": {
+    "_why": "The gate is the one primitive whose answer is not a person's, and the one whose retry contract differs from every other create. Three things could drift between the SDKs and none of them would raise: whether `allowed` follows a settled approval as well as a rule, whether a missing externalId is refused before the request leaves, and whether a retry re-reads rather than re-asks. Each is a silent wrong answer in the language that got it wrong — a refund made twice, or one an agent believes it may make.",
+    "allowed": [
+      {
+        "status": "allowed",
+        "allowed": true,
+        "why": "A rule permitted it."
+      },
+      {
+        "status": "denied",
+        "allowed": false,
+        "why": "A rule refused it."
+      },
+      {
+        "status": "pending",
+        "allowed": false,
+        "why": "Nobody has decided yet, so nobody has said yes."
+      },
+      {
+        "status": "approved",
+        "allowed": true,
+        "why": "A person agreed to it, which is permission as much as a rule is."
+      },
+      {
+        "status": "rejected",
+        "allowed": false,
+        "why": "A person refused it."
+      },
+      {
+        "status": "expired",
+        "allowed": false,
+        "why": "Nobody answered in time. Silence is not permission."
+      },
+      {
+        "status": "cancelled",
+        "allowed": false,
+        "why": "The request was withdrawn before anyone decided."
+      }
+    ],
+    "externalId": {
+      "required": true,
+      "sentAsIdempotencyKey": true,
+      "why": "Required, unlike every other create in either SDK, and sent as the HTTP Idempotency-Key as well as in the body. A random per-attempt key guards a retried request; only the caller's own id guards a retried decision, and a crashed agent re-running its refund step must re-read the answer rather than ask a second person about the same money."
+    },
+    "reuse": {
+      "sameExternalIdReturns": "the decision already made",
+      "reused": true,
+      "status": 200,
+      "firstAskStatus": 201,
+      "why": "201 the first time, 200 on a retry, `reused` true either way it is read. An agent that cannot tell a crash-and-resume from a duplicate request cannot tell whether it has already spent the approval."
+    },
+    "developmentOutcomes": {
+      "outcomes": [
+        "approved",
+        "rejected",
+        "denied",
+        "timeout",
+        "question"
+      ],
+      "default": "approved",
+      "settledByRule": [
+        "denied"
+      ],
+      "why": "Five, and `denied` is the gate's alone: a policy refusal, which nothing else here can have because an approval cannot be refused without somebody refusing it. It settles at creation and reaches nobody, so it is the one outcome with no wait in it."
+    }
+  }
+}

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deliverd"
+version = "0.18.2"
+description = "Add human approval to any AI agent. Ask a person, wait for the answer, act on it. Start free at deliverd.dev."
+readme = "README.md"
+# PEP 639. The table form put the whole licence text in the metadata, which
+# PyPI showed in the sidebar; an expression shows as "MIT".
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+keywords = [
+  "ai", "agent", "ai-agents", "llm", "approval", "human-in-the-loop", "hitl",
+  "governance", "compliance", "audit-trail", "mcp", "deliverd",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Framework :: AsyncIO",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+
+# Nothing. The standard library has HTTP, HMAC and JSON, and an SDK that drags
+# a request library into every agent runtime for the sake of six primitives is a
+# tax on everyone who installs it — the same argument the TypeScript package
+# makes for having no dependencies either.
+dependencies = []
+
+# Every one of these is opened by somebody who has never signed in, so each is
+# a public page (tests/test_packaging.py). Each deliverd.dev link is tagged
+# with this package's campaign, so a sign-up from the PyPI page is counted
+# against it; "Free account" is the one that makes it. Source and Changelog are
+# the public repository the package is published from, deliverd-dev/deliverd-sdk.
+[project.urls]
+Homepage = "https://deliverd.dev/?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=metadata"
+"Free account" = "https://deliverd.dev/sign-up?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=metadata"
+Documentation = "https://deliverd.dev/docs/developers/sdk?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=metadata"
+Quickstart = "https://deliverd.dev/quickstart?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=metadata"
+"API reference" = "https://deliverd.dev/docs/api?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=metadata"
+Support = "https://deliverd.dev/contact?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=metadata"
+Source = "https://github.com/deliverd-dev/deliverd-sdk/tree/main/packages/sdk-python"
+Changelog = "https://github.com/deliverd-dev/deliverd-sdk/blob/main/packages/sdk-python/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/deliverd"]
+# PEP 561. Without this marker in the wheel, mypy and pyright treat the package
+# as untyped and every annotation in it is invisible to whoever installs it —
+# while the `Typing :: Typed` classifier above says otherwise.
+artifacts = ["src/deliverd/py.typed"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/deliverd", "README.md", "LICENSE"]

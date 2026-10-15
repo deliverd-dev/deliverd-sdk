@@ -1,0 +1,111 @@
+name: Publish CLI
+
+# Tag-driven, so publishing is a deliberate act with a name on it rather than
+# something that happens because somebody merged. `cli-v*`, because the SDK
+# and the Python package each have their own tag family and this repository
+# releases three things from one tree.
+on:
+  push:
+    tags:
+      - "cli-v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/deliverd
+    permissions:
+      contents: read
+      # Trusted Publishing, the same arrangement as publish-npm.yml. GitHub
+      # mints a short-lived OIDC token that npm verifies against the publisher
+      # configured once on the package's settings page, so no token is stored
+      # anywhere — not in secrets, not on a laptop, not in a shell history —
+      # and, because this repository is public, the tarball carries build
+      # provenance.
+      #
+      # That one-time configuration is the prerequisite. On npmjs.com, under
+      # the `deliverd` package → Settings → Trusted Publisher:
+      # deliverd-dev/deliverd-sdk, workflow `publish-cli.yml`, environment
+      # `npm`. Until it exists the publish step fails with an auth error that
+      # reads like a bad token; it is not.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs a recent npm; the one bundled with Node 22 is
+      # older than the feature.
+      - run: npm install --global npm@latest
+
+      - run: pnpm install --frozen-lockfile
+
+      # The whole suite in this repository. The CLI's parity guards against
+      # the API and its doc guards run in Deliverd's own repository on every
+      # change, before the change is copied here.
+      - run: pnpm -r typecheck
+
+      # The SDK, before the suite, although this workflow publishes the CLI:
+      # `packages/sdk/src/release.test.ts` reads `dist/`, so on a clean runner
+      # it fails with ENOENT and takes this publish down with it.
+      - run: pnpm --filter @deliverd/sdk build
+
+      - run: pnpm vitest run
+
+      - run: pnpm --filter deliverd build
+
+      # Checked here rather than discovered by npm: a republish is refused with
+      # a 403 after everything else has passed, and the tag says which version
+      # this is meant to be.
+      - name: The tag and the version must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/cli-v}"
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag says $TAG, package.json says $VERSION."
+            exit 1
+          fi
+        working-directory: packages/cli
+
+      # And this version must be new. `PUBLISHED_TO_NPM` is the ledger
+      # Deliverd's documentation is held to; publishing a version it already
+      # lists would mean it was updated before the publish, the one order it
+      # forbids.
+      - name: The version must not already be recorded as published
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if grep -q "\"$VERSION\"" src/released.ts && node -e "
+            const s=require('fs').readFileSync('src/released.ts','utf8');
+            const b=s.slice(s.indexOf('PUBLISHED_TO_NPM'));
+            process.exit(b.includes('\"$VERSION\"')?0:1)"; then
+            echo "$VERSION is already in PUBLISHED_TO_NPM. Bump the version; the ledger is written after a publish, not before."
+            exit 1
+          fi
+        working-directory: packages/cli
+
+      # What actually goes in the tarball, printed before it is sent.
+      - name: Show what will be published
+        run: npm pack --dry-run
+        working-directory: packages/cli
+
+      - run: npm publish --access public
+        working-directory: packages/cli
+
+      - name: What to do next
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          {
+            echo "### deliverd $VERSION is on npm"
+            echo
+            echo "Now record it in Deliverd's own repository: add \`\"$VERSION\"\` to"
+            echo "\`PUBLISHED_TO_NPM\` in \`packages/cli/src/released.ts\`, and the next"
+            echo "copy brings the ledger here."
+          } >> "$GITHUB_STEP_SUMMARY"
+        working-directory: packages/cli

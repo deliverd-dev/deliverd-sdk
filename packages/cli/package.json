@@ -1,0 +1,52 @@
+{
+  "name": "deliverd",
+  "version": "0.16.2",
+  "description": "Ask a person for an approval, a review or an answer from a build step, a pipeline or your AI tools — and publish what an AI wrote. The Deliverd CLI. Start free at deliverd.dev.",
+  "type": "module",
+  "bin": {
+    "deliverd": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.20.0",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "keywords": [
+    "human-in-the-loop",
+    "approval",
+    "ai",
+    "agent",
+    "mcp",
+    "cli",
+    "deliverd"
+  ],
+  "homepage": "https://deliverd.dev/docs/developers/cli?utm_source=npm&utm_medium=package&utm_campaign=cli&utm_content=metadata",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deliverd-dev/deliverd-sdk.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://deliverd.dev/contact?utm_source=npm&utm_medium=package&utm_campaign=cli&utm_content=metadata"
+  }
+}

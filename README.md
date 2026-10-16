@@ -3,17 +3,20 @@
 **You build the action. Deliverd handles the human.**
 
 Your AI agent asks a person for an approval, a review, an answer or a decision,
-and carries on when they respond. This repository is the source of the three
+and carries on when they respond. This repository is the source of the four
 packages that do the asking:
 
 | Package | Install | Source |
 |---|---|---|
 | TypeScript SDK | `npm install @deliverd/sdk` | [`packages/sdk`](packages/sdk) |
 | Python SDK | `pip install deliverd` | [`packages/sdk-python`](packages/sdk-python) |
+| Rust SDK | `cargo add deliverd` | [`packages/sdk-rust`](packages/sdk-rust) |
 | CLI | `npx deliverd` | [`packages/cli`](packages/cli) |
 
-All three are MIT, and none has a runtime dependency except the CLI, which has
-two. The Deliverd service they talk to is a separate, proprietary product.
+All four are MIT. The TypeScript and Python SDKs have no runtime dependency,
+the CLI has two, and the Rust SDK uses reqwest, serde and tokio rather than
+writing its own HTTP client. The Deliverd service they talk to is a separate,
+proprietary product.
 
 ## Start free
 
@@ -70,16 +73,18 @@ deliverd = Deliverd(mode="development")
 - **[`packages/sdk`](packages/sdk)**: `@deliverd/sdk` on npm. Node 20 and up.
 - **[`packages/sdk-python`](packages/sdk-python)**: `deliverd` on PyPI. Python
   3.9 and up, standard library only, blocking or `asyncio`.
+- **[`packages/sdk-rust`](packages/sdk-rust)**: `deliverd` on crates.io. Rust
+  1.89 and up, async on tokio.
 - **[`packages/cli`](packages/cli)**: `deliverd` on npm. For build steps,
   pipelines, scripts and connecting your AI tools over MCP.
 - **[`packages/conformance`](packages/conformance)**: one table of behaviour
-  both SDKs must share: retries, idempotency, webhook signatures, durations
+  every SDK must share: retries, idempotency, webhook signatures, durations
   and gating.
   Each SDK's test suite reads it, so a case added there fails in whichever
   language has not implemented it.
 
-Each package's README is the page you see on npm or PyPI, and covers the
-package in full. The [developer docs](https://deliverd.dev/docs/developers/sdk?utm_source=github&utm_medium=repository&utm_campaign=sdk-repo&utm_content=readme)
+Each package's README is the page you see on npm, PyPI or crates.io, and covers
+the package in full. The [developer docs](https://deliverd.dev/docs/developers/sdk?utm_source=github&utm_medium=repository&utm_campaign=sdk-repo&utm_content=readme)
 cover the API behind them.
 
 ## Running the tests
@@ -91,6 +96,9 @@ pnpm vitest run
 
 cd packages/sdk-python
 PYTHONPATH=src python -m unittest discover -s tests
+
+cd ../sdk-rust
+cargo test
 ```
 
 ## How this repository works
@@ -103,8 +111,8 @@ here; the tests in this repository are the ones that need nothing else.
 So a pull request here is not merged here. Open one anyway, or an issue: we
 carry the change across, credit you in the commit, and it comes back in the
 next copy. Releases are published from this repository, by GitHub Actions with
-npm's and PyPI's trusted publishing, so each release on npm carries provenance
-linking it to the commit and workflow that built it.
+npm's, PyPI's and crates.io's trusted publishing, so each release on npm
+carries provenance linking it to the commit and workflow that built it.
 
 ## Security
 

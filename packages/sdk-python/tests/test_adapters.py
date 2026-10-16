@@ -667,9 +667,10 @@ class NoDependency(unittest.TestCase):
         interpreter in which those packages refuse to import."""
         code = (
             "import sys\n"
-            "for name in ('agent_framework', 'azure', 'openai'):\n"
+            "for name in ('agent_framework', 'azure', 'openai', 'crewai', 'pydantic_ai'):\n"
             "    sys.modules[name] = None\n"
             "import deliverd.adapters.agent_framework, deliverd.adapters.foundry\n"
+            "import deliverd.adapters.crewai, deliverd.adapters.pydantic_ai\n"
             "print('imported')\n"
         )
         env = dict(os.environ, PYTHONPATH=os.path.abspath(SRC))

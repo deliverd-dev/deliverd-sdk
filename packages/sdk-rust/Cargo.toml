@@ -1,0 +1,39 @@
+[package]
+name = "deliverd"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "Add human approval to any AI agent. Ask a person, wait for the answer, act on it. Start free at deliverd.dev."
+license = "MIT"
+readme = "README.md"
+# crates.io shows these three in its sidebar. The repository is the public one
+# the crate is published from (docs/public-sdk.md); the other two are tagged,
+# like every link a package page carries to deliverd.dev.
+repository = "https://github.com/deliverd-dev/deliverd-sdk"
+homepage = "https://deliverd.dev/?utm_source=crates&utm_medium=package&utm_campaign=rust-sdk&utm_content=metadata"
+documentation = "https://deliverd.dev/docs/developers/sdk?utm_source=crates&utm_medium=package&utm_campaign=rust-sdk&utm_content=metadata"
+keywords = ["ai-agents", "approval", "human-in-the-loop", "llm", "governance"]
+categories = ["api-bindings", "web-programming::http-client"]
+# What goes in the .crate: the source, the README crates.io shows, the licence
+# and the changelog. Not the tests, which read the shared conformance table
+# from outside this directory.
+include = ["src/**/*.rs", "examples/**/*.rs", "README.md", "CHANGELOG.md", "LICENSE", "Cargo.toml"]
+
+# Fewer than it could be, and each one earns its place: HTTP needs a client,
+# JSON needs serde, waiting needs a timer, and webhook verification needs HMAC.
+# reqwest with its defaults: rustls rather than the system's OpenSSL, so the crate
+# builds the same on a laptop, in a container and in CI, and the proxy the
+# environment names.
+[dependencies]
+reqwest = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time"] }
+hmac = "0.13"
+sha2 = "0.11"
+uuid = { version = "1", features = ["v4"] }
+fastrand = "2"
+httpdate = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "test-util"] }

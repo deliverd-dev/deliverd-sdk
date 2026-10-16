@@ -19,5 +19,7 @@ export { resolveInterruptions, runWithDeliverdApprovals } from "./openai-agents.
 export type { OpenAiApprovalItem, OpenAiInterruptedResult } from "./openai-agents.js";
 export { approveInGraph, resumeFromCallback } from "./langgraph.js";
 export type { DeliverdInterruptValue, GraphApprovalRecord, GraphApprover, GraphDecision } from "./langgraph.js";
+export { generateWithDeliverdApprovals, pendingMastraApproval, resolveMastraApproval } from "./mastra.js";
+export type { MastraApprovingAgent, MastraOutput } from "./mastra.js";
 export { defaultDescription, DEFAULT_TOOL_EXPIRY } from "./shared.js";
 export type { Approver, CallDescription, CallOutcome, ToolApprovalOptions } from "./shared.js";

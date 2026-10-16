@@ -1,5 +1,5 @@
 {
-  "_readme": "One table, two SDKs. See README.md beside this file before editing.",
+  "_readme": "One table, three SDKs. See README.md beside this file before editing.",
   "durations": {
     "_why": "Both SDKs accept the same strings and must read them the same way. The unit a bare number means is deliberately different per language and is listed under `divergent`, where each entry has to say why.",
     "shared": [

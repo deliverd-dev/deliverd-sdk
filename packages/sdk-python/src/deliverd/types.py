@@ -1411,7 +1411,7 @@ class DecisionSession(Model):
 
 #: How an endpoint's body is shaped: ``json`` (the signed envelope), ``slack``
 #: (Block Kit) or ``teams`` (an Adaptive Card). Signed either way.
-WEBHOOK_FORMATS = ("json", "slack", "teams")
+WEBHOOK_FORMATS = ("json", "slack", "teams", "discord")
 
 
 @dataclass

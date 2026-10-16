@@ -5,6 +5,9 @@ dist/
 coverage/
 .DS_Store
 
+# packages/sdk-rust
+packages/sdk-rust/target/
+
 # packages/sdk-python
 __pycache__/
 *.py[cod]

@@ -17948,8 +17948,13 @@ export const RELEASED: Record<string, readonly string[]> = {
     "event:task.completed",
     "verifySignature",
   ],
-  /* Opened because 0.25.1 is on npm (15 October 2026, from 4c58d4e). Same surface. */
-  "0.25.2": [
+  /*
+   * The Mastra adapter (`generateWithDeliverdApprovals`, `resolveMastraApproval`,
+   * `pendingMastraApproval` and the two shapes they read). Additions only over
+   * the published 0.25.1, so a minor: opened as 0.25.2 when 0.25.1 shipped,
+   * renamed when the surface grew.
+   */
+  "0.26.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -18814,6 +18819,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:GraphApprovalRecord",
     "adapters:GraphApprover",
     "adapters:GraphDecision",
+    "adapters:MastraApprovingAgent",
+    "adapters:MastraOutput",
     "adapters:OpenAiApprovalItem",
     "adapters:OpenAiInterruptedResult",
     "adapters:ToolApprovalOptions",
@@ -18821,7 +18828,10 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:defaultDescription",
     "adapters:deliverdCanUseTool",
     "adapters:deliverdToolApproval",
+    "adapters:generateWithDeliverdApprovals",
+    "adapters:pendingMastraApproval",
     "adapters:resolveInterruptions",
+    "adapters:resolveMastraApproval",
     "adapters:resumeFromCallback",
     "adapters:runWithDeliverdApprovals",
     "constructCallback",

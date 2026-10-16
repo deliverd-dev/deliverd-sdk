@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+An addition, so the release that carries it is a minor (0.19.0), not the
+0.18.2 patch below.
+
+### Added
+
+- **Pydantic AI** (`deliverd.adapters.pydantic_ai`). `deliverd_approvals(deliverd, ...)`
+  is a `HandleDeferredToolCalls` capability that answers the tool calls an
+  agent defers for approval — `requires_approval=True`, `ApprovalRequired`,
+  `ApprovalRequiredToolset` — inside the run. Each is a request keyed
+  `pydantic-ai:<tool_call_id>`; a declined call goes back to the model as
+  `ToolDenied` with the person's reason. A call nobody decided before `timeout`
+  is left in the run's `DeferredToolRequests` output, for
+  `resolve_deferred_tool_requests` (and `_sync`) to answer later.
+- **CrewAI** (`deliverd.adapters.crewai`). `register_deliverd_approvals(deliverd, ...)`
+  registers a before and an after tool-call hook: the before hook asks and
+  waits, the after hook replaces CrewAI's "Tool execution blocked by hook" with
+  why the call did not run. A call is keyed by its task and input
+  (`crewai:<task id>:<digest>`), since CrewAI gives a call no id. A wait that
+  runs out blocks the call, and any failure to ask blocks it too, because
+  CrewAI runs the tool when a hook raises. `deliverd_tool_hooks` returns the
+  pair unregistered, for one crew's `@before_tool_call` and `@after_tool_call`.
+
+Neither framework becomes a dependency: both adapters read their objects by
+shape and import nothing from them until they build an answer or register a
+hook.
+
+### Changed
+
+- **`WEBHOOK_FORMATS` takes `"discord"`**: an endpoint that posts each event
+  to a Discord channel webhook as an embed with a link button.
+
 ## 0.18.2
 
 A patch. 0.18.1 went to PyPI on 15 October 2026 from 4c58d4e. The code is

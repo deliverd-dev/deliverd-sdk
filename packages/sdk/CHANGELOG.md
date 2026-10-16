@@ -1,12 +1,29 @@
 # Changelog
 
-## 0.25.2
+## 0.26.0
 
-A patch. 0.25.1 went to npm on 15 October 2026 from 4c58d4e. The code is
-unchanged.
+A minor, for an addition. 0.25.1 went to npm on 15 October 2026 from 4c58d4e;
+this was opened as 0.25.2.
+
+### Added
+
+- **A Mastra adapter** in `@deliverd/sdk/adapters`. Mark tools
+  `requireApproval: true` (or pass `requireToolApproval`) as Mastra already
+  has you do, and `generateWithDeliverdApprovals(agent, agent.generate(…),
+  { deliverd })` turns each call the run suspends on into a Deliverd request:
+  approved, it is `agent.approveToolCallGenerate({ runId, toolCallId })`;
+  declined, `agent.declineToolCallGenerate({ runId, toolCallId, reason })`,
+  so the model reads the person's reason. The run resumes until nothing waits
+  on a person. `resolveMastraApproval` does one round and
+  `pendingMastraApproval` reads which call a suspended output waits on; a
+  tool's own `suspend()`, waiting on data rather than a decision, is left
+  alone. No dependency on Mastra: the shapes follow `@mastra/core` 1.78.0's
+  type definitions.
 
 ### Changed
 
+- **`WebhookEndpointFormat` takes `"discord"`**: an endpoint that posts each
+  event to a Discord channel webhook as an embed with a link button.
 - **The source is public.** The package is published from
   [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk),
   so the npm page's Repository link opens the code rather than a 404, and the

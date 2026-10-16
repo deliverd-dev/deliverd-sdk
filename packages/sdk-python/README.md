@@ -50,9 +50,10 @@ build.
   shared conformance suite — the six primitives (`gate()`, `approve()`,
   `confirm()`, `review()`, `collect()`, `publish()`), flows, tasks, reports,
   comments, schedules, Compliance Mode evidence and webhook verification.
-- **Inside Microsoft's agent stack.** `deliverd.adapters` answers the tool
-  approvals of Microsoft Agent Framework and Microsoft Foundry with a person's
-  decision, without either becoming a dependency. Both are below.
+- **Inside the agent frameworks you already use.** `deliverd.adapters` answers
+  the tool approvals of Microsoft Agent Framework, Microsoft Foundry, Pydantic
+  AI and CrewAI with a person's decision, without any of them becoming a
+  dependency. All four are below.
 
 ---
 
@@ -654,6 +655,89 @@ and `timeout` work as they do for Agent Framework.
 the items to send. `run_with_deliverd_approvals_async` and
 `approval_responses_for_async` take the async client from
 `azure.ai.projects.aio`.
+
+## Pydantic AI
+
+Mark the tools that need a person as Pydantic AI already has you do —
+`requires_approval=True`, a tool that raises `ApprovalRequired`, or an
+`ApprovalRequiredToolset` — and give the agent this capability:
+
+```python
+from pydantic_ai import Agent
+from deliverd import Deliverd
+from deliverd.adapters.pydantic_ai import deliverd_approvals
+
+agent = Agent(
+    "openai:gpt-5",
+    capabilities=[deliverd_approvals(Deliverd(), approvers=["finance"])],
+)
+
+@agent.tool_plain(requires_approval=True)
+def refund(order_id: str, amount: int) -> str:
+    ...
+
+result = await agent.run("Refund order 1042")
+```
+
+It is a `HandleDeferredToolCalls` capability, so the calls are answered inside
+the run: each becomes a request in Deliverd keyed by its tool call id
+(`pydantic-ai:<tool_call_id>`), an approved call runs as the model proposed it,
+and a declined one comes back to the model as `ToolDenied` with the person's
+reason, so the model reads why. `when`, `actions` and `describe` work as they
+do for Agent Framework, and a call approved only with changes is declined with
+the approved values in its message.
+
+With `timeout`, a call nobody decided in time is left unanswered, and Pydantic
+AI ends the run with it in a `DeferredToolRequests` output — so give the agent
+`output_type=[str, DeferredToolRequests]`. Resolve it later and carry on; the
+same request in Deliverd is found again:
+
+```python
+from deliverd.adapters.pydantic_ai import resolve_deferred_tool_requests
+
+results = await resolve_deferred_tool_requests(result.output, deliverd, approvers=["finance"])
+result = await agent.run(message_history=result.all_messages(), deferred_tool_results=results)
+```
+
+`resolve_deferred_tool_requests_sync` is the same for `run_sync`, and
+`deliverd_deferred_tool_handler` is the bare handler, for a
+`HandleDeferredToolCalls` of your own.
+
+## CrewAI
+
+CrewAI runs its tool hooks around every tool call an agent makes. Register
+Deliverd's, and the calls that matter wait for a person:
+
+```python
+from deliverd import Deliverd
+from deliverd.adapters.crewai import register_deliverd_approvals
+
+approvals = register_deliverd_approvals(
+    Deliverd(),
+    approvers=["finance"],
+    when=lambda tool, args: tool == "issue_refund" and args["amount"] > 100,
+)
+result = crew.kickoff()
+approvals.unregister()
+```
+
+The before hook asks and waits — CrewAI's hooks are synchronous, so the agent's
+thread waits with it — and an approved call runs unchanged. Anything else is
+blocked, and the after hook replaces CrewAI's fixed "Tool execution blocked by
+hook" with the reason, so the agent reads the person's words, or the policy's.
+
+- **A call is keyed by its task and its input** (`crewai:<task id>:<digest>`),
+  because CrewAI gives a call no id. The same call again in the same task finds
+  the request it already made; a decision does not carry over to another task.
+- **A wait that runs out blocks the call**, and the agent is told it is still
+  waiting: CrewAI cannot park a tool call and resume it. The request stays open,
+  and the same call in the same task picks up the answer once somebody decides.
+- **It fails closed.** CrewAI runs the tool when a hook raises, so the hook
+  never does: if Deliverd cannot be asked, the call is blocked with that reason.
+
+`deliverd_tool_hooks` returns the same pair unregistered, for `@before_tool_call`
+and `@after_tool_call` methods on a `@CrewBase` class when they should apply to
+one crew only.
 
 ## Also
 

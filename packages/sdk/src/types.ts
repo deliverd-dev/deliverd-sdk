@@ -779,10 +779,11 @@ export interface WebhookEvent {
 
 /**
  * How an endpoint's body is shaped: the signed JSON envelope, a Slack Block
- * Kit message for an Incoming Webhook, or a Teams Adaptive Card for a
- * Workflows webhook. The signature headers are sent with all three.
+ * Kit message for an Incoming Webhook, a Teams Adaptive Card for a Workflows
+ * webhook, or a Discord embed with a link button for a channel webhook. The
+ * signature headers are sent with all four.
  */
-export type WebhookEndpointFormat = "json" | "slack" | "teams";
+export type WebhookEndpointFormat = "json" | "slack" | "teams" | "discord";
 
 /** An organisation's webhook endpoint, as `deliverd.webhookEndpoints` reads it. Never its secret. */
 export interface WebhookEndpoint {

@@ -48,3 +48,19 @@ jobs:
         working-directory: packages/sdk-python
         env:
           PYTHONPATH: src
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      # The floor the crate claims in `rust-version`.
+      - uses: dtolnay/rust-toolchain@1.89
+      - run: |
+          cargo +stable fmt --check
+          cargo +stable clippy --all-targets --locked -- -D warnings
+          cargo +stable test --locked
+          cargo +1.89 test --locked
+        working-directory: packages/sdk-rust

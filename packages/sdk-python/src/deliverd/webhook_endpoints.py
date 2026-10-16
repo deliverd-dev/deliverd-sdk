@@ -69,7 +69,7 @@ class WebhookEndpoints:
 
         ``url`` must be HTTPS on a public host. Leave ``events`` out, or pass an
         empty list, for every event except the opt-in ones. ``format`` is
-        ``json`` (the default), ``slack`` or ``teams``. A retried call replays
+        ``json`` (the default), ``slack``, ``teams`` or ``discord``. A retried call replays
         this same response, secret included, rather than adding a second one.
         """
         return CreatedWebhookEndpoint.from_wire(

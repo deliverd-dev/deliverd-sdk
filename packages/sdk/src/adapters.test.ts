@@ -6,7 +6,10 @@ import {
   approveInGraph,
   deliverdCanUseTool,
   deliverdToolApproval,
+  generateWithDeliverdApprovals,
+  pendingMastraApproval,
   resolveInterruptions,
+  resolveMastraApproval,
   resumeFromCallback,
   runWithDeliverdApprovals,
   type Approver,
@@ -216,6 +219,110 @@ describe("the OpenAI Agents SDK's interruptions", () => {
   });
 });
 
+describe("Mastra's suspended tool approvals", () => {
+  /*
+   * A double of `Agent` as `@mastra/core` 1.78.0 behaves: `generate()` with a
+   * tool that requires approval finishes "suspended", its `suspendPayload` the
+   * `tool-call-approval` chunk's payload; `approveToolCallGenerate` and
+   * `declineToolCallGenerate` resume the run by `runId` and `toolCallId`.
+   */
+  type Output = { text: string; finishReason: string; runId: string; suspendPayload?: unknown };
+  const suspended = (toolCallId: string, toolName: string, args: unknown): Output => ({
+    text: "",
+    finishReason: "suspended",
+    runId: "run_1",
+    suspendPayload: { toolCallId, toolName, args, resumeSchema: "{}" },
+  });
+  const finished = (text: string): Output => ({ text, finishReason: "stop", runId: "run_1" });
+
+  function mastraAgent(next: Output[]) {
+    const approved: { runId: string; toolCallId?: string }[] = [];
+    const declined: { runId: string; toolCallId?: string; reason?: string }[] = [];
+    return {
+      approved,
+      declined,
+      agent: {
+        async approveToolCallGenerate(options: { runId: string; toolCallId?: string }) {
+          approved.push(options);
+          return next.shift() ?? finished("done");
+        },
+        async declineToolCallGenerate(options: { runId: string; toolCallId?: string; reason?: string }) {
+          declined.push(options);
+          return next.shift() ?? finished("declined");
+        },
+      },
+    };
+  }
+
+  it("asks once per suspended call, approves it, and returns the finished run", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const { agent, approved } = mastraAgent([finished("Refunded order 1042.")]);
+    const output = await generateWithDeliverdApprovals(agent, Promise.resolve(suspended("call_7", "refund", { orderId: "1042" })), {
+      deliverd,
+      approvers: ["finance"],
+    });
+    expect(output.text).toBe("Refunded order 1042.");
+    expect(approved).toEqual([{ runId: "run_1", toolCallId: "call_7" }]);
+    expect(asked[0]!.externalId).toBe("mastra:run_1:call_7");
+    expect(asked[0]!.approvers).toEqual(["finance"]);
+    expect(asked[0]!.title).toBe("Allow the agent to run refund");
+    expect(asked[0]!.input).toEqual({ orderId: "1042" });
+  });
+
+  it("declines with the person's reason, which Mastra hands the model", async () => {
+    const { deliverd } = approver(decision("rejected", { note: "Wrong customer." }));
+    const { agent, approved, declined } = mastraAgent([]);
+    await resolveMastraApproval(agent, suspended("call_7", "refund", {}), { deliverd });
+    expect(approved).toHaveLength(0);
+    expect(declined[0]).toMatchObject({ runId: "run_1", toolCallId: "call_7" });
+    expect(declined[0]!.reason).toMatch(/declined running refund by Dana\. Their reason: Wrong customer\. Do not retry/);
+  });
+
+  it("declines, rather than crashing the run, when nobody decides in time", async () => {
+    const { deliverd } = approver(new DeliverdTimeoutError("apr_1", 5));
+    const { agent, declined } = mastraAgent([]);
+    await resolveMastraApproval(agent, suspended("call_7", "refund", {}), { deliverd, timeout: "5m" });
+    expect(declined[0]!.reason).toBe("Nobody decided whether to run refund in time, so it was not run.");
+  });
+
+  it("approves a call outside `when` without asking anyone", async () => {
+    const { deliverd, asked } = approver(decision("rejected"));
+    const { agent, approved } = mastraAgent([]);
+    await resolveMastraApproval(agent, suspended("call_1", "lookupOrder", {}), { deliverd, when: (tool) => tool === "refund" });
+    expect(approved).toEqual([{ runId: "run_1", toolCallId: "call_1" }]);
+    expect(asked).toHaveLength(0);
+  });
+
+  it("keeps going while the resumed run suspends for the next call", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const { agent, approved } = mastraAgent([suspended("call_8", "sendEmail", { to: "a@b.c" }), finished("All done.")]);
+    const output = await generateWithDeliverdApprovals(agent, suspended("call_7", "refund", {}), { deliverd });
+    expect(output.text).toBe("All done.");
+    expect(approved.map((a) => a.toolCallId)).toEqual(["call_7", "call_8"]);
+    expect(asked.map((a) => a.externalId)).toEqual(["mastra:run_1:call_7", "mastra:run_1:call_8"]);
+  });
+
+  it("leaves a finished run, and a tool's own suspend(), alone", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const { agent, approved } = mastraAgent([]);
+    const done = finished("hi");
+    expect(await generateWithDeliverdApprovals(agent, done, { deliverd })).toBe(done);
+    // `tool-call-suspended`: waiting on data from the caller, not on a yes or no.
+    const waiting = { ...done, finishReason: "suspended", suspendPayload: { toolCallId: "c", toolName: "t", args: {}, suspendPayload: { ask: "which?" } } };
+    expect(pendingMastraApproval(waiting)).toBeNull();
+    expect(await generateWithDeliverdApprovals(agent, waiting, { deliverd })).toBe(waiting);
+    expect(approved).toHaveLength(0);
+    expect(asked).toHaveLength(0);
+  });
+
+  it("stops rather than asking forever", async () => {
+    const { deliverd } = approver(decision("approved"));
+    const again = suspended("call_7", "refund", {});
+    const agent = { approveToolCallGenerate: async () => again, declineToolCallGenerate: async () => again };
+    await expect(generateWithDeliverdApprovals(agent, again, { deliverd, maxRounds: 2 })).rejects.toThrow(/after 2 rounds/);
+  });
+});
+
 describe("LangGraph", () => {
   type Row = { id: string; status: string; url: string; note: string | null; decidedBy: string | null };
 
@@ -311,9 +418,16 @@ describe("the README", () => {
     const imported = [...readme.matchAll(/import \{([^}]+)\} from "@deliverd\/sdk\/adapters"/g)].flatMap(([, names]) =>
       names!.split(",").map((name) => name.trim())
     );
-    // All four frameworks, so a sweep that stopped matching cannot pass by checking nothing.
+    // All five frameworks, so a sweep that stopped matching cannot pass by checking nothing.
     expect(new Set(imported)).toEqual(
-      new Set(["deliverdCanUseTool", "deliverdToolApproval", "runWithDeliverdApprovals", "approveInGraph", "resumeFromCallback"])
+      new Set([
+        "deliverdCanUseTool",
+        "deliverdToolApproval",
+        "runWithDeliverdApprovals",
+        "approveInGraph",
+        "resumeFromCallback",
+        "generateWithDeliverdApprovals",
+      ])
     );
     for (const name of imported) expect(adapters, `README imports ${name}`).toHaveProperty(name);
   });

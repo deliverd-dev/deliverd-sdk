@@ -1,10 +1,11 @@
-# One table, two SDKs
+# One table, three SDKs
 
-`cases.json` is the behaviour `@deliverd/sdk` and `deliverd` (Python) are
-supposed to share. Both test suites read this file:
+`cases.json` is the behaviour `@deliverd/sdk`, `deliverd` (Python) and
+`deliverd` (Rust) are supposed to share. All three test suites read this file:
 
 - `packages/sdk/src/conformance.test.ts`
 - `packages/sdk-python/tests/test_conformance.py`
+- `packages/sdk-rust/tests/conformance.rs`
 
 A case added here fails in whichever language has not implemented it. That is
 the whole point, and it exists because everything else comparing the two
@@ -28,7 +29,9 @@ the point is to watch it fail in the language that is wrong.
 
 **A divergence must say why, in over forty characters.** A bare number is
 milliseconds in TypeScript and seconds in Python because that is what each
-language's own timers take — that is a reason. "They differ" is not, and the
+language's own timers take — that is a reason. (Rust takes neither: its timers
+take a `Duration`, which says its own unit, so its suite holds a bare number to
+being refused.) "They differ" is not, and the
 guard in `apps/web/src/lib/api/python-sdk-parity.test.ts` refuses it.
 
 **Prefer fixed vectors to round trips.** The signature cases carry real
@@ -36,9 +39,9 @@ precomputed HMACs rather than signing and then verifying, because a round trip
 passes even when both ends are wrong in the same way — and what is at stake is
 somebody's receiver, written against one SDK and verified by the other.
 
-**Every section must be read by both suites.** The guard checks that by the
+**Every section must be read by every suite.** The guard checks that by the
 access (`CASES.retries`, `CASES["retries"]`) rather than by the section's name,
-since the name appears in the prose of both files and would answer a search for
+since the name appears in the prose of every file and would answer a search for
 itself.
 
 ## What is deliberately not here

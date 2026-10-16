@@ -8,7 +8,8 @@ import type { ApprovalFactor, ApprovalRisk, Decision, FieldChange } from "../typ
  *
  * The adapters are written against each framework's own hook — the Claude
  * Agent SDK's `canUseTool`, the AI SDK's `toolApproval`, the OpenAI Agents
- * SDK's interruptions, LangGraph's `interrupt` — by shape rather than by
+ * SDK's interruptions, LangGraph's `interrupt`, Mastra's suspended tool
+ * approvals — by shape rather than by
  * import, so `@deliverd/sdk` keeps its promise of no dependencies. Each
  * shape was taken from that framework's published type definitions and is
  * checked against them in this package's tests.

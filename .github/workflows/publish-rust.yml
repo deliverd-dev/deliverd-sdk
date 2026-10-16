@@ -1,0 +1,86 @@
+name: Publish Rust SDK
+
+# Tag-driven, so publishing is a deliberate act with a name on it rather than
+# something that happens because somebody merged.
+on:
+  push:
+    tags:
+      - "rust-v*"
+  # And by hand, for a re-run after a failed upload.
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # A GitHub environment, so a human approval can be required on it in the
+    # repository settings if you ever want one before an upload.
+    environment:
+      name: crates-io
+      url: https://crates.io/crates/deliverd
+    permissions:
+      contents: read
+      # Trusted Publishing: GitHub mints a short-lived OIDC token, crates.io
+      # verifies it against the publisher configured on the crate and hands
+      # back a token that lasts thirty minutes. No API token is stored
+      # anywhere. The publisher is configured once on crates.io, under the
+      # `deliverd` crate → Settings → Trusted Publishing: owner deliverd-dev,
+      # repository deliverd-sdk, workflow `publish-rust.yml`, environment
+      # `crates-io`. crates.io only offers it on a crate that already exists,
+      # so the first version is published by hand (docs/public-sdk.md in the
+      # source repository says how).
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The tests again, on the floor the crate promises as well as on stable.
+      # A release is the worst possible moment to find out the MSRV broke, and
+      # this job does not depend on the main CI run having passed.
+      - uses: dtolnay/rust-toolchain@1.89
+      - name: Test on stable and on the oldest supported Rust
+        run: |
+          cargo +stable test --locked
+          cargo +1.89 test --locked
+        working-directory: packages/sdk-rust
+
+      # Checked here rather than discovered by crates.io: the tag says which
+      # version this is meant to be.
+      - name: The tag and the version must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/rust-v}"
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag says $TAG, Cargo.toml says $VERSION."
+            exit 1
+          fi
+        working-directory: packages/sdk-rust
+
+      # Is this version already on crates.io? A tag can arrive after the
+      # version it names is published, and the upload then fails the run for a
+      # version that is correctly published. Anything other than a clear "yes"
+      # attempts the upload, so an unreachable crates.io fails loudly rather
+      # than skipping a real release.
+      - name: Ask crates.io whether this version exists
+        id: published
+        run: |
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          if curl -sf -A "deliverd-sdk publish workflow" "https://crates.io/api/v1/crates/deliverd/$VERSION" > /dev/null; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "### deliverd $VERSION was already on crates.io; nothing was uploaded." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            echo "### Publishing deliverd $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        working-directory: packages/sdk-rust
+
+      - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.published.outputs.already != 'true'
+        id: auth
+
+      - name: Publish
+        if: steps.published.outputs.already != 'true'
+        run: cargo +stable publish --locked
+        working-directory: packages/sdk-rust
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

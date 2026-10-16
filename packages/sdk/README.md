@@ -696,6 +696,17 @@ import { runWithDeliverdApprovals } from "@deliverd/sdk/adapters";
 const result = await runWithDeliverdApprovals((input) => run(agent, input), "Refund order 1042", { deliverd });
 ```
 
+**Mastra** — mark tools `requireApproval: true` (or pass `requireToolApproval`), then:
+
+```ts
+import { generateWithDeliverdApprovals } from "@deliverd/sdk/adapters";
+
+const output = await generateWithDeliverdApprovals(agent, agent.generate("Refund order 1042", { requireToolApproval: true }), { deliverd });
+```
+
+Each suspended call is approved with `agent.approveToolCallGenerate` or declined
+with `agent.declineToolCallGenerate`, and the person's reason reaches the model.
+
 **LangGraph** — pause the graph rather than a process, and resume it from the callback:
 
 ```ts

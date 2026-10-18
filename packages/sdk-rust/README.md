@@ -208,6 +208,36 @@ same id returns the same decision, with `reused` set.
 decision is raised, pending or not; `deliverd.gates()` has `create`, `get`,
 `record_execution` and `cancel` for work that resumes on a webhook.
 
+## Before a model's tool call runs
+
+A model that calls tools over an OpenAI-compatible API, such as Meta's Muse
+Spark at `https://api.meta.ai/v1`, hands your loop the calls to make. Ask
+before the ones that matter, keyed by the call's id so a retried loop does not
+ask twice, and run what was approved:
+
+```rust
+use deliverd::ApprovalRequest;
+
+// call: a `function_call` item from the response, its arguments parsed into `args`.
+let decision = deliverd
+    .approve(
+        ApprovalRequest::new(format!("Allow the agent to run {}", call.name))
+            .input(args.clone())
+            .approver("finance")
+            .expires_in("1h")
+            .external_id(format!("muse-spark:{}", call.call_id)),
+    )
+    .await?;
+let output = match decision.input {
+    Some(approved) if decision.approved => run_tool(&call.name, approved).await,
+    _ => format!("A person declined running {}. Do not retry it.", call.name),
+};
+// Send back {"type": "function_call_output", "call_id": call.call_id, "output": output}.
+```
+
+The TypeScript and Python SDKs do this loop for you: `runMuseFunctionCalls`
+and `run_function_calls`.
+
 ## Webhooks and callbacks
 
 ```rust

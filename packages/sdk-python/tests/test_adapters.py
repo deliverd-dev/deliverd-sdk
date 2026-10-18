@@ -671,6 +671,7 @@ class NoDependency(unittest.TestCase):
             "    sys.modules[name] = None\n"
             "import deliverd.adapters.agent_framework, deliverd.adapters.foundry\n"
             "import deliverd.adapters.crewai, deliverd.adapters.pydantic_ai\n"
+            "import deliverd.adapters.muse_spark\n"
             "print('imported')\n"
         )
         env = dict(os.environ, PYTHONPATH=os.path.abspath(SRC))

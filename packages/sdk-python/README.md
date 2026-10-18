@@ -52,8 +52,9 @@ build.
   comments, schedules, Compliance Mode evidence and webhook verification.
 - **Inside the agent frameworks you already use.** `deliverd.adapters` answers
   the tool approvals of Microsoft Agent Framework, Microsoft Foundry, Pydantic
-  AI and CrewAI with a person's decision, without any of them becoming a
-  dependency. All four are below.
+  AI, CrewAI, Meta's Muse Spark, Amazon Bedrock Agents, Strands Agents (Bedrock
+  AgentCore) and Google ADK (Vertex AI Agent Engine) with a person's decision,
+  without any of them becoming a dependency. All eight are below.
 
 ---
 
@@ -738,6 +739,137 @@ hook" with the reason, so the agent reads the person's words, or the policy's.
 `deliverd_tool_hooks` returns the same pair unregistered, for `@before_tool_call`
 and `@after_tool_call` methods on a `@CrewBase` class when they should apply to
 one crew only.
+
+## Muse Spark
+
+Meta's Muse Spark, on the Meta Model API, has no approval hook: a response
+lists the calls the model wants and your loop makes them. Hand them to
+Deliverd with the function that runs them, and only the approved ones run:
+
+```python
+from deliverd import Deliverd
+from deliverd.adapters.muse_spark import run_function_calls
+
+resp = muse.responses.create(model="muse-spark-1.1", input=prompt, tools=tools)
+results = run_function_calls(
+    Deliverd(), resp.output, run_tool,
+    when=lambda tool, args: tool == "refund", approvers=["finance"],
+)
+resp = muse.responses.create(model="muse-spark-1.1", input=results, tools=tools, previous_response_id=resp.id)
+```
+
+`muse` is the OpenAI client pointed at `https://api.meta.ai/v1` with your
+`MODEL_API_KEY`. Every call gets a `function_call_output`: the tool's result
+when it was approved, and otherwise a sentence saying a person declined it and
+why, or that nobody decided in time. The request stays open, keyed
+`muse-spark:<call id>`, so asking about the same call again finds it.
+`run_tool_calls` does the same for a Chat Completions message's `tool_calls`,
+and `run_function_calls_async` and `run_tool_calls_async` take an
+`AsyncDeliverd`.
+
+## Amazon Bedrock Agents
+
+Turn on user confirmation for the action group functions that matter
+(`requireConfirmation: "ENABLED"`, or `x-requireConfirmation: ENABLED` on an
+API operation) and Bedrock hands control back before each call. This answers
+it on the same session:
+
+```python
+import boto3
+from deliverd import Deliverd
+from deliverd.adapters.bedrock import invoke_with_deliverd_approvals
+
+run = invoke_with_deliverd_approvals(
+    boto3.client("bedrock-agent-runtime"),
+    Deliverd(),
+    invoke_kwargs={
+        "agentId": AGENT_ID,
+        "agentAliasId": AGENT_ALIAS_ID,
+        "sessionId": "ticket-1042",
+        "inputText": "Refund order 1042",
+    },
+    approvers=["finance"],
+)
+print(run.text)
+```
+
+Each call is a request keyed by its return of control and its place in it
+(`bedrock:<invocationId>:<n>`). The answers go back as
+`sessionState.returnControlInvocationResults`: `CONFIRM`, or `DENY` with the
+person's reason in `responseBody` so the agent reads why (`send_reason=False`
+sends the bare `DENY`). An action group whose executor is return of control
+hands calls back for your code to run; give `run_action=lambda call: ...` and
+those are asked about first and run only when approved. Without it the loop
+stops with the call in `run.return_control`. `confirmation_results_for(event["returnControl"], deliverd, ...)`
+does one round, and `resolution.session_state` is what to send.
+
+## Strands Agents and Bedrock AgentCore
+
+Strands, AWS's agent SDK and the usual way to build an agent for AgentCore
+Runtime, runs hooks before every tool call. Add Deliverd's to the agent:
+
+```python
+from strands import Agent
+from deliverd import Deliverd
+from deliverd.adapters.strands import DeliverdApprovals
+
+agent = Agent(
+    tools=[issue_refund, lookup_order],
+    hooks=[DeliverdApprovals(Deliverd(), approvers=["finance"], when=lambda tool, args: tool == "issue_refund")],
+)
+agent("Refund order 1042")
+```
+
+The hook asks and waits, and an approved call runs unchanged. Anything else is
+cancelled with `cancel_tool` set to the reason, which the model reads as the
+tool's result. Each call is keyed by its tool use id (`strands:<toolUseId>`).
+A wait that runs out cancels the call and says it is still waiting, and a
+failure to ask cancels it too.
+
+## Google ADK and Vertex AI Agent Engine
+
+In the agent, a `before_tool_callback` asks before each call. It works
+wherever the agent runs, Agent Engine included:
+
+```python
+from google.adk.agents import LlmAgent
+from deliverd import Deliverd
+from deliverd.adapters.adk import deliverd_before_tool_callback
+
+agent = LlmAgent(
+    model="gemini-2.5-flash",
+    name="billing",
+    tools=[issue_refund, lookup_order],
+    before_tool_callback=deliverd_before_tool_callback(
+        Deliverd(), approvers=["finance"], when=lambda tool, args: tool == "issue_refund"
+    ),
+)
+```
+
+A declined call does not run, and the model reads `{"error": ...}` with the
+reason. `deliverd_before_tool_callback_async` waits without holding the event
+loop. Each call is keyed by its function call id (`adk:<id>`).
+
+From outside the agent, a tool built with `FunctionTool(fn,
+require_confirmation=True)` pauses the run with an `adk_request_confirmation`
+call. For an agent deployed to Agent Engine, this answers them:
+
+```python
+from vertexai import agent_engines
+from deliverd import Deliverd
+from deliverd.adapters.adk import run_with_deliverd_confirmations
+
+app = agent_engines.get(RESOURCE_NAME)
+events = run_with_deliverd_confirmations(
+    app, Deliverd(), user_id="u-1", session_id=SESSION_ID, message="Refund order 1042", approvers=["finance"]
+)
+```
+
+The tool's confirmation hint heads what the approver reads. ADK's answer is a
+yes or a no, so a declined call is told only that it was rejected; the
+person's reason is in `Resolution.reasons`. `confirmation_responses_for(events,
+deliverd, ...)` does one round and returns the `function_response` parts to
+send as one user message.
 
 ## Also
 

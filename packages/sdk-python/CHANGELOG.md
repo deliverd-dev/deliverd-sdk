@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.19.0
 
-An addition, so the release that carries it is a minor (0.19.0), not the
-0.18.2 patch below.
+A minor, for additions. 0.18.1 went to PyPI on 15 October 2026 from 4c58d4e;
+this was opened as 0.18.2, and it carries that patch's change too.
 
 ### Added
 
@@ -24,19 +24,42 @@ An addition, so the release that carries it is a minor (0.19.0), not the
   CrewAI runs the tool when a hook raises. `deliverd_tool_hooks` returns the
   pair unregistered, for one crew's `@before_tool_call` and `@after_tool_call`.
 
-Neither framework becomes a dependency: both adapters read their objects by
-shape and import nothing from them until they build an answer or register a
+- **Amazon Bedrock Agents** (`deliverd.adapters.bedrock`).
+  `invoke_with_deliverd_approvals(client, deliverd, invoke_kwargs=...)` invokes
+  an agent through boto3's `bedrock-agent-runtime` client and answers each
+  return of control on the same session: `CONFIRM`, or `DENY` with the person's
+  reason in `responseBody`. Each call is keyed `bedrock:<invocationId>:<n>`.
+  Return of control without confirmation (`RESULT`,
+  `USER_CONFIRMATION_AND_RESULT`) is answered when `run_action` is given, and
+  runs only approved calls. `confirmation_results_for` (and `_async`) does one
+  round.
+- **Strands Agents** (`deliverd.adapters.strands`), for agents on Amazon
+  Bedrock AgentCore. `DeliverdApprovals(deliverd, ...)` is a hook provider whose
+  before-tool-call hook asks and waits; anything but an approval sets
+  `cancel_tool` to the reason. Keyed `strands:<toolUseId>`; fails closed.
+- **Google ADK and Vertex AI Agent Engine** (`deliverd.adapters.adk`).
+  `deliverd_before_tool_callback(deliverd, ...)` (and `_async`) is a
+  `before_tool_callback` that returns `{"error": reason}` for a call that was
+  not approved; `run_with_deliverd_confirmations(app, deliverd, ...)` answers
+  `adk_request_confirmation` for an `AdkApp` on Agent Engine, and
+  `confirmation_responses_for` (and `_async`) does one round. Both keyed
+  `adk:<function call id>`.
+- **Muse Spark** (`deliverd.adapters.muse_spark`), for Meta's model on the
+  Meta Model API. `run_function_calls(deliverd, resp.output, run_tool, ...)`
+  asks about each Responses API `function_call`, runs only the approved ones
+  and returns a `function_call_output` for every call: the result, or why it
+  did not run. `run_tool_calls` does the same for a Chat Completions message's
+  `tool_calls`, and both have `_async` variants. Calls are keyed
+  `muse-spark:<call id>`.
+
+None of these frameworks becomes a dependency: the adapters read their objects
+by shape and import nothing from them until they build an answer or register a
 hook.
 
 ### Changed
 
 - **`WEBHOOK_FORMATS` takes `"discord"`**: an endpoint that posts each event
   to a Discord channel webhook as an embed with a link button.
-
-## 0.18.2
-
-A patch. 0.18.1 went to PyPI on 15 October 2026 from 4c58d4e. The code is
-unchanged.
 
 ### Changed
 

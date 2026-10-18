@@ -21,6 +21,7 @@ import {
   allAgents,
   detectAgents,
   mcpEntry,
+  mergeMuseSettings,
   writeAgentConfig,
   type Agent,
   type AgentId,
@@ -138,7 +139,7 @@ program
   .option("--url <url>", "Server URL, e.g. https://deliverd.dev")
   .option(
     "--agent <agent>",
-    "Only set up one: claude-code, codex, claude-desktop, cursor"
+    "Only set up one: claude-code, codex, claude-desktop, cursor, muse-code"
   )
   .option("--print", "Show the configuration instead of writing anything")
   .action(async (options: { url?: string; agent?: string; print?: boolean }) => {
@@ -167,6 +168,8 @@ program
       console.log(
         JSON.stringify({ mcpServers: { deliverd: mcpEntry(mcpUrl) } }, null, 2)
       );
+      console.log("\nMuse Code (~/.config/muse/settings.json), then muse mcp login deliverd:");
+      console.log(mergeMuseSettings(null, "deliverd", mcpUrl).trimEnd());
       return;
     }
 
@@ -176,7 +179,7 @@ program
 
     if (candidates.length === 0) {
       console.log("No supported AI tools found on this machine.\n");
-      console.log("Looked for: Claude Code, Codex, Claude Desktop, Cursor.");
+      console.log("Looked for: Claude Code, Codex, Claude Desktop, Cursor, Muse Code.");
       console.log("Run with --print to see the settings to add by hand.");
       return;
     }
@@ -211,7 +214,12 @@ program
       }
 
       try {
-        const result = writeAgentConfig(agent.configPath!, "deliverd", mcpUrl);
+        const result = writeAgentConfig(
+          agent.configPath!,
+          "deliverd",
+          mcpUrl,
+          agent.id === "muse-code" ? "muse" : "mcpServers"
+        );
         console.log(
           `  ${agent.name}: ${result.replaced ? "updated" : "added"} in ${result.path}`
         );

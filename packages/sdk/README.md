@@ -707,6 +707,19 @@ const output = await generateWithDeliverdApprovals(agent, agent.generate("Refund
 Each suspended call is approved with `agent.approveToolCallGenerate` or declined
 with `agent.declineToolCallGenerate`, and the person's reason reaches the model.
 
+**Muse Spark** (Meta Model API) — the loop runs the calls, so hand them over with the function that runs them:
+
+```ts
+import { runMuseFunctionCalls } from "@deliverd/sdk/adapters";
+
+const results = await runMuseFunctionCalls(resp.output, runTool, { deliverd, when: (tool) => tool === "refund" });
+resp = await muse.responses.create({ model: "muse-spark-1.1", input: results, tools, previous_response_id: resp.id });
+```
+
+Only approved calls run; a declined one's result tells the model a person said
+no, and why. `runMuseToolCalls(message, runTool, { deliverd })` does the same
+for Chat Completions' `tool_calls`.
+
 **LangGraph** — pause the graph rather than a process, and resume it from the callback:
 
 ```ts

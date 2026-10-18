@@ -277,6 +277,25 @@ def changed_reason(tool_name: str, changes: Sequence[Mapping[str, Any]]) -> str:
     )
 
 
+def waiting_reason(tool_name: str) -> str:
+    """A call nobody decided in time, for a framework that cannot hold it open."""
+    return (
+        "Nobody has decided yet whether to run {} — the request is still open with "
+        "a person — so it was not run. Do not assume it will be approved; carry on "
+        "without it, or call it again later with the same input.".format(tool_name)
+    )
+
+
+def failed_reason(tool_name: str, error: BaseException) -> str:
+    """A call that could not be asked about: blocked, never let through."""
+    return (
+        "{} was not run because approval could not be asked for: {} Do not retry "
+        "it until that is fixed; carry on without it or say what is blocked.".format(
+            tool_name, _sentence(str(error) or type(error).__name__)
+        )
+    )
+
+
 def _from_decision(call: Call, decision: Any) -> Outcome:
     if decision.approved:
         if decision.changes:

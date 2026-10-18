@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deliverd"
-version = "0.18.2"
+version = "0.19.0"
 description = "Add human approval to any AI agent. Ask a person, wait for the answer, act on it. Start free at deliverd.dev."
 readme = "README.md"
 # PEP 639. The table form put the whole licence text in the metadata, which

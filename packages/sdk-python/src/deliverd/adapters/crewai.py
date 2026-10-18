@@ -62,7 +62,7 @@ import threading
 from typing import Any, Callable, Mapping, NamedTuple, Optional, Sequence
 
 from ..duration import Duration
-from ._shared import Call, Describe, Options, When, _sentence, decide, parse_arguments
+from ._shared import Call, Describe, Options, When, decide, failed_reason, parse_arguments, waiting_reason
 
 __all__ = [
     "DeliverdToolHooks",
@@ -116,24 +116,6 @@ def _call_of(context: Any) -> Call:
     scope = _scope(context)
     call_id = "{}:{}".format(scope, digest)
     return Call(call_id=call_id, tool=tool, input=args, external_id=PREFIX + call_id)
-
-
-def waiting_reason(tool_name: str) -> str:
-    """A call nobody decided in time: CrewAI cannot hold it open, so it is told."""
-    return (
-        "Nobody has decided yet whether to run {} — the request is still open with "
-        "a person — so it was not run. Do not assume it will be approved; carry on "
-        "without it, or call it again later with the same input.".format(tool_name)
-    )
-
-
-def failed_reason(tool_name: str, error: BaseException) -> str:
-    return (
-        "{} was not run because approval could not be asked for: {} Do not retry "
-        "it until that is fixed; carry on without it or say what is blocked.".format(
-            tool_name, _sentence(str(error) or type(error).__name__)
-        )
-    )
 
 
 def deliverd_tool_hooks(

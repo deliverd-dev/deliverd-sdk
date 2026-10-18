@@ -17950,7 +17950,9 @@ export const RELEASED: Record<string, readonly string[]> = {
   ],
   /*
    * The Mastra adapter (`generateWithDeliverdApprovals`, `resolveMastraApproval`,
-   * `pendingMastraApproval` and the two shapes they read). Additions only over
+   * `pendingMastraApproval` and the two shapes they read), and the Muse Spark
+   * adapter (`runMuseFunctionCalls`, `runMuseToolCalls` and their shapes).
+   * Additions only over
    * the published 0.25.1, so a minor: opened as 0.25.2 when 0.25.1 shipped,
    * renamed when the surface grew.
    */
@@ -18821,6 +18823,12 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:GraphDecision",
     "adapters:MastraApprovingAgent",
     "adapters:MastraOutput",
+    "adapters:MuseFunctionCall",
+    "adapters:MuseFunctionCallOutput",
+    "adapters:MuseToolApprovalOptions",
+    "adapters:MuseToolCall",
+    "adapters:MuseToolMessage",
+    "adapters:MuseToolRunner",
     "adapters:OpenAiApprovalItem",
     "adapters:OpenAiInterruptedResult",
     "adapters:ToolApprovalOptions",
@@ -18833,6 +18841,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:resolveInterruptions",
     "adapters:resolveMastraApproval",
     "adapters:resumeFromCallback",
+    "adapters:runMuseFunctionCalls",
+    "adapters:runMuseToolCalls",
     "adapters:runWithDeliverdApprovals",
     "constructCallback",
     "constructEvent",

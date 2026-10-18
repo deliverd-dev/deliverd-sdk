@@ -19,6 +19,14 @@ this was opened as 0.25.2.
   tool's own `suspend()`, waiting on data rather than a decision, is left
   alone. No dependency on Mastra: the shapes follow `@mastra/core` 1.78.0's
   type definitions.
+- **A Muse Spark adapter** in `@deliverd/sdk/adapters`, for Meta's model on
+  the Meta Model API. `runMuseFunctionCalls(resp.output, runTool, { deliverd })`
+  asks a person about each Responses API `function_call` and returns the
+  `function_call_output` items for the next request; `runMuseToolCalls` does
+  the same for a Chat Completions message's `tool_calls`. Only approved calls
+  run, with the approver's corrections where `editable` allows them; a
+  declined call's result is the person's reason. The shapes are the
+  OpenAI-compatible ones `api.meta.ai/v1` serves.
 
 ### Changed
 

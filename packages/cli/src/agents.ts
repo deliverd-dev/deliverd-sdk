@@ -20,7 +20,7 @@ import { dirname, join } from "node:path";
  * in a plaintext file in someone's home directory; consent is not.
  */
 
-export type AgentId = "claude-code" | "claude-desktop" | "cursor" | "codex";
+export type AgentId = "claude-code" | "claude-desktop" | "cursor" | "codex" | "muse-code";
 
 export interface Agent {
   id: AgentId;
@@ -41,7 +41,8 @@ export interface Agent {
 export function agentPaths(
   os: NodeJS.Platform,
   home: string,
-  appData: string | undefined
+  appData: string | undefined,
+  xdgConfigHome: string | undefined = undefined
 ): Record<AgentId, string | null> {
   const claudeDesktop =
     os === "win32"
@@ -60,6 +61,10 @@ export function agentPaths(
     codex: null,
     "claude-desktop": claudeDesktop,
     cursor: join(home, ".cursor", "mcp.json"),
+    // Muse Code reads `$XDG_CONFIG_HOME/muse/settings.json`, falling back to
+    // `~/.config/muse/settings.json`, on every platform. It has no
+    // `muse mcp add`, so the file is the supported way in.
+    "muse-code": join(xdgConfigHome || join(home, ".config"), "muse", "settings.json"),
   };
 }
 
@@ -68,6 +73,7 @@ export const AGENT_NAMES: Record<AgentId, string> = {
   codex: "Codex",
   "claude-desktop": "Claude Desktop",
   cursor: "Cursor",
+  "muse-code": "Muse Code",
 };
 
 const FINISH_HINTS: Record<AgentId, string> = {
@@ -78,14 +84,17 @@ const FINISH_HINTS: Record<AgentId, string> = {
   codex: "Run `codex mcp login deliverd` to approve the connection.",
   "claude-desktop": "Quit Claude Desktop completely and reopen it.",
   cursor: "Reload Cursor, then approve the connection in your browser.",
+  // Remote servers sign in through `muse mcp login`, like Codex's.
+  "muse-code": "Run `muse mcp login deliverd` to approve the connection, then start a new session.",
 };
 
 export function allAgents(
   os: NodeJS.Platform = platform(),
   home: string = homedir(),
-  appData: string | undefined = process.env.APPDATA
+  appData: string | undefined = process.env.APPDATA,
+  xdgConfigHome: string | undefined = process.env.XDG_CONFIG_HOME
 ): Agent[] {
-  const paths = agentPaths(os, home, appData);
+  const paths = agentPaths(os, home, appData, xdgConfigHome);
   return (Object.keys(AGENT_NAMES) as AgentId[]).map((id) => ({
     id,
     name: AGENT_NAMES[id],
@@ -120,9 +129,12 @@ export function mcpEntry(url: string): Record<string, string> {
 }
 
 export class ConfigUnreadable extends Error {
-  constructor(public path: string) {
+  constructor(
+    public path: string,
+    public problem: string = "is not valid JSON"
+  ) {
     super(
-      `${path} exists but is not valid JSON, so it cannot be edited safely. ` +
+      `${path} exists but ${problem}, so it cannot be edited safely. ` +
         "Open it and fix or empty it, then run this again."
     );
     this.name = "ConfigUnreadable";
@@ -169,6 +181,56 @@ export function mergeMcpConfig(
   return JSON.stringify({ ...parsed, mcpServers: servers }, null, 2) + "\n";
 }
 
+/**
+ * Muse Code's settings file is not an `mcpServers` file, in three ways that
+ * each break it if ignored.
+ *
+ * - It must carry `"schema_version": 1`; without it every `muse` command
+ *   fails with "malformed settings file", so a new file gets one and a file
+ *   on a version we do not know is left alone.
+ * - Servers live under `mcp_servers`, each with a `transport`. Some Muse
+ *   builds read `mcpServers` instead, and a file with both has every server
+ *   switched off, so the entry goes under whichever key is already there and
+ *   a second key is never added.
+ * - A server is `required` by default, so one that cannot be reached stops
+ *   the session from starting. Ours is `optional`: Muse warns and carries on.
+ */
+export function museEntry(url: string): Record<string, string> {
+  return { transport: "streamable_http", url, mode: "optional" };
+}
+
+export function mergeMuseSettings(existing: string | null, name: string, url: string): string {
+  let parsed: Record<string, unknown> = {};
+  const trimmed = existing?.trim() ?? "";
+  if (trimmed.length > 0) {
+    let value: unknown;
+    try {
+      value = JSON.parse(trimmed);
+    } catch {
+      throw new ConfigUnreadable("config");
+    }
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new ConfigUnreadable("config");
+    }
+    parsed = value as Record<string, unknown>;
+  }
+
+  if (parsed.schema_version !== undefined && parsed.schema_version !== 1) {
+    throw new ConfigUnreadable("config", `is on settings schema version ${JSON.stringify(parsed.schema_version)}, not 1`);
+  }
+  const isMap = (v: unknown): v is Record<string, unknown> =>
+    typeof v === "object" && v !== null && !Array.isArray(v);
+  if (isMap(parsed.mcp_servers) && isMap(parsed.mcpServers)) {
+    // Muse already has every server off for this file; choosing which half
+    // the person meant is theirs to do.
+    throw new ConfigUnreadable("config", "has both mcp_servers and mcpServers, which turns every server off");
+  }
+  const key = isMap(parsed.mcpServers) ? "mcpServers" : "mcp_servers";
+  const servers = isMap(parsed[key]) ? { ...(parsed[key] as Record<string, unknown>) } : {};
+  servers[name] = museEntry(url);
+  return JSON.stringify({ schema_version: 1, ...parsed, [key]: servers }, null, 2) + "\n";
+}
+
 export interface WriteResult {
   path: string;
   backedUpTo: string | null;
@@ -185,16 +247,20 @@ export interface WriteResult {
 export function writeAgentConfig(
   configPath: string,
   name: string,
-  url: string
+  url: string,
+  format: "mcpServers" | "muse" = "mcpServers"
 ): WriteResult {
   const existed = existsSync(configPath);
   const current = existed ? readFileSync(configPath, "utf8") : null;
 
   let merged: string;
   try {
-    merged = mergeMcpConfig(current, name, mcpEntry(url));
+    merged =
+      format === "muse"
+        ? mergeMuseSettings(current, name, url)
+        : mergeMcpConfig(current, name, mcpEntry(url));
   } catch (err) {
-    if (err instanceof ConfigUnreadable) throw new ConfigUnreadable(configPath);
+    if (err instanceof ConfigUnreadable) throw new ConfigUnreadable(configPath, err.problem);
     throw err;
   }
 

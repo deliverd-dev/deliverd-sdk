@@ -80,7 +80,7 @@ npx deliverd tasks update <id> --state "Login works in staging" --next "Roll out
 npx deliverd setup
 ```
 
-Finds Claude Code, Codex, Claude Desktop and Cursor on your machine and
+Finds Claude Code, Codex, Claude Desktop, Cursor and Muse Code on your machine and
 connects whichever are installed, so each can ask a person, check a gate,
 keep a task and publish through Deliverd's MCP server.
 
@@ -98,10 +98,16 @@ first use the way the Claude clients do, so after `setup` run:
 codex mcp login deliverd
 ```
 
+Muse Code, Meta's coding agent, signs in the same way:
+
+```bash
+muse mcp login deliverd
+```
+
 | Option | |
 |---|---|
 | `--print` | Show the settings instead of writing anything |
-| `--agent <id>` | Just one: `claude-code`, `codex`, `claude-desktop`, `cursor` |
+| `--agent <id>` | Just one: `claude-code`, `codex`, `claude-desktop`, `cursor`, `muse-code` |
 | `--url <url>` | A self-hosted server (default `https://deliverd.dev`) |
 
 ## Publish from the terminal

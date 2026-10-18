@@ -11,6 +11,8 @@ import {
   resolveInterruptions,
   resolveMastraApproval,
   resumeFromCallback,
+  runMuseFunctionCalls,
+  runMuseToolCalls,
   runWithDeliverdApprovals,
   type Approver,
 } from "./adapters/index.js";
@@ -412,6 +414,78 @@ describe("LangGraph", () => {
   });
 });
 
+describe("Muse Spark's function calls", () => {
+  const output = [
+    { type: "reasoning", id: "rs_1" },
+    { type: "function_call", call_id: "call_1", name: "refund", arguments: '{"order":"1042","amount":420}' },
+    { type: "function_call", call_id: "call_2", name: "lookup", arguments: '{"order":"1042"}' },
+  ];
+
+  it("runs a call nobody needs to see, and asks about the one that does", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const ran: [string, unknown][] = [];
+    const results = await runMuseFunctionCalls(
+      output,
+      (tool, input) => {
+        ran.push([tool, input]);
+        return tool === "refund" ? { refunded: true } : "found it";
+      },
+      { deliverd, when: (tool) => tool === "refund", approvers: ["finance"] }
+    );
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.externalId).toBe("muse-spark:call_1");
+    expect(asked[0]!.approvers).toEqual(["finance"]);
+    expect(asked[0]!.input).toEqual({ order: "1042", amount: 420 });
+    expect(ran).toEqual([
+      ["refund", { order: "1042", amount: 420 }],
+      ["lookup", { order: "1042" }],
+    ]);
+    // One output per call, in the Responses API's shape, ready to send back.
+    expect(results).toEqual([
+      { type: "function_call_output", call_id: "call_1", output: '{"refunded":true}' },
+      { type: "function_call_output", call_id: "call_2", output: "found it" },
+    ]);
+  });
+
+  it("never runs a declined call, and tells the model why", async () => {
+    const { deliverd } = approver(decision("rejected", { note: "Over the limit" }));
+    let ran = false;
+    const [result] = await runMuseFunctionCalls(output.slice(0, 2), () => (ran = true), { deliverd });
+    expect(ran).toBe(false);
+    expect(result!.output).toContain("A person declined running refund by Dana");
+    expect(result!.output).toContain("Over the limit");
+  });
+
+  it("runs what the approver corrected, not what the model asked", async () => {
+    const { deliverd, asked } = approver(decision("approved", { input: { order: "1042", amount: 200 } }));
+    let got: unknown;
+    await runMuseFunctionCalls(output.slice(1, 2), (_tool, input) => (got = input), {
+      deliverd,
+      editable: (tool) => (tool === "refund" ? ["amount"] : []),
+    });
+    expect(asked[0]!.editableFields).toEqual(["amount"]);
+    expect(got).toEqual({ order: "1042", amount: 200 });
+  });
+
+  it("refuses rather than crashes when nobody decides in time", async () => {
+    const { deliverd } = approver(new DeliverdTimeoutError("waited too long"));
+    const [result] = await runMuseFunctionCalls(output.slice(1, 2), () => "ran", { deliverd });
+    expect(result!.output).toContain("Nobody decided whether to run refund in time");
+  });
+
+  it("answers Chat Completions tool calls with tool messages", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const results = await runMuseToolCalls(
+      { tool_calls: [{ id: "call_9", type: "function", function: { name: "send_email", arguments: '{"to":"a@b.test"}' } }] },
+      () => ({ sent: true }),
+      { deliverd }
+    );
+    expect(asked[0]!.externalId).toBe("muse-spark:call_9");
+    expect(results).toEqual([{ role: "tool", tool_call_id: "call_9", content: '{"sent":true}' }]);
+    expect(await runMuseToolCalls({ tool_calls: null }, () => "x", { deliverd })).toEqual([]);
+  });
+});
+
 describe("the README", () => {
   it("imports from @deliverd/sdk/adapters only what it exports", () => {
     const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
@@ -427,6 +501,7 @@ describe("the README", () => {
         "approveInGraph",
         "resumeFromCallback",
         "generateWithDeliverdApprovals",
+        "runMuseFunctionCalls",
       ])
     );
     for (const name of imported) expect(adapters, `README imports ${name}`).toHaveProperty(name);

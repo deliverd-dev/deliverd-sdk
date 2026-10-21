@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Deliverd</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+    <PackageId>Deliverd</PackageId>
+    <Description>Ask a person before your AI agent acts. The Deliverd client for .NET: approvals, gates and webhook verification, with no dependency beyond the framework.</Description>
+    <PackageTags>ai;agents;human-in-the-loop;approval;governance;deliverd</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Deliverd.Tests" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

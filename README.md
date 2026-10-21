@@ -15,8 +15,19 @@ packages that do the asking:
 
 All four are MIT. The TypeScript and Python SDKs have no runtime dependency,
 the CLI has two, and the Rust SDK uses reqwest, serde and tokio rather than
-writing its own HTTP client. The Deliverd service they talk to is a separate,
-proprietary product.
+writing its own HTTP client. The Deliverd service every package here talks to
+is a separate, proprietary product.
+
+### .NET and Microsoft Agent Framework
+
+| Package | Install | Source |
+|---|---|---|
+| .NET client | `dotnet add package Deliverd` | [`packages/sdk-dotnet`](packages/sdk-dotnet) |
+| Agent Framework adapter | `dotnet add package Deliverd.AgentFramework` | [`packages/sdk-dotnet`](packages/sdk-dotnet) |
+
+Both MIT. The client needs nothing beyond .NET; the adapter adds
+`Microsoft.Agents.AI`, and answers Agent Framework's tool approvals with a
+person's decision.
 
 ### Deliverd Screen: a pre-send check for every prompt
 
@@ -103,6 +114,8 @@ deliverd = Deliverd(mode="development")
   3.9 and up, standard library only, blocking or `asyncio`.
 - **[`packages/sdk-rust`](packages/sdk-rust)**: `deliverd` on crates.io. Rust
   1.89 and up, async on tokio.
+- **[`packages/sdk-dotnet`](packages/sdk-dotnet)**: `Deliverd` and
+  `Deliverd.AgentFramework` on NuGet. .NET 8 and up.
 - **[`packages/cli`](packages/cli)**: `deliverd` on npm. For build steps,
   pipelines, scripts and connecting your AI tools over MCP.
 - **[`packages/screen`](packages/screen)**,
@@ -137,6 +150,9 @@ cargo test
 
 cd ../screen-rust
 cargo test
+
+cd ../sdk-dotnet
+dotnet test Deliverd.slnx
 ```
 
 ## How this repository works
@@ -149,7 +165,7 @@ here; the tests in this repository are the ones that need nothing else.
 So a pull request here is not merged here. Open one anyway, or an issue: we
 carry the change across, credit you in the commit, and it comes back in the
 next copy. Releases are published from this repository, by GitHub Actions with
-npm's, PyPI's and crates.io's trusted publishing, so each release on npm
+npm's, PyPI's, crates.io's and NuGet's trusted publishing, so each release on npm
 carries provenance linking it to the commit and workflow that built it.
 
 ## Security

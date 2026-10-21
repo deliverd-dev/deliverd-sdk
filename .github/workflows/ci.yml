@@ -79,3 +79,18 @@ jobs:
           cargo +1.89 test --locked
           cargo +stable build --locked --no-default-features
         working-directory: packages/screen-rust
+
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 8 is the runtime the packages target; 10 is the SDK that reads .slnx.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: |
+          dotnet test Deliverd.slnx -c Release
+          dotnet pack Deliverd.slnx -c Release -o "$RUNNER_TEMP/nupkgs"
+        working-directory: packages/sdk-dotnet

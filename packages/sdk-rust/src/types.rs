@@ -239,6 +239,47 @@ pub struct ApprovalData {
     pub expires_at: Option<String>,
     pub questions: Vec<ApprovalQuestion>,
     pub created_at: String,
+    /// Which agent asked, as the request declared it. Not verified.
+    pub agent: Option<DeclaredAgent>,
+    /// The model the request said the agent was running on. Not verified.
+    pub model: Option<String>,
+}
+
+/// Which agent made a request, as it described itself (`agent` on a request).
+///
+/// Every field is optional. The API stores and returns it as declared; nothing
+/// checks it and nothing is decided on it.
+///
+/// ```
+/// use deliverd::{ApprovalRequest, DeclaredAgent};
+///
+/// let request = ApprovalRequest::new("Refund order 4471")
+///     .agent(DeclaredAgent::named("Claims triage").provider("anthropic"))
+///     .model("claude-opus-5");
+/// ```
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DeclaredAgent {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+}
+
+impl DeclaredAgent {
+    pub fn named(value: impl Into<String>) -> Self {
+        Self { name: Some(value.into()), ..Default::default() }
+    }
+    pub fn provider(mut self, value: impl Into<String>) -> Self {
+        self.provider = Some(value.into());
+        self
+    }
+    pub fn external_id(mut self, value: impl Into<String>) -> Self {
+        self.external_id = Some(value.into());
+        self
+    }
 }
 
 /// What to ask a person.
@@ -294,6 +335,13 @@ pub struct ApprovalRequest {
     /// Fields of `input` the approver may correct.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub editable_fields: Vec<String>,
+    /// Which agent is asking, in your words. Recorded and shown as declared;
+    /// nothing is decided on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<DeclaredAgent>,
+    /// The model the agent is running on, such as `claude-opus-5`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 impl ApprovalRequest {
@@ -339,6 +387,16 @@ impl ApprovalRequest {
     }
     pub fn flow_id(mut self, value: impl Into<String>) -> Self {
         self.flow_id = Some(value.into());
+        self
+    }
+    /// Which agent is asking. Recorded as declared.
+    pub fn agent(mut self, value: DeclaredAgent) -> Self {
+        self.agent = Some(value);
+        self
+    }
+    /// The model the agent is running on. Recorded as declared.
+    pub fn model(mut self, value: impl Into<String>) -> Self {
+        self.model = Some(value.into());
         self
     }
     pub fn callback_url(mut self, value: impl Into<String>) -> Self {
@@ -686,6 +744,13 @@ pub struct ReviewRequest {
     pub callback_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Object>,
+    /// Which agent is asking, in your words. Recorded and shown as declared;
+    /// nothing is decided on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<DeclaredAgent>,
+    /// The model the agent is running on, such as `claude-opus-5`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 impl ReviewRequest {
@@ -726,6 +791,16 @@ impl ReviewRequest {
     }
     pub fn flow_id(mut self, value: impl Into<String>) -> Self {
         self.flow_id = Some(value.into());
+        self
+    }
+    /// Which agent is asking. Recorded as declared.
+    pub fn agent(mut self, value: DeclaredAgent) -> Self {
+        self.agent = Some(value);
+        self
+    }
+    /// The model the agent is running on. Recorded as declared.
+    pub fn model(mut self, value: impl Into<String>) -> Self {
+        self.model = Some(value.into());
         self
     }
     pub fn callback_url(mut self, value: impl Into<String>) -> Self {
@@ -782,6 +857,10 @@ pub struct ReviewData {
     pub settled_at: Option<String>,
     pub expires_at: Option<String>,
     pub created_at: String,
+    /// Which agent asked, as the request declared it. Not verified.
+    pub agent: Option<DeclaredAgent>,
+    /// The model the request said the agent was running on. Not verified.
+    pub model: Option<String>,
 }
 
 /// The answer to [`review`](crate::Deliverd::review), flattened.
@@ -871,6 +950,13 @@ pub struct CollectionRequest {
     pub callback_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Object>,
+    /// Which agent is asking, in your words. Recorded and shown as declared;
+    /// nothing is decided on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<DeclaredAgent>,
+    /// The model the agent is running on, such as `claude-opus-5`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 impl CollectionRequest {
@@ -915,6 +1001,16 @@ impl CollectionRequest {
     }
     pub fn flow_id(mut self, value: impl Into<String>) -> Self {
         self.flow_id = Some(value.into());
+        self
+    }
+    /// Which agent is asking. Recorded as declared.
+    pub fn agent(mut self, value: DeclaredAgent) -> Self {
+        self.agent = Some(value);
+        self
+    }
+    /// The model the agent is running on. Recorded as declared.
+    pub fn model(mut self, value: impl Into<String>) -> Self {
+        self.model = Some(value.into());
         self
     }
     pub fn callback_url(mut self, value: impl Into<String>) -> Self {
@@ -1015,6 +1111,10 @@ pub struct CollectionData {
     pub due_at: Option<String>,
     pub expires_at: Option<String>,
     pub created_at: String,
+    /// Which agent asked, as the request declared it. Not verified.
+    pub agent: Option<DeclaredAgent>,
+    /// The model the request said the agent was running on. Not verified.
+    pub model: Option<String>,
 }
 
 /// The answer to [`collect`](crate::Deliverd::collect), flattened.
@@ -1149,6 +1249,424 @@ pub struct PublishResult {
     pub version: Option<Value>,
     pub approval: Option<Value>,
     pub warnings: Vec<String>,
+}
+
+/* ── Flows ─────────────────────────────────────────────────────────────── */
+
+string_enum!(
+    /// Where a flow stands. The app calls a flow a project.
+    FlowStatus {
+        Open = "open",
+        Complete = "complete",
+        Cancelled = "cancelled",
+    }
+);
+
+/// One approval, review, request for information or report in a flow.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FlowMember {
+    /// `approval`, `review`, `collection` or `report`.
+    pub kind: String,
+    pub id: String,
+    pub title: String,
+    /// The member's own status word, which differs by kind.
+    pub status: String,
+    /// Still waiting on somebody. Always false for a report.
+    pub open: bool,
+    pub created_at: String,
+}
+
+/// One step of a flow's timeline.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FlowEvent {
+    pub event: String,
+    pub actor: String,
+    pub actor_type: String,
+    pub resource_type: Option<String>,
+    pub resource_id: Option<String>,
+    pub at: String,
+}
+
+/// A flow, as the API returns it.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FlowData {
+    pub id: String,
+    pub status: FlowStatus,
+    /// The timeline page a person can open.
+    pub url: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub external_id: Option<String>,
+    pub metadata: Object,
+    pub started_by: String,
+    pub members: Vec<FlowMember>,
+    pub member_count: u32,
+    pub open_count: u32,
+    /// Nothing outstanding right now — not a claim that the job is finished.
+    pub all_settled: bool,
+    /// On a single read; empty from a list.
+    pub timeline: Vec<FlowEvent>,
+    pub parent_flow_id: Option<String>,
+    pub settled_at: Option<String>,
+    pub created_at: String,
+}
+
+/// A flow to start.
+///
+/// ```
+/// use deliverd::FlowRequest;
+///
+/// let request = FlowRequest::new("Release 4.2").external_id("release-4.2");
+/// ```
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowRequest {
+    /// What this piece of work is, as the timeline will be titled.
+    pub title: String,
+    /// What it is for, for whoever reads the history a year from now.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    /// Your own reference. Pass it and use [`resume`](crate::Flows::resume) so a
+    /// restart does not start a second flow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Object>,
+    /// The flow this work was delegated from: an orchestrator's run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_flow_id: Option<String>,
+}
+
+impl FlowRequest {
+    pub fn new(title: impl Into<String>) -> Self {
+        Self { title: title.into(), ..Self::default() }
+    }
+    pub fn description(mut self, value: impl Into<String>) -> Self {
+        self.description = Some(value.into());
+        self
+    }
+    pub fn workspace_id(mut self, value: impl Into<String>) -> Self {
+        self.workspace_id = Some(value.into());
+        self
+    }
+    pub fn external_id(mut self, value: impl Into<String>) -> Self {
+        self.external_id = Some(value.into());
+        self
+    }
+    pub fn metadata(mut self, value: Object) -> Self {
+        self.metadata = Some(value);
+        self
+    }
+    pub fn parent_flow_id(mut self, value: impl Into<String>) -> Self {
+        self.parent_flow_id = Some(value.into());
+        self
+    }
+}
+
+/* ── Tasks ─────────────────────────────────────────────────────────────── */
+
+string_enum!(
+    /// What a task is: the objective, or a side task branched from it.
+    TaskKind {
+        Objective = "objective",
+        SideTask = "side_task",
+        Investigation = "investigation",
+        Research = "research",
+        Debug = "debug",
+        Decision = "decision",
+    }
+);
+
+string_enum!(
+    /// Where a task stands. `update` may set the first four; completing and
+    /// cancelling have their own calls.
+    TaskStatus {
+        Open = "open",
+        InProgress = "in_progress",
+        Blocked = "blocked",
+        AwaitingApproval = "awaiting_approval",
+        Completed = "completed",
+        Cancelled = "cancelled",
+    }
+);
+
+/// The short working state of a task: where it stands, what is open, what is
+/// in the way, what comes next.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TaskState {
+    pub current_state: Option<String>,
+    pub open_questions: Vec<String>,
+    pub constraints: Vec<String>,
+    pub blocked_by: Vec<String>,
+    pub next_action: Option<String>,
+}
+
+/// A change to a task's working state. Only what you set is sent; `Some(None)`
+/// clears a field that can be cleared.
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskStatePatch {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_state: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open_questions: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub add_open_questions: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub resolve_open_questions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub constraints: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_by: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<Option<String>>,
+}
+
+impl TaskStatePatch {
+    pub fn current_state(mut self, value: impl Into<String>) -> Self {
+        self.current_state = Some(Some(value.into()));
+        self
+    }
+    pub fn next_action(mut self, value: impl Into<String>) -> Self {
+        self.next_action = Some(Some(value.into()));
+        self
+    }
+    pub fn add_open_question(mut self, value: impl Into<String>) -> Self {
+        self.add_open_questions.push(value.into());
+        self
+    }
+    pub fn resolve_open_question(mut self, value: impl Into<String>) -> Self {
+        self.resolve_open_questions.push(value.into());
+        self
+    }
+}
+
+/// Something a finished task found.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TaskResultFinding {
+    pub title: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<String>,
+}
+
+/// A decision a finished task proposes. It reaches the parent as a suggestion.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TaskResultDecision {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rationale: Option<String>,
+}
+
+/// What a task came back with.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TaskResult {
+    pub summary: String,
+    pub findings: Vec<TaskResultFinding>,
+    pub decisions: Vec<TaskResultDecision>,
+    pub recommendations: Vec<String>,
+    pub unresolved_questions: Vec<String>,
+    pub parent_impact: Option<String>,
+    pub suggested_next_action: Option<String>,
+}
+
+/// A task, as the API returns it. What these fields do not name — a side
+/// task's snapshot, a single read's path, children and findings — is on the
+/// handle's `raw()`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TaskData {
+    pub id: String,
+    pub kind: TaskKind,
+    pub status: TaskStatus,
+    /// The page a person can open.
+    pub url: String,
+    pub title: String,
+    /// What the work is for: the objective's purpose, or a side task's goal.
+    pub objective: String,
+    pub root_task_id: String,
+    /// `None` on the objective itself.
+    pub parent_task_id: Option<String>,
+    pub depth: u32,
+    pub workspace_id: Option<String>,
+    pub flow_id: Option<String>,
+    pub state: TaskState,
+    /// Once completed: what it came back with.
+    pub result: Option<TaskResult>,
+    /// Earlier results, kept when a completed task is reopened.
+    pub previous_results: Vec<TaskResult>,
+    /// `applied`, `kept` or `discarded`, once a side task's result is used.
+    pub outcome: Option<String>,
+    pub external_id: Option<String>,
+    pub session_url: Option<String>,
+    /// Pass it back as `expected_version` to refuse an update somebody else got in before.
+    pub version: u64,
+    pub started_by: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+    /// True when `create` returned an open objective you had already started
+    /// under the same `external_id`.
+    pub resumed: bool,
+}
+
+/// An objective to start.
+///
+/// ```
+/// use deliverd::{TaskRequest, TaskStatePatch};
+///
+/// let request = TaskRequest::new("SSO rollout", "Every customer on SAML by March")
+///     .external_id("objective:sso")
+///     .state(TaskStatePatch::default().next_action("List the customers still on passwords"));
+/// ```
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskRequest {
+    /// A short name for the objective.
+    pub title: String,
+    /// What the work is ultimately for. Returned at the top of every context.
+    pub objective: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    /// The flow its approvals and reviews belong to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flow_id: Option<String>,
+    /// Your own reference. An open objective you started under it is returned
+    /// instead of a new one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+    /// A link to the conversation where the work happens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_url: Option<String>,
+    /// The starting state, if anything is already known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<TaskStatePatch>,
+}
+
+impl TaskRequest {
+    pub fn new(title: impl Into<String>, objective: impl Into<String>) -> Self {
+        Self { title: title.into(), objective: objective.into(), ..Self::default() }
+    }
+    pub fn workspace_id(mut self, value: impl Into<String>) -> Self {
+        self.workspace_id = Some(value.into());
+        self
+    }
+    pub fn flow_id(mut self, value: impl Into<String>) -> Self {
+        self.flow_id = Some(value.into());
+        self
+    }
+    pub fn external_id(mut self, value: impl Into<String>) -> Self {
+        self.external_id = Some(value.into());
+        self
+    }
+    pub fn session_url(mut self, value: impl Into<String>) -> Self {
+        self.session_url = Some(value.into());
+        self
+    }
+    pub fn state(mut self, value: TaskStatePatch) -> Self {
+        self.state = Some(value);
+        self
+    }
+}
+
+/// A change to a task. Only what you set is sent.
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Refused to an agent: only a person changes what the work is for.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub objective: Option<String>,
+    /// Open, in progress, blocked or awaiting approval. Use `complete` and
+    /// `cancel` for the other two.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<TaskStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_url: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<TaskStatePatch>,
+    /// The version you read; the update is refused if somebody wrote in between.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_version: Option<u64>,
+}
+
+impl TaskUpdate {
+    pub fn title(mut self, value: impl Into<String>) -> Self {
+        self.title = Some(value.into());
+        self
+    }
+    pub fn status(mut self, value: TaskStatus) -> Self {
+        self.status = Some(value);
+        self
+    }
+    pub fn state(mut self, value: TaskStatePatch) -> Self {
+        self.state = Some(value);
+        self
+    }
+    pub fn expected_version(mut self, value: u64) -> Self {
+        self.expected_version = Some(value);
+        self
+    }
+}
+
+/// How a task finished.
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskCompletion {
+    /// What was found, in a few sentences.
+    pub summary: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub findings: Vec<TaskResultFinding>,
+    /// Decisions you propose. They reach the parent as suggestions.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub decisions: Vec<TaskResultDecision>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub recommendations: Vec<String>,
+    /// Added to the parent's open questions when applied.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub unresolved_questions: Vec<String>,
+    /// What this means for the main task.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_impact: Option<String>,
+    /// Becomes the parent's next action when applied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_next_action: Option<String>,
+}
+
+impl TaskCompletion {
+    pub fn new(summary: impl Into<String>) -> Self {
+        Self { summary: summary.into(), ..Self::default() }
+    }
+    pub fn finding(mut self, title: impl Into<String>, description: impl Into<String>) -> Self {
+        self.findings.push(TaskResultFinding {
+            title: title.into(),
+            description: description.into(),
+            evidence: vec![],
+        });
+        self
+    }
+    pub fn decision(mut self, title: impl Into<String>) -> Self {
+        self.decisions.push(TaskResultDecision { title: title.into(), rationale: None });
+        self
+    }
+    pub fn recommendation(mut self, value: impl Into<String>) -> Self {
+        self.recommendations.push(value.into());
+        self
+    }
+    pub fn suggested_next_action(mut self, value: impl Into<String>) -> Self {
+        self.suggested_next_action = Some(value.into());
+        self
+    }
 }
 
 /* ── Webhooks ──────────────────────────────────────────────────────────── */

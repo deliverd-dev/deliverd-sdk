@@ -1,0 +1,29 @@
+<Project>
+  <!--
+    Shared by both packages and the tests. The version is here once, so the two
+    packages always ship together: Deliverd.AgentFramework depends on the
+    Deliverd of the same version.
+  -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+
+    <Authors>Deliverd</Authors>
+    <Company>Deliverd</Company>
+    <Copyright>Copyright (c) Deliverd</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://deliverd.dev</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/deliverd-dev/deliverd-sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>https://github.com/deliverd-dev/deliverd-sdk/blob/main/packages/sdk-dotnet/CHANGELOG.md</PackageReleaseNotes>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+</Project>

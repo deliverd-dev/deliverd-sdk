@@ -33,6 +33,9 @@
 //! | [`collect`](Deliverd::collect) | ask for what you do not have |
 //! | [`publish`](Deliverd::publish) | get the work to the people who need it |
 //!
+//! [`flows`](Deliverd::flows) tie one job's requests together (the app calls
+//! a flow a project), and [`tasks`](Deliverd::tasks) keep its objective.
+//!
 //! Before you have an account, [`Deliverd::development`] runs the same code
 //! with an imaginary approver: no key, no network.
 
@@ -44,10 +47,12 @@ mod collections;
 pub mod dev;
 mod duration;
 mod error;
+mod flows;
 mod gates;
 pub mod http;
 mod reports;
 mod reviews;
+mod tasks;
 mod types;
 mod wait;
 pub mod webhooks;
@@ -57,10 +62,12 @@ pub use collections::{Collection, Collections, ListCollections};
 pub use dev::{DevelopmentOptions, DevelopmentOutcome};
 pub use duration::{parse_duration, DurationArg};
 pub use error::{DeliverdError, Result};
+pub use flows::{Flow, Flows, ListFlows};
 pub use gates::{Gate, Gates};
 pub use http::{HttpClient, RequestOptions, DEFAULT_BASE_URL};
 pub use reports::Reports;
 pub use reviews::{ListReviews, Review, Reviews};
+pub use tasks::{ListTasks, Task, Tasks};
 pub use types::*;
 pub use wait::{on_question, OnPoll, QuestionHandler, WaitOptions, POLL_SCHEDULE};
 
@@ -313,6 +320,15 @@ impl Deliverd {
     }
     pub fn reports(&self) -> Reports {
         Reports { http: self.http.clone() }
+    }
+    /// Flows: one job's approvals, reviews, requests and publishes on one
+    /// timeline. The app calls a flow a project.
+    pub fn flows(&self) -> Flows {
+        Flows { http: self.http.clone() }
+    }
+    /// Task Graph: the objective, kept apart from the conversation.
+    pub fn tasks(&self) -> Tasks {
+        Tasks { http: self.http.clone() }
     }
 
     fn tune<T>(&self, mut wait: WaitOptions<T>, default_timeout: bool) -> WaitOptions<T> {

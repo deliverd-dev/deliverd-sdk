@@ -294,5 +294,24 @@
       ],
       "why": "Five, and `denied` is the gate's alone: a policy refusal, which nothing else here can have because an approval cannot be refused without somebody refusing it. It settles at creation and reaches nobody, so it is the one outcome with no wait in it."
     }
+  },
+  "resume": {
+    "_why": "A restarted agent must pick its work up rather than start it again, and each SDK offers that for flows and tasks. Run in development mode, so each language's own offline store is held to the same answers the API gives: the flow or objective already started under a reference comes back while it is open, and a closed one is never handed back, because it takes no new members and the next call on it would fail.",
+    "flow": {
+      "title": "Release 4.2",
+      "externalId": "release-4.2",
+      "restartReturnsTheOpenFlow": true,
+      "closedFlowStartsANewOne": true,
+      "why": "resume() twice with one reference is one flow; after it is closed, resume() starts a second under the same reference rather than returning a flow that refuses members."
+    },
+    "task": {
+      "title": "SSO rollout",
+      "objective": "Every customer on SAML by March",
+      "externalId": "objective:sso",
+      "restartReturnsTheOpenObjective": true,
+      "resumedIsTrue": true,
+      "completedObjectiveStartsANewOne": true,
+      "why": "create() with a reference already in use returns that objective with resumed set, so the caller can tell; once it is completed the same reference starts a new one."
+    }
   }
 }

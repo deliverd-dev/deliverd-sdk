@@ -258,3 +258,38 @@ class Gate(unittest.TestCase):
         self.assertEqual(
             list(OUTCOMES), CASES["gate"]["developmentOutcomes"]["outcomes"]
         )
+
+
+class Resume(unittest.TestCase):
+    """A restarted agent picks its flow and its objective up in every SDK."""
+
+    def _offline(self) -> Any:
+        from deliverd import Deliverd
+        from deliverd.dev import DevelopmentOptions
+
+        return Deliverd(mode="development", development=DevelopmentOptions(log=False))
+
+    def test_resumes_the_open_flow_and_never_a_closed_one(self):
+        case = CASES["resume"]["flow"]
+        c = self._offline()
+        first = c.flows.resume(title=case["title"], external_id=case["externalId"])
+        again = c.flows.resume(title=case["title"], external_id=case["externalId"])
+        self.assertEqual(again.id == first.id, case["restartReturnsTheOpenFlow"], case["why"])
+        first.close()
+        after = c.flows.resume(title=case["title"], external_id=case["externalId"])
+        self.assertEqual(after.id != first.id, case["closedFlowStartsANewOne"], case["why"])
+        self.assertTrue(after.open)
+
+    def test_returns_the_open_objective_and_says_it_resumed(self):
+        case = CASES["resume"]["task"]
+        c = self._offline()
+        kwargs = dict(title=case["title"], objective=case["objective"], external_id=case["externalId"])
+        first = c.tasks.create(**kwargs)
+        self.assertFalse(first.resumed)
+        again = c.tasks.create(**kwargs)
+        self.assertEqual(again.id == first.id, case["restartReturnsTheOpenObjective"], case["why"])
+        self.assertEqual(again.resumed, case["resumedIsTrue"], case["why"])
+        first.complete(summary="Done.")
+        after = c.tasks.create(**kwargs)
+        self.assertEqual(after.id != first.id, case["completedObjectiveStartsANewOne"], case["why"])
+        self.assertFalse(after.resumed)

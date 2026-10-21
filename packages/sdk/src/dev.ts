@@ -1,6 +1,7 @@
 import type {
   ApprovalData,
   CollectionData,
+  DeclaredAgent,
   EvidencePack,
   FlowData,
   GateData,
@@ -129,6 +130,7 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
         changes: [],
         concerns: [],
         requestedBy: "You (development mode)",
+        ...declaredOf(body),
         approvers: (body.approvers as string[] | undefined) ?? [],
         /*
          * One, always. A standing rule could raise it on a real organisation,
@@ -222,6 +224,7 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
         externalId: (body.externalId as string | undefined) ?? null,
         metadata: (body.metadata as Record<string, unknown>) ?? {},
         requestedBy: "You (development mode)",
+        ...declaredOf(body),
         requiredApprovals: (body.requiredApprovals as number | undefined) ?? 1,
         reviewers,
         verdicts: [],
@@ -483,6 +486,7 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
         externalId: (body.externalId as string | undefined) ?? null,
         metadata: (body.metadata as Record<string, unknown>) ?? {},
         requestedBy: "You (development mode)",
+        ...declaredOf(body),
         requiredResponses: (body.requiredResponses as number | undefined) ?? (asked.length || 1),
         questions,
         responses: asked.map((who) => ({
@@ -717,6 +721,20 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
     );
   }) as typeof globalThis.fetch;
   return handle;
+}
+
+/**
+ * The agent and model a request declared, as the API echoes them: what was
+ * sent, every field present, null when nothing was. Development mode stores
+ * nothing, so this is the whole of it.
+ */
+function declaredOf(body: Record<string, unknown>): { agent: DeclaredAgent | null; model: string | null } {
+  const a = body.agent as { name?: string; provider?: string; externalId?: string } | undefined;
+  const agent =
+    a && (a.name || a.provider || a.externalId)
+      ? { name: a.name ?? null, provider: a.provider ?? null, externalId: a.externalId ?? null }
+      : null;
+  return { agent, model: typeof body.model === "string" && body.model ? body.model : null };
 }
 
 function resolveOutcome(

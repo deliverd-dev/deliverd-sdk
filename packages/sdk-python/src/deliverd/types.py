@@ -59,6 +59,20 @@ class ApprovalQuestion(Model):
 
 
 @dataclass
+class DeclaredAgent(Model):
+    """The agent a request said it came from, as the API returns it.
+
+    Every field may be ``None``. Send one with ``agent={"name": ..., "provider":
+    ..., "external_id": ...}`` on :meth:`Deliverd.approve`, :meth:`Deliverd.review`
+    or :meth:`Deliverd.collect`.
+    """
+
+    name: Optional[str]
+    provider: Optional[str]
+    external_id: Optional[str]
+
+
+@dataclass
 class ApprovalData(Model):
     id: str
     status: str
@@ -102,8 +116,14 @@ class ApprovalData(Model):
     note: Optional[str]
     expires_at: Optional[str]
     questions: List[ApprovalQuestion]
+    #: Which agent asked, as the request declared it. ``None`` when it said
+    #: nothing. The caller's own words; nothing checks them.
+    agent: Optional["DeclaredAgent"]
+    #: The model the request said the agent was running on. Not verified.
+    model: Optional[str]
     created_at: str
 
+    _NESTED = {"agent": DeclaredAgent}
     _NESTED_LISTS = {
         "factors": ApprovalFactor,
         "links": ApprovalLink,
@@ -196,8 +216,14 @@ class ReviewData(Model):
     thread_count: int
     settled_at: Optional[str]
     expires_at: Optional[str]
+    #: Which agent asked, as the request declared it. ``None`` when it said
+    #: nothing. The caller's own words; nothing checks them.
+    agent: Optional["DeclaredAgent"]
+    #: The model the request said the agent was running on. Not verified.
+    model: Optional[str]
     created_at: str
 
+    _NESTED = {"agent": DeclaredAgent}
     _NESTED_LISTS = {"reviewers": ReviewerRef, "verdicts": ReviewVerdict}
 
 
@@ -307,8 +333,14 @@ class CollectionData(Model):
     settled_at: Optional[str]
     due_at: Optional[str]
     expires_at: Optional[str]
+    #: Which agent asked, as the request declared it. ``None`` when it said
+    #: nothing. The caller's own words; nothing checks them.
+    agent: Optional["DeclaredAgent"]
+    #: The model the request said the agent was running on. Not verified.
+    model: Optional[str]
     created_at: str
 
+    _NESTED = {"agent": DeclaredAgent}
     _NESTED_LISTS = {"questions": CollectionQuestion, "responses": CollectionReply}
 
 
@@ -1567,6 +1599,8 @@ WEBHOOK_EVENTS = (
     "task.completed",
     "task.blocked",
     "side_task.completed",
+    # Opt-in: one audit log entry, with its chain position and hashes. For a SIEM.
+    "audit.event",
 )
 
 

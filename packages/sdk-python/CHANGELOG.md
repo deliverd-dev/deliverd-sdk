@@ -97,6 +97,15 @@ None of these frameworks becomes a dependency: the adapters read their objects
 by shape and import nothing from them until they build an answer or register a
 hook.
 
+- **`agent` and `model` on `approve()`, `review()` and `collect()`** and their
+  `create()`s, sync and async. Say which agent is asking
+  (`agent={"name": ..., "provider": ..., "external_id": ...}`, each optional)
+  and the model it runs on. The API stores them, puts them in the request's
+  audit event and shows them on the request and its project, marked as
+  declared; nothing is decided on them. `ApprovalData`, `ReviewData` and
+  `CollectionData` return them as `agent` (a `DeclaredAgent`) and `model`,
+  `None` when unsaid. Development mode echoes them.
+
 ### Changed
 
 - **`WEBHOOK_FORMATS` takes `"discord"`**: an endpoint that posts each event

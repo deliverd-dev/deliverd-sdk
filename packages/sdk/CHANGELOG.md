@@ -1,8 +1,22 @@
 # Changelog
 
-## 0.26.1
+## 0.27.0
 
-A patch. 0.26.0 went to npm on 21 October 2026 from 80475ec.
+A minor, for additions. 0.26.0 went to npm on 21 October 2026 from 80475ec;
+this was opened as 0.26.1.
+
+### Added
+
+- **`agent` and `model` on approvals, reviews and collections.** Say which
+  agent is asking (`{ name, provider, externalId }`, each optional) and the
+  model it runs on, on `approve()`, `review()`, `collect()` and their
+  `create()`s. The API stores them, puts them in the request's audit event and
+  shows them on the request and its project, marked as declared; nothing is
+  decided on them. `ApprovalData`, `ReviewData` and `CollectionData` return
+  them as `agent` and `model`, null when unsaid. Development mode echoes them.
+- **`audit.event`** in `WebhookEventName`: the opt-in audit stream, one
+  delivery per audit log entry with its `chainSeq`, `prevHash` and `rowHash`,
+  for a SIEM.
 
 ### Fixed
 

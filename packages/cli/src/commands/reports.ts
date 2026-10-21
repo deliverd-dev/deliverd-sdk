@@ -109,6 +109,10 @@ export function reportCommands(program: Command): void {
       "--task <id>",
       "The task this report is for: it is listed on the task and in its context (`deliverd tasks context`)"
     )
+    .option(
+      "--flow <id>",
+      "The project (flow) this report belongs to. Set on a first publish; a later version keeps the report's flow"
+    )
     .option("--json", "Print the result as JSON, for scripting")
     .action(
       run(async (path: string, options: {
@@ -119,6 +123,7 @@ export function reportCommands(program: Command): void {
         classification?: string;
         changeSummary?: string;
         task?: string;
+        flow?: string;
         json?: boolean;
       }) => {
         const config = requireConfig();
@@ -132,6 +137,7 @@ export function reportCommands(program: Command): void {
           classification: options.classification,
           changeSummary: options.changeSummary,
           taskId: options.task,
+          flowId: options.flow,
           sourceTool: "cli",
         });
         reportPublishResult(result, options.json, false);

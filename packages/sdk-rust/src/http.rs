@@ -156,6 +156,13 @@ impl RequestOptions {
         Self { method: "POST", path: path.into(), query: Vec::new(), body, idempotency_key: None }
     }
 
+    /// A partial update. No idempotency key: applying the same change twice
+    /// leaves the same result, and `expectedVersion` is how a caller refuses
+    /// a write somebody else got in before.
+    pub fn patch(path: impl Into<String>, body: Option<Value>) -> Self {
+        Self { method: "PATCH", path: path.into(), query: Vec::new(), body, idempotency_key: None }
+    }
+
     pub fn query(mut self, name: &str, value: Option<impl ToString>) -> Self {
         if let Some(value) = value {
             self.query.push((name.to_owned(), value.to_string()));
@@ -175,8 +182,8 @@ pub(crate) struct ClientConfig {
 /// The authenticated client every resource shares. Cheap to clone.
 ///
 /// [`Deliverd::http`](crate::Deliverd::http) hands it out for the parts of the
-/// API this crate has no named method for yet: flows, tasks, comments,
-/// schedules. The same retries and errors apply.
+/// API this crate has no named method for yet: comments, schedules, side
+/// tasks and governance. The same retries and errors apply.
 #[derive(Clone)]
 pub struct HttpClient {
     config: Arc<ClientConfig>,

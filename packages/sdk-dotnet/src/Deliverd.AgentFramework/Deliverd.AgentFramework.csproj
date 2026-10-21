@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Deliverd.AgentFramework</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+    <PackageId>Deliverd.AgentFramework</PackageId>
+    <Description>Microsoft Agent Framework tool approvals, decided by a person through Deliverd. Each ToolApprovalRequestContent becomes a Deliverd request; the run carries on with the answer.</Description>
+    <PackageTags>ai;agents;agent-framework;microsoft-agents-ai;human-in-the-loop;approval;deliverd</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The floor is the Agent Framework release this was written and tested
+      against. ToolApprovalRequestContent.CreateResponse(approved, reason) and
+      ToolAutoApprovalRuleContext are what it relies on.
+    -->
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.25.0" />
+    <ProjectReference Include="../Deliverd/Deliverd.csproj" />
+    <InternalsVisibleTo Include="Deliverd.Tests" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

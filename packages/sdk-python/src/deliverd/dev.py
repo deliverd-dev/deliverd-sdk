@@ -78,6 +78,18 @@ class DevelopmentOptions:
         self.edits = dict(edits or {})
 
 
+
+def _declared_agent(body: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    """The agent a request declared, echoed the way the API returns it.
+
+    Every field present and ``None`` when unsaid, and ``None`` for the whole
+    when nothing was said — the shape a real response has.
+    """
+    agent = body.get("agent")
+    if not isinstance(agent, Mapping) or not any(agent.get(k) for k in ("name", "provider", "externalId")):
+        return None
+    return {"name": agent.get("name"), "provider": agent.get("provider"), "externalId": agent.get("externalId")}
+
 def _now() -> float:
     return time.monotonic()
 
@@ -251,6 +263,8 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
             "changes": [],
             "concerns": [],
             "requestedBy": "Development agent",
+            "agent": _declared_agent(body),
+            "model": body.get("model") or None,
             "approvers": body.get("approvers") or ["Development approver"],
             "requiredApprovals": 1,
             "approvalsSoFar": 0,
@@ -307,6 +321,8 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
             "externalId": body.get("externalId"),
             "metadata": body.get("metadata") or {},
             "requestedBy": "Development agent",
+            "agent": _declared_agent(body),
+            "model": body.get("model") or None,
             "requiredApprovals": body.get("requiredApprovals") or 1,
             "reviewers": [
                 {"kind": "user", "id": "dev", "label": name}
@@ -394,6 +410,8 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
             "externalId": body.get("externalId"),
             "metadata": body.get("metadata") or {},
             "requestedBy": "Development agent",
+            "agent": _declared_agent(body),
+            "model": body.get("model") or None,
             "requiredResponses": body.get("requiredResponses") or len(respondents),
             "questions": questions,
             "responses": [],

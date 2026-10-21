@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Flows**: `flows()` with `create`, `get`, `list`, `find_by_external_id`,
+  `resume`, `complete` and `cancel`, and a `Flow` handle with `refresh`,
+  `close`, `cancel` and `evidence`. The app calls a flow a project.
+- **Tasks**: `tasks()` with `create`, `get`, `list`, `find_by_external_id`,
+  `update`, `complete`, `cancel` and `context`, and a `Task` handle with the
+  same plus `reopen`.
+- Development mode serves both, and `packages/conformance/cases.json` holds
+  all three SDKs to the same restart behaviour for them.
+
 ## 0.1.1
 
 A patch, with no change to the API. The README gains the Muse Spark section
@@ -23,5 +36,8 @@ The first release.
   `DELIVERD_DEV_OUTCOME`, answers from memory with an imaginary approver.
 - **Webhook and callback verification**: `webhooks::construct_event` and
   `webhooks::construct_callback`.
+- **Which agent, on which model**: `.agent(DeclaredAgent::named(…))` and
+  `.model(…)` on `ApprovalRequest`, `ReviewRequest` and `CollectionRequest`,
+  returned as `agent` and `model` on the data. Recorded as declared.
 - **Held to the other SDKs** by `packages/conformance/cases.json`: retries,
   `Retry-After`, idempotency keys, signatures, durations and gating.

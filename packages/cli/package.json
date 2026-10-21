@@ -1,6 +1,6 @@
 {
   "name": "deliverd",
-  "version": "0.16.3",
+  "version": "0.17.0",
   "description": "Ask a person for an approval, a review or an answer from a build step, a pipeline or your AI tools — and publish what an AI wrote. The Deliverd CLI. Start free at deliverd.dev.",
   "type": "module",
   "bin": {

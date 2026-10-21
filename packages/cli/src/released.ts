@@ -415,6 +415,19 @@ export const RELEASED: Record<string, readonly string[]> = {
     "simulate", "start", "tasks", "templates", "unarchive",
     "unshare", "update", "versions", "who", "workspaces",
   ],
+
+  /* `verify`, which checks an evidence pack offline, and `audit`, which reads the audit log. Two new verbs, so a minor. */
+  "0.17.0": [
+    "actions", "activate", "add", "agents", "analytics", "answer", "apply",
+    "approvals", "approve-decision", "archive", "ask", "audit", "cancel", "check",
+    "collect", "comments", "complete", "context", "copy", "create", "data",
+    "evidence", "finding", "flows", "gates", "get", "governance", "graph",
+    "link", "list", "login", "open", "pack", "policy", "publish", "push",
+    "release", "rename", "reopen", "resolve", "retract", "reviews", "rm", "rollback",
+    "schedules", "send", "set", "setup", "share", "show", "side-task",
+    "simulate", "start", "tasks", "templates", "unarchive",
+    "unshare", "update", "verify", "versions", "who", "workspaces",
+  ],
 };
 
 /**

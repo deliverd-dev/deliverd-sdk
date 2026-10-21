@@ -122,6 +122,8 @@ struct State {
     gates: Vec<(String, Stored)>,
     reviews: Vec<(String, Stored)>,
     collections: Vec<(String, Stored)>,
+    flows: Vec<(String, Value)>,
+    tasks: Vec<(String, Value)>,
 }
 
 fn find<'a>(list: &'a mut [(String, Stored)], id: &str) -> Option<&'a mut Stored> {
@@ -525,6 +527,235 @@ impl DevelopmentTransport {
                 }
             }
 
+            /*
+             * Flows and tasks in development: real objects with no simulation
+             * attached. Nobody decides anything about either, so there is
+             * nothing to fake, and a restartable agent's find-or-start works
+             * here exactly as it will against the API.
+             */
+            ("POST", ["flows"]) => {
+                let id = format!("flw_dev_{}", self.next());
+                let data = json!({
+                    "id": id,
+                    "status": "open",
+                    "url": format!("https://deliverd.dev/flows/{id}"),
+                    "title": body.get("title").and_then(Value::as_str).unwrap_or("Untitled"),
+                    "description": str_of("description"),
+                    "externalId": str_of("externalId"),
+                    "metadata": body.get("metadata").cloned().unwrap_or(json!({})),
+                    "startedBy": "You (development mode)",
+                    // The store holds no members: a development flow reports
+                    // what it knows rather than invent a membership.
+                    "members": [],
+                    "memberCount": 0,
+                    "openCount": 0,
+                    "allSettled": false,
+                    "timeline": [],
+                    "parentFlowId": str_of("parentFlowId"),
+                    "settledAt": null,
+                    "createdAt": now(),
+                });
+                if self.options.log {
+                    eprintln!(
+                        "\n  ▸ Flow started: {}\n    {}\n",
+                        data["title"].as_str().unwrap_or_default(),
+                        data["url"].as_str().unwrap_or_default()
+                    );
+                }
+                state.flows.push((id, data.clone()));
+                (201, data)
+            }
+            ("GET", ["flows"]) => {
+                // Newest first, as the API lists them.
+                let all: Vec<Value> = state
+                    .flows
+                    .iter()
+                    .rev()
+                    .map(|(_, f)| f.clone())
+                    .filter(|f| query.get("externalId").is_none_or(|x| f["externalId"] == json!(x)))
+                    .filter(|f| query.get("status").is_none_or(|x| f["status"] == json!(x)))
+                    .take(query.get("limit").and_then(|l| l.parse().ok()).unwrap_or(usize::MAX))
+                    .collect();
+                (200, json!({ "flows": all, "nextCursor": null }))
+            }
+            (_, ["flows", id, rest @ ..]) => {
+                let Some((_, flow)) = state.flows.iter_mut().find(|(key, _)| key == id) else {
+                    return not_found("flow");
+                };
+                match (method, rest) {
+                    ("GET", []) => (200, flow.clone()),
+                    ("POST", [end @ ("complete" | "cancel")]) => {
+                        if flow["status"] != json!("open") {
+                            let message =
+                                format!("This flow is already {}.", flow["status"].as_str().unwrap_or("closed"));
+                            return (409, error("not_open", &message));
+                        }
+                        flow["status"] = json!(if *end == "complete" { "complete" } else { "cancelled" });
+                        flow["settledAt"] = json!(now());
+                        (200, flow.clone())
+                    }
+                    _ => not_simulated(method, path),
+                }
+            }
+
+            ("POST", ["tasks"]) => {
+                // An open objective already started under this reference
+                // comes back instead of a second one, as the API does.
+                if let Some(external_id) = body.get("externalId").and_then(Value::as_str) {
+                    if let Some((_, existing)) =
+                        state.tasks.iter().find(|(_, t)| t["externalId"] == json!(external_id) && task_active(t))
+                    {
+                        let mut data = existing.clone();
+                        data["resumed"] = json!(true);
+                        return (200, data);
+                    }
+                }
+                let id = format!("tsk_dev_{}", self.next());
+                let mut task_state = json!({ "currentState": null, "openQuestions": [], "constraints": [], "blockedBy": [], "nextAction": null });
+                merge_task_state(&mut task_state, body.get("state"));
+                let data = json!({
+                    "id": id,
+                    "kind": "objective",
+                    "status": "open",
+                    "url": format!("https://deliverd.dev/tasks/{id}"),
+                    "title": body.get("title").and_then(Value::as_str).unwrap_or("Untitled"),
+                    "objective": body.get("objective").and_then(Value::as_str).unwrap_or_default(),
+                    "rootTaskId": id,
+                    "parentTaskId": null,
+                    "depth": 0,
+                    "workspaceId": str_of("workspaceId"),
+                    "flowId": str_of("flowId"),
+                    "state": task_state,
+                    "snapshot": null,
+                    "result": null,
+                    "previousResults": [],
+                    "outcome": null,
+                    "origin": "manual",
+                    "externalId": str_of("externalId"),
+                    "sessionUrl": str_of("sessionUrl"),
+                    "version": 1,
+                    "startedBy": "You (development mode)",
+                    "createdAt": now(),
+                    "updatedAt": now(),
+                    "completedAt": null,
+                    "resumed": false,
+                });
+                if self.options.log {
+                    eprintln!(
+                        "\n  ▸ Objective: {}\n    {}\n",
+                        data["title"].as_str().unwrap_or_default(),
+                        data["url"].as_str().unwrap_or_default()
+                    );
+                }
+                state.tasks.push((id, data.clone()));
+                (201, data)
+            }
+            ("GET", ["tasks"]) => {
+                let q = query.get("q").map(|q| q.to_lowercase());
+                let all: Vec<Value> = state
+                    .tasks
+                    .iter()
+                    .rev()
+                    .map(|(_, t)| t.clone())
+                    .filter(|t| query.get("externalId").is_none_or(|x| t["externalId"] == json!(x)))
+                    .filter(|t| {
+                        query.get("status").is_none_or(|x| {
+                            if x == "active" {
+                                task_active(t)
+                            } else {
+                                t["status"] == json!(x)
+                            }
+                        })
+                    })
+                    .filter(|t| {
+                        q.as_ref().is_none_or(|q| {
+                            let text = format!(
+                                "{} {}",
+                                t["title"].as_str().unwrap_or_default(),
+                                t["objective"].as_str().unwrap_or_default()
+                            );
+                            text.to_lowercase().contains(q)
+                        })
+                    })
+                    .take(query.get("limit").and_then(|l| l.parse().ok()).unwrap_or(usize::MAX))
+                    .collect();
+                (200, json!({ "tasks": all, "nextCursor": null }))
+            }
+            (_, ["tasks", id, rest @ ..]) => {
+                let Some((_, task)) = state.tasks.iter_mut().find(|(key, _)| key == id) else {
+                    return not_found("task");
+                };
+                match (method, rest) {
+                    ("GET", []) => (200, task.clone()),
+                    ("GET", ["context"]) => (200, task_context(task)),
+                    ("PATCH", []) => {
+                        if let Some(expected) = body.get("expectedVersion").and_then(Value::as_u64) {
+                            if Some(expected) != task["version"].as_u64() {
+                                return (
+                                    409,
+                                    error(
+                                        "version_conflict",
+                                        "The task changed since you read it. Read it again and retry.",
+                                    ),
+                                );
+                            }
+                        }
+                        for key in ["title", "objective", "status"] {
+                            if let Some(value) = body.get(key).filter(|v| v.is_string()) {
+                                task[key] = value.clone();
+                            }
+                        }
+                        if let Some(value) = body.get("sessionUrl") {
+                            task["sessionUrl"] = value.clone();
+                        }
+                        merge_task_state(&mut task["state"], body.get("state"));
+                        bump_task(task);
+                        (200, task.clone())
+                    }
+                    ("POST", ["complete"]) => {
+                        if !task_active(task) {
+                            return (409, error("not_active", "This task is already finished."));
+                        }
+                        let strings = |key: &str| body.get(key).cloned().unwrap_or(json!([]));
+                        task["result"] = json!({
+                            "summary": body.get("summary").and_then(Value::as_str).unwrap_or_default(),
+                            "findings": strings("findings"),
+                            "decisions": strings("decisions"),
+                            "recommendations": strings("recommendations"),
+                            "unresolvedQuestions": strings("unresolvedQuestions"),
+                            "parentImpact": str_of("parentImpact"),
+                            "suggestedNextAction": str_of("suggestedNextAction"),
+                        });
+                        task["status"] = json!("completed");
+                        task["completedAt"] = json!(now());
+                        bump_task(task);
+                        (200, task.clone())
+                    }
+                    ("POST", ["reopen"]) => {
+                        if task["status"] != json!("completed") {
+                            return (409, error("not_completed", "Only a completed task can be reopened."));
+                        }
+                        let previous = task["result"].take();
+                        if let Some(list) = task["previousResults"].as_array_mut() {
+                            list.push(previous);
+                        }
+                        task["status"] = json!("open");
+                        task["completedAt"] = Value::Null;
+                        bump_task(task);
+                        (200, task.clone())
+                    }
+                    ("POST", ["cancel"]) => {
+                        if !task_active(task) {
+                            return (409, error("not_active", "This task is already finished."));
+                        }
+                        task["status"] = json!("cancelled");
+                        bump_task(task);
+                        (200, task.clone())
+                    }
+                    _ => not_simulated(method, path),
+                }
+            }
+
             _ => not_simulated(method, path),
         }
     }
@@ -679,6 +910,72 @@ fn public(gate: &Value) -> Value {
     out
 }
 
+/// Neither completed nor cancelled.
+fn task_active(task: &Value) -> bool {
+    task["status"] != json!("completed") && task["status"] != json!("cancelled")
+}
+
+fn bump_task(task: &mut Value) {
+    task["version"] = json!(task["version"].as_u64().unwrap_or(0) + 1);
+    task["updatedAt"] = json!(now());
+}
+
+/// A task's working state with a patch applied, as the API merges one:
+/// whole lists replace, `addOpenQuestions` and `resolveOpenQuestions` edit.
+fn merge_task_state(current: &mut Value, patch: Option<&Value>) {
+    let Some(patch) = patch.and_then(Value::as_object) else {
+        return;
+    };
+    for key in ["currentState", "nextAction", "openQuestions", "constraints", "blockedBy"] {
+        if let Some(value) = patch.get(key) {
+            current[key] = value.clone();
+        }
+    }
+    let mut questions: Vec<Value> = current["openQuestions"].as_array().cloned().unwrap_or_default();
+    for added in patch.get("addOpenQuestions").and_then(Value::as_array).into_iter().flatten() {
+        if !questions.contains(added) {
+            questions.push(added.clone());
+        }
+    }
+    if let Some(resolved) = patch.get("resolveOpenQuestions").and_then(Value::as_array) {
+        questions.retain(|q| !resolved.contains(q));
+    }
+    current["openQuestions"] = json!(questions);
+}
+
+/// The context of a development task: the objective first, as the API puts
+/// it, and no more than this store knows.
+fn task_context(task: &Value) -> Value {
+    let state = &task["state"];
+    json!({
+        "rootObjective": task["objective"],
+        "task": {
+            "id": task["id"],
+            "kind": task["kind"],
+            "status": task["status"],
+            "title": task["title"],
+            "objective": task["objective"],
+            "url": task["url"],
+        },
+        "path": [],
+        "currentState": state["currentState"],
+        "nextAction": state["nextAction"],
+        "openQuestions": state["openQuestions"],
+        "constraints": state["constraints"],
+        "blockedBy": state["blockedBy"],
+        "decisions": { "confirmed": [], "suggested": [] },
+        "snapshot": null,
+        "relevantFindings": [],
+        "sideTasks": { "open": [], "awaitingApply": [], "applied": [] },
+        "reports": [],
+        "reanchor": format!(
+            "The objective: {}. {}",
+            task["objective"].as_str().unwrap_or_default(),
+            state["nextAction"].as_str().map(|next| format!("Next: {next}")).unwrap_or_else(|| "No next action set.".into())
+        ),
+    })
+}
+
 fn now() -> String {
     iso_utc(SystemTime::now())
 }
@@ -697,7 +994,7 @@ fn not_simulated(method: &str, path: &str) -> (u16, Value) {
         error(
             "not_in_development_mode",
             &format!(
-                "Development mode simulates approvals, gates, reviews and requests for information only, and something called {method} {path}. Use a real API key for the rest of the API."
+                "Development mode simulates approvals, gates, reviews, requests for information, flows and tasks only, and something called {method} {path}. Use a real API key for the rest of the API."
             ),
         ),
     )

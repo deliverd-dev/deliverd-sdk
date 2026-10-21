@@ -294,6 +294,26 @@ export interface ApprovalQuestion {
   answeredAt: string | null;
 }
 
+/**
+ * Which agent is asking, as you describe it on a request. Every field is
+ * optional; name the ones you know.
+ */
+export interface RequestAgent {
+  /** What the agent is called, as people know it. */
+  name?: string;
+  /** Who makes or runs it: anthropic, openai, cursor, your own company. */
+  provider?: string;
+  /** Your own id for this agent. */
+  externalId?: string;
+}
+
+/** The agent a request declared, as the API returns it. */
+export interface DeclaredAgent {
+  name: string | null;
+  provider: string | null;
+  externalId: string | null;
+}
+
 export interface ApprovalData {
   id: string;
   status: ApprovalStatus;
@@ -340,6 +360,10 @@ export interface ApprovalData {
   note: string | null;
   expiresAt: string | null;
   questions: ApprovalQuestion[];
+  /** Which agent asked, as the request declared it. Null when it said nothing. Not verified. */
+  agent: DeclaredAgent | null;
+  /** The model the request said the agent was running on. Not verified. */
+  model: string | null;
   createdAt: string;
 }
 
@@ -379,6 +403,14 @@ export interface CreateApprovalInput {
    * siblings set this for you.
    */
   flowId?: string;
+  /**
+   * Which agent is asking, in your words. One key is often shared by
+   * several agents; this says which one was holding it. Recorded, returned
+   * and shown as declared — nothing is decided on it.
+   */
+  agent?: RequestAgent;
+  /** The model the agent is running on, such as `claude-opus-5`. Recorded as declared. */
+  model?: string;
   /**
    * Where to POST the outcome when a person answers, instead of polling:
    * HTTPS, and a public address. The call that makes the request returns the
@@ -767,7 +799,9 @@ export type WebhookEventName =
   /** Opt-in: a task moved into blocked, or a side task finished and its
    * result waits to be applied, kept or discarded. */
   | "task.blocked"
-  | "side_task.completed";
+  | "side_task.completed"
+  /** Opt-in: one audit log entry, with its chain position and hashes. For a SIEM. */
+  | "audit.event";
 
 export interface WebhookEvent {
   event: WebhookEventName;
@@ -907,6 +941,14 @@ export interface CreateReviewInput {
    */
   flowId?: string;
   /**
+   * Which agent is asking, in your words. One key is often shared by
+   * several agents; this says which one was holding it. Recorded, returned
+   * and shown as declared — nothing is decided on it.
+   */
+  agent?: RequestAgent;
+  /** The model the agent is running on, such as `claude-opus-5`. Recorded as declared. */
+  model?: string;
+  /**
    * Where to POST the outcome when a person answers, instead of polling:
    * HTTPS, and a public address. The call that makes the request returns the
    * secret its callbacks are signed with (`callbackSecret` on the handle).
@@ -948,6 +990,10 @@ export interface ReviewData {
   threadCount: number;
   settledAt: string | null;
   expiresAt: string | null;
+  /** Which agent asked, as the request declared it. Null when it said nothing. Not verified. */
+  agent: DeclaredAgent | null;
+  /** The model the request said the agent was running on. Not verified. */
+  model: string | null;
   createdAt: string;
 }
 
@@ -1030,6 +1076,14 @@ export interface CreateCollectionInput {
    */
   flowId?: string;
   /**
+   * Which agent is asking, in your words. One key is often shared by
+   * several agents; this says which one was holding it. Recorded, returned
+   * and shown as declared — nothing is decided on it.
+   */
+  agent?: RequestAgent;
+  /** The model the agent is running on, such as `claude-opus-5`. Recorded as declared. */
+  model?: string;
+  /**
    * Where to POST the outcome when a person answers, instead of polling:
    * HTTPS, and a public address. The call that makes the request returns the
    * secret its callbacks are signed with (`callbackSecret` on the handle).
@@ -1075,6 +1129,10 @@ export interface CollectionData {
   settledAt: string | null;
   dueAt: string | null;
   expiresAt: string | null;
+  /** Which agent asked, as the request declared it. Null when it said nothing. Not verified. */
+  agent: DeclaredAgent | null;
+  /** The model the request said the agent was running on. Not verified. */
+  model: string | null;
   createdAt: string;
 }
 

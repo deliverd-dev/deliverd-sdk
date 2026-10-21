@@ -11,7 +11,8 @@ use std::time::Duration;
 use deliverd::http::{BoxFuture, Transport, TransportError, TransportRequest, TransportResponse};
 use deliverd::webhooks::{verify_signature_at, TOLERANCE_SECONDS};
 use deliverd::{
-    parse_duration, Deliverd, DevelopmentOptions, DevelopmentOutcome, Gate, GateData, GateRequest, GateStatus,
+    parse_duration, Deliverd, DevelopmentOptions, DevelopmentOutcome, FlowRequest, Gate, GateData, GateRequest,
+    GateStatus, TaskCompletion, TaskRequest,
 };
 use serde_json::{json, Value};
 
@@ -225,4 +226,44 @@ async fn development_mode_offers_the_same_gate_outcomes() {
     }
     let default = outcomes["default"].as_str().unwrap();
     assert_eq!(DevelopmentOutcome::parse(default), Some(DevelopmentOutcome::default()));
+}
+
+#[tokio::test]
+async fn a_restarted_agent_picks_its_flow_up_and_never_a_closed_one() {
+    let case = &CASES["resume"]["flow"];
+    let deliverd = Deliverd::builder().development(DevelopmentOptions::default().quiet()).build().unwrap();
+    let request =
+        || FlowRequest::new(case["title"].as_str().unwrap()).external_id(case["externalId"].as_str().unwrap());
+
+    let mut first = deliverd.flows().resume(request()).await.unwrap();
+    assert!(first.open());
+    let again = deliverd.flows().resume(request()).await.unwrap();
+    assert_eq!(again.id() == first.id(), case["restartReturnsTheOpenFlow"].as_bool().unwrap(), "{}", case["why"]);
+
+    first.close().await.unwrap();
+    assert!(first.complete());
+    let after = deliverd.flows().resume(request()).await.unwrap();
+    assert_eq!(after.id() != first.id(), case["closedFlowStartsANewOne"].as_bool().unwrap(), "{}", case["why"]);
+    assert!(after.open());
+}
+
+#[tokio::test]
+async fn a_restarted_agent_picks_its_objective_up_and_says_so() {
+    let case = &CASES["resume"]["task"];
+    let deliverd = Deliverd::builder().development(DevelopmentOptions::default().quiet()).build().unwrap();
+    let request = || {
+        TaskRequest::new(case["title"].as_str().unwrap(), case["objective"].as_str().unwrap())
+            .external_id(case["externalId"].as_str().unwrap())
+    };
+
+    let mut first = deliverd.tasks().create(request()).await.unwrap();
+    assert!(!first.resumed());
+    let again = deliverd.tasks().create(request()).await.unwrap();
+    assert_eq!(again.id() == first.id(), case["restartReturnsTheOpenObjective"].as_bool().unwrap(), "{}", case["why"]);
+    assert_eq!(again.resumed(), case["resumedIsTrue"].as_bool().unwrap(), "{}", case["why"]);
+
+    first.complete(TaskCompletion::new("Done.")).await.unwrap();
+    let after = deliverd.tasks().create(request()).await.unwrap();
+    assert_eq!(after.id() != first.id(), case["completedObjectiveStartsANewOne"].as_bool().unwrap(), "{}", case["why"]);
+    assert!(!after.resumed());
 }

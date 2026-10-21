@@ -584,14 +584,16 @@ export function controlCommands(program: Command): void {
     .command("list", { isDefault: true })
     .description("Flows in this organisation")
     .option("--status <status>", "open | complete | cancelled")
+    .option("--ref <id>", "Only flows started with this reference, to find one before starting a second")
     .option("--limit <n>", "One page of this size instead of all of them")
     .option("--cursor <cursor>", "Continue from a previous page")
     .option("--json", "Print the result as JSON, for scripting")
     .action(
-      run(async (options: { status?: string; limit?: string; cursor?: string; json?: boolean }) => {
+      run(async (options: { status?: string; ref?: string; limit?: string; cursor?: string; json?: boolean }) => {
         const config = requireConfig();
         const { items, nextCursor } = await listing<Flow>(config, "/flows", "flows", {
           status: options.status,
+          externalId: options.ref,
           limit: options.limit ? Number(options.limit) : undefined,
           cursor: options.cursor,
         });

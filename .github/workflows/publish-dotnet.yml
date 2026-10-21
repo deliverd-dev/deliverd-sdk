@@ -1,0 +1,77 @@
+name: Publish .NET SDK
+
+# Tag-driven, so publishing is a deliberate act with a name on it rather than
+# something that happens because somebody merged.
+on:
+  push:
+    tags:
+      - "dotnet-v*"
+  # And by hand, for a re-run after a failed upload.
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # A GitHub environment, so a human approval can be required on it in the
+    # repository settings if you ever want one before an upload.
+    environment:
+      name: nuget
+      url: https://www.nuget.org/packages/Deliverd.AgentFramework
+    permissions:
+      contents: read
+      # Trusted Publishing: GitHub mints a short-lived OIDC token, nuget.org
+      # checks it against the policy configured there (owner deliverd-dev,
+      # repository deliverd-sdk, workflow `publish-dotnet.yml`, environment
+      # `nuget`) and hands back an API key that lasts an hour. No key is stored
+      # anywhere. NUGET_USER is the nuget.org profile name that owns the policy.
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/sdk-dotnet
+    steps:
+      - uses: actions/checkout@v4
+      # 8 for the runtime the packages and tests target, 10 for the SDK that
+      # reads Deliverd.slnx.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # The tests again. A release is the worst possible moment to find out
+      # something broke, and this job does not depend on CI having passed.
+      - name: Test
+        run: dotnet test Deliverd.slnx -c Release
+
+      # Checked here rather than discovered by nuget.org: the tag says which
+      # version this is meant to be.
+      - name: The tag and the version must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/dotnet-v}"
+          VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag says $TAG, Directory.Build.props says $VERSION."
+            exit 1
+          fi
+
+      - name: Pack
+        run: dotnet pack Deliverd.slnx -c Release -o "$RUNNER_TEMP/nupkgs"
+
+      # Both packages share one version, and the adapter depends on the client
+      # of that version, so they go up together. --skip-duplicate makes a re-run
+      # after a half-finished upload push only what is missing.
+      - name: NuGet login (OIDC to a one-hour key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push
+        run: |
+          dotnet nuget push "$RUNNER_TEMP/nupkgs/*.nupkg" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+          VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
+          echo "### Deliverd and Deliverd.AgentFramework $VERSION pushed to NuGet" >> "$GITHUB_STEP_SUMMARY"

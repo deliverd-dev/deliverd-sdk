@@ -7,6 +7,11 @@
 - `packages/sdk-python/tests/test_conformance.py`
 - `packages/sdk-rust/tests/conformance.rs`
 
+The .NET SDK reads it too, in
+`packages/sdk-dotnet/tests/Deliverd.Tests/ConformanceTests.cs`, every section
+but `resume`: it has no flows or tasks yet. The guard that holds every suite to
+the table names that exception, with why.
+
 A case added here fails in whichever language has not implemented it. That is
 the whole point, and it exists because everything else comparing the two
 packages compares **shapes** — exported names, namespaces, every field of every

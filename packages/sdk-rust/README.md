@@ -258,14 +258,44 @@ Every failure is a `DeliverdError` with the API's own `code()`, and
 are retried for you, honouring `Retry-After`; a 4xx is not, because it will be
 just as wrong in a second.
 
+## Flows and tasks
+
+A flow ties one job's approvals, reviews, requests and publishes together on
+one timeline; the app calls it a project. A task keeps the job's objective
+somewhere an agent can ask for it, apart from the conversation.
+
+```rust
+use deliverd::{ApprovalRequest, FlowRequest, TaskCompletion, TaskRequest};
+
+// The open flow for this reference, started if there is none, so a restarted
+// agent extends its job rather than starting a second.
+let mut flow = deliverd.flows().resume(FlowRequest::new("Release 4.2").external_id("release-4.2")).await?;
+deliverd.approve(ApprovalRequest::new("Deploy 4.2 to production").flow_id(flow.id())).await?;
+
+// With an external_id, the objective you already started comes back
+// (`task.resumed()`) instead of a second one.
+let mut task = deliverd
+    .tasks()
+    .create(TaskRequest::new("Ship 4.2", "Release 4.2 in production").external_id("ship-4.2").flow_id(flow.id()))
+    .await?;
+let context = task.context().await?; // the objective first, then where it stands
+task.complete(TaskCompletion::new("Shipped.")).await?;
+flow.close().await?;
+```
+
+`flows()` has `create`, `get`, `list`, `find_by_external_id`, `resume`,
+`complete` and `cancel`; `tasks()` has `create`, `get`, `list`,
+`find_by_external_id`, `update`, `complete`, `cancel` and `context`. Both work
+in development mode.
+
 ## The rest of the API
 
 `deliverd.http()` is the authenticated client, with the same retries and
 errors, for the parts of the API this crate has no named method for yet:
-flows, tasks, comments and schedules.
+side tasks, findings, governance, comments and schedules.
 
 ```rust
-let flows: serde_json::Value = deliverd.http().get("/flows").await?;
+let schedules: serde_json::Value = deliverd.http().get("/schedules").await?;
 ```
 
 ## Configuration

@@ -14,3 +14,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 *.egg-info/
+
+# packages/sdk-dotnet
+packages/sdk-dotnet/**/bin/
+packages/sdk-dotnet/**/obj/

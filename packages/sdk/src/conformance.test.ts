@@ -44,6 +44,24 @@ const CASES = JSON.parse(
     toleranceSeconds: number;
     cases: { name: string; header: string | null; now: number; verifies: boolean }[];
   };
+  resume: {
+    flow: {
+      title: string;
+      externalId: string;
+      restartReturnsTheOpenFlow: boolean;
+      closedFlowStartsANewOne: boolean;
+      why: string;
+    };
+    task: {
+      title: string;
+      objective: string;
+      externalId: string;
+      restartReturnsTheOpenObjective: boolean;
+      resumedIsTrue: boolean;
+      completedObjectiveStartsANewOne: boolean;
+      why: string;
+    };
+  };
 };
 
 /** A transport that always answers the same way, and counts how often it was asked. */
@@ -261,5 +279,37 @@ describe("the gate answers the same in both SDKs", () => {
     for (const outcome of CASES.gate.developmentOutcomes.outcomes) {
       expect(dev, `dev mode does not know "${outcome}"`).toContain(`"${outcome}"`);
     }
+  });
+});
+
+describe("a restarted agent picks its work up in every SDK", () => {
+  const RESUME = CASES.resume;
+  const offline = () => new Deliverd({ mode: "development", development: { log: false } });
+
+  it("resumes the open flow, and never a closed one", async () => {
+    const c = RESUME.flow;
+    const deliverd = offline();
+    const first = await deliverd.flows.resume({ title: c.title, externalId: c.externalId });
+    const again = await deliverd.flows.resume({ title: c.title, externalId: c.externalId });
+    expect(again.id === first.id, c.why).toBe(c.restartReturnsTheOpenFlow);
+    await first.close();
+    const after = await deliverd.flows.resume({ title: c.title, externalId: c.externalId });
+    expect(after.id !== first.id, c.why).toBe(c.closedFlowStartsANewOne);
+    expect(after.open).toBe(true);
+  });
+
+  it("returns the open objective, says it resumed, and starts anew once it is done", async () => {
+    const c = RESUME.task;
+    const deliverd = offline();
+    const input = { title: c.title, objective: c.objective, externalId: c.externalId };
+    const first = await deliverd.tasks.create(input);
+    expect(first.resumed).toBe(false);
+    const again = await deliverd.tasks.create(input);
+    expect(again.id === first.id, c.why).toBe(c.restartReturnsTheOpenObjective);
+    expect(again.resumed, c.why).toBe(c.resumedIsTrue);
+    await first.complete({ summary: "Done." });
+    const after = await deliverd.tasks.create(input);
+    expect(after.id !== first.id, c.why).toBe(c.completedObjectiveStartsANewOne);
+    expect(after.resumed).toBe(false);
   });
 });

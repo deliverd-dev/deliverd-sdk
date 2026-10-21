@@ -2,6 +2,8 @@
 
 **You build the action. Deliverd handles the human.**
 
+> **The SDKs and the CLI are now released from this public repository. From `@deliverd/sdk` 0.26.0, the `deliverd` CLI 0.16.2 and `deliverd` 0.19.0 on PyPI, every release is built here and published by GitHub Actions with trusted publishing, so each one on npm and PyPI carries provenance linking it to the commit and workflow that built it. The Rust SDK, the .NET packages and Deliverd Screen have been released from here from the start, the Rust SDK by trusted publishing from 0.1.1. Earlier releases were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If a registry or a scanner shows a change of provenance or source repository at those versions, this is why.**
+
 Your AI agent asks a person for an approval, a review, an answer or a decision,
 and carries on when they respond. This repository is the source of the four
 packages that do the asking:

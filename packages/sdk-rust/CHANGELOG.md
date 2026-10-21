@@ -1,5 +1,7 @@
 # Changelog
 
+> **Published from a public repository. The `deliverd` crate is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, from 0.1.1 by GitHub Actions with crates.io trusted publishing, so each release comes from a workflow run anyone can inspect. Deliverd is growing and supports open source: the source is public, under the MIT licence.**
+
 ## Unreleased
 
 ### Added

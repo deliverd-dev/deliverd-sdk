@@ -2,6 +2,8 @@
 
 You build the action. Deliverd handles the human.
 
+> **Now published from a public repository. From 0.16.2, the `deliverd` CLI is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Earlier versions were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.16.2, this is why.**
+
 The Deliverd CLI: ask a person from a build step, a pipeline or a script — for
 an approval, a review or an answer — and carry on when they reply. It also
 keeps long work on its objective, publishes what an AI wrote to a secure URL,

@@ -1,5 +1,7 @@
 # Changelog
 
+> **Published from a public repository. `Deliverd` and `Deliverd.AgentFramework` are built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, since their first release, by GitHub Actions with NuGet trusted publishing, so each release comes from a workflow run anyone can inspect. Deliverd is growing and supports open source: the source is public, under the MIT licence.**
+
 ## 0.1.0 (unreleased)
 
 The first release, as two packages.

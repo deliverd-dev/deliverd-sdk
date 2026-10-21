@@ -3,6 +3,8 @@
 **You build the action. Deliverd handles the human.** Ask a person, wait for
 the answer, act on it.
 
+> **Published from a public repository. The `deliverd` crate is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, from 0.1.1 by GitHub Actions with crates.io trusted publishing, so each release comes from a workflow run anyone can inspect. Deliverd is growing and supports open source: the source is public, under the MIT licence.**
+
 [Create a free account](https://deliverd.dev/sign-up?utm_source=crates&utm_medium=package&utm_campaign=rust-sdk&utm_content=readme) ·
 [Website](https://deliverd.dev/?utm_source=crates&utm_medium=package&utm_campaign=rust-sdk&utm_content=readme) ·
 [Quickstart](https://deliverd.dev/quickstart?utm_source=crates&utm_medium=package&utm_campaign=rust-sdk&utm_content=readme) ·

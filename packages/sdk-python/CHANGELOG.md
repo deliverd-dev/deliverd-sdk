@@ -1,5 +1,7 @@
 # Changelog
 
+> **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
+
 ## 0.19.1
 
 A patch. 0.19.0 went to PyPI on 21 October 2026 from 80475ec.

@@ -1777,6 +1777,530 @@ export interface GovernanceGate {
   blockers: GovernanceBlocker[];
 }
 
+/*
+ * The rest of Compliance Mode: the register of AI systems, what an agent may
+ * do on its own, AI incidents and their DORA reports, the frameworks and how
+ * they map onto controls, the ICT third-party register, the organisation's
+ * governance in counts, and a governed task's evidence pack. Business and
+ * Enterprise; a plan without it is refused with `feature_unavailable`.
+ */
+
+export type GovernanceRisk = "low" | "medium" | "high" | "critical";
+export type GovernanceOversight = NonNullable<GovernanceProfileInput["oversight"]>;
+export type DataClassification = NonNullable<GovernanceProfileInput["dataClassification"]>;
+
+/** Something governed work does, for the authority check. */
+export type AuthorityAction =
+  | "read"
+  | "analyse"
+  | "recommend"
+  | "draft"
+  | "modify"
+  | "execute"
+  | "publish"
+  | "deploy"
+  | "send"
+  | "delete"
+  | "financial_action"
+  | "customer_decision";
+
+/** One entry in the organisation's register of AI systems. */
+export interface AiSystem {
+  id: string;
+  orgId: string;
+  name: string;
+  provider: string | null;
+  model: string | null;
+  modelVersion: string | null;
+  /** A digest of the prompt it runs with, never the prompt. */
+  promptHash: string | null;
+  /** A digest of its guardrail configuration. */
+  guardrailsHash: string | null;
+  purpose: string | null;
+  businessOwner: string | null;
+  technicalOwner: string | null;
+  environment: "development" | "pilot" | "production";
+  risk: GovernanceRisk;
+  oversight: GovernanceOversight | null;
+  dataClassification: DataClassification | null;
+  personalData: boolean;
+  customerFacing: boolean;
+  status: "active" | "retired";
+  /** The contract in the ICT third-party register it runs under. */
+  ictArrangementId: string | null;
+  createdByLabel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RegisterAiSystemInput {
+  name: string;
+  /** OpenAI, Anthropic, an internal team… */
+  provider?: string | null;
+  model?: string | null;
+  modelVersion?: string | null;
+  /** A digest of the prompt (`sha256:…`, a commit, a version tag), never the prompt. */
+  promptHash?: string | null;
+  /** A digest of the guardrail configuration, never the configuration. */
+  guardrailsHash?: string | null;
+  purpose?: string | null;
+  businessOwner?: string | null;
+  technicalOwner?: string | null;
+  environment?: AiSystem["environment"];
+  risk?: GovernanceRisk;
+  oversight?: GovernanceOversight | null;
+  dataClassification?: DataClassification | null;
+  personalData?: boolean;
+  customerFacing?: boolean;
+  /** The contract in the ICT third-party register it runs under. */
+  ictArrangementId?: string | null;
+}
+
+/** An agent may raise a system's risk but not lower it, and may not retire it. */
+export interface UpdateAiSystemInput extends Partial<RegisterAiSystemInput> {
+  status?: AiSystem["status"];
+}
+
+/** One AI system, and the governed tasks that name it. */
+export interface AiSystemDetail {
+  system: AiSystem;
+  governedTaskIds: string[];
+}
+
+/** A new provider, model, version, prompt or guardrails for a system. Name at least one. */
+export interface ModelChangeInput {
+  provider?: string | null;
+  model?: string | null;
+  modelVersion?: string | null;
+  promptHash?: string | null;
+  guardrailsHash?: string | null;
+  /** What changed and why, for the record. */
+  note?: string;
+}
+
+export interface ModelChangeResult {
+  system: AiSystem;
+  /** The reassessment opened on each governed task that uses it. */
+  reassessments: Reassessment[];
+  /** Which of provider, model, modelVersion, promptHash and guardrailsHash changed. */
+  changed: string[];
+}
+
+/** A governed task's reassessment. Its governance gate stays closed until a person completes it. */
+export interface Reassessment {
+  id: string;
+  taskId: string;
+  trigger: "profile_change" | "model_change" | "framework_version" | "policy_version" | "incident" | "manual";
+  changes: { field: string; before: unknown; after: unknown; label: string }[];
+  /** Controls to look at again. */
+  recheck: string[];
+  reason: string;
+  status: "open" | "completed";
+  openedByLabel: string;
+  openedByAgentId: string | null;
+  openedAt: string;
+  completedByLabel: string | null;
+  completedAt: string | null;
+  completionNote: string | null;
+}
+
+export interface ReassessmentResult {
+  reassessment: Reassessment;
+  governance: Governance;
+}
+
+/** What an agent may do: on its own, only with a person's approval, or not at all. */
+export interface AuthorityDecision {
+  action: AuthorityAction;
+  mode: "allowed" | "approval" | "denied";
+  /** Which setting decided it: the organisation's, the agent's own, or the default. */
+  source: "organisation" | "agent" | "default";
+  reason: string;
+  agentId: string | null;
+  agentName: string | null;
+}
+
+export interface CheckAuthorityInput {
+  action: AuthorityAction;
+  /** An agent of this organisation; the agent whose key this is when omitted. */
+  agentId?: string;
+}
+
+export interface ReportIncidentInput {
+  /** The governed task it concerns. Give this, `aiSystemId`, or both. */
+  taskId?: string;
+  /** The AI system it concerns; the task's own when only `taskId` is given. */
+  aiSystemId?: string;
+  title: string;
+  description?: string;
+  /** `high` or `critical` closes the task's governance gate until a person resolves it. */
+  severity: GovernanceRisk;
+  /** When the organisation became aware of it, if earlier than now. DORA's clocks start here. */
+  detectedAt?: string;
+}
+
+/** A DORA classification a person recorded. */
+export interface DoraClassification {
+  facts: Record<string, unknown>;
+  major: boolean;
+  criteria: { criterion: string; met: boolean; detail: string }[];
+  /** The verdict in a sentence. */
+  reason: string;
+  /** Which version of the rules worked it out. */
+  rules: string;
+}
+
+export interface AiIncident {
+  id: string;
+  taskId: string | null;
+  aiSystemId: string | null;
+  title: string;
+  description: string;
+  severity: GovernanceRisk;
+  status: "open" | "resolved";
+  reportedByLabel: string;
+  reportedByAgentId: string | null;
+  reportedAt: string;
+  resolution: string | null;
+  resolvedByLabel: string | null;
+  resolvedAt: string | null;
+  detectedAt: string;
+  /** Null until a person classifies it. */
+  dora: DoraClassification | null;
+  /** When it was first classified major; the reporting clock runs from here. */
+  doraMajorAt: string | null;
+  doraClassifiedAt: string | null;
+  doraClassifiedBy: string | null;
+}
+
+export type DoraReportKind = "initial" | "intermediate" | "final" | "reclassification";
+
+export interface IncidentReport {
+  id: string;
+  incidentId: string;
+  kind: DoraReportKind;
+  content: string;
+  fields: Record<string, unknown>;
+  approvalId: string | null;
+  /** The sign-off approval's state; null when none was asked for. */
+  approvalStatus: string | null;
+  submittedAt: string | null;
+  submittedByLabel: string | null;
+  authorityReference: string | null;
+  createdByLabel: string;
+  createdByAgentId: string | null;
+  createdAt: string;
+}
+
+export interface ReportingStep {
+  kind: DoraReportKind;
+  /** Null until the step before it is done. */
+  dueAt: string | null;
+  submittedAt: string | null;
+  overdue: boolean;
+  late: boolean;
+}
+
+/** Which DORA report is due next and by when. Nothing is due unless the incident is classified major. */
+export interface ReportingSchedule {
+  required: boolean;
+  steps: ReportingStep[];
+  next: ReportingStep | null;
+}
+
+/** One incident with its reports and reporting schedule. */
+export interface AiIncidentDetail {
+  id: string;
+  taskId: string | null;
+  aiSystemId: string | null;
+  title: string;
+  description: string;
+  severity: GovernanceRisk;
+  status: "open" | "resolved";
+  reportedByLabel: string;
+  reportedByAgentId: string | null;
+  reportedAt: string;
+  resolution: string | null;
+  resolvedByLabel: string | null;
+  resolvedAt: string | null;
+  detectedAt: string;
+  /** Null until a person classifies it. */
+  dora: DoraClassification | null;
+  /** When it was first classified major; the reporting clock runs from here. */
+  doraMajorAt: string | null;
+  doraClassifiedAt: string | null;
+  doraClassifiedBy: string | null;
+  url: string;
+  reports: IncidentReport[];
+  schedule: ReportingSchedule;
+  /** Notified as major, now classified as not, and the authority not yet told. */
+  reclassificationOwed: boolean;
+}
+
+export interface ListIncidentsInput {
+  status?: "open" | "resolved";
+  aiSystemId?: string;
+  /** One page of this size. Leave it unset to get every row. */
+  limit?: number;
+  cursor?: string;
+}
+
+export interface DraftIncidentReportInput {
+  kind: DoraReportKind;
+  /** What the report says, for the person who signs it off and for the authority. */
+  content: string;
+  /**
+   * The report's structured fields. initial: discoveredBy, memberStates,
+   * originatedAtThirdParty, businessContinuityActivated; intermediate:
+   * incidentType, occurredAt, recoveredAt, authorityReference, clientsAffected,
+   * figuresAreEstimates, temporaryMeasures; final: rootCause,
+   * rootCauseAddressedAt, resolvedAt, grossCostsEur, financialRecoveriesEur;
+   * reclassification: reason.
+   */
+  fields?: Record<string, unknown>;
+  /** Who signs it off; the organisation's administrators when omitted. */
+  approvers?: string[];
+}
+
+export interface DraftedIncidentReport {
+  incident: AiIncidentDetail;
+  reportId: string;
+  approvalId: string;
+  approvalUrl: string;
+}
+
+/** Conditions on a governance profile under which a requirement applies. Every one given must hold. */
+export interface RequirementAppliesWhen {
+  minRisk?: GovernanceRisk;
+  personalData?: boolean;
+  customerFacing?: boolean;
+  productionUse?: boolean;
+  decisionImpact?: NonNullable<GovernanceProfileInput["decisionImpact"]>[];
+}
+
+export interface FrameworkRequirement {
+  /** The framework's own reference: an article, a clause. */
+  ref: string;
+  title: string;
+  /** Controls that evidence it: common ones, or the organisation's own `custom_` controls. */
+  controls: string[];
+  appliesWhen?: RequirementAppliesWhen;
+}
+
+export interface FrameworkSummary {
+  key: string;
+  name: string;
+  version: string;
+  versions: string[];
+  source: string;
+  summary: string;
+  jurisdictions: string[];
+  builtIn: boolean;
+  status: "published" | "draft" | "retired";
+  requirements: FrameworkRequirement[];
+  /** Whether and at which version the organisation applies it. */
+  adoption: { frameworkKey: string; version: string; active: boolean; adoptedByLabel: string; adoptedAt: string; updatedAt: string } | null;
+}
+
+export interface CustomFramework {
+  id: string;
+  key: string;
+  version: string;
+  name: string;
+  summary: string;
+  jurisdictions: string[];
+  requirements: FrameworkRequirement[];
+  status: "draft" | "published" | "retired";
+  effectiveFrom: string | null;
+  publishedAt: string | null;
+  publishedByLabel: string | null;
+  createdByLabel: string;
+  createdByAgentId: string | null;
+  createdAt: string;
+}
+
+export interface CustomControl {
+  id: string;
+  key: string;
+  title: string;
+  description: string;
+  family: string;
+  satisfiedBy: "evidence" | "approval";
+  status: "active" | "retired";
+  createdByLabel: string;
+  createdAt: string;
+}
+
+/** Every framework the organisation can see: the built-in packs and its own. */
+export interface FrameworkCatalogue {
+  frameworks: FrameworkSummary[];
+  /** The organisation's own frameworks, every version (Enterprise). */
+  custom: CustomFramework[];
+  customControls: CustomControl[];
+  canAdopt: boolean;
+  canWriteCustom: boolean;
+  statement: string;
+}
+
+/** An organisation's own framework (Enterprise). A draft adds nothing until a person publishes and applies it. */
+export interface CreateCustomFrameworkInput {
+  /** `custom_` followed by lower case letters, digits and underscores. */
+  key: string;
+  /** e.g. `1.0` or `2026.10`. A change to a published framework is a new version. */
+  version: string;
+  name: string;
+  summary?: string;
+  jurisdictions?: string[];
+  /** An ISO date. */
+  effectiveFrom?: string;
+  requirements: FrameworkRequirement[];
+}
+
+export interface RequirementCoverage {
+  ref: string;
+  title: string;
+  applies: boolean;
+  controls: { key: string; status: "outstanding" | "satisfied" | "waived" | "missing" }[];
+  /** Every mapped control satisfied or waived. Not "compliant": covered by controls that are done. */
+  covered: boolean;
+}
+
+/** How requirements map onto controls and, for a task, how far its controls cover each. Never a compliance verdict. */
+export interface FrameworkMapping {
+  taskId: string | null;
+  frameworks: {
+    key: string;
+    name: string;
+    version: string;
+    source: string;
+    /** Adopted by the organisation and so adding controls to the task. */
+    applied: boolean;
+    applies: boolean;
+    covered: number;
+    applicable: number;
+    requirements: RequirementCoverage[];
+  }[];
+  statement: string;
+}
+
+export interface FrameworkMappingInput {
+  /** A governed task, to see how far its controls cover each requirement. */
+  taskId?: string;
+  /** One framework's key. */
+  framework?: string;
+}
+
+/** An entry in the ICT third-party register, with what it still lacks. Its other fields follow the DORA register templates. */
+export interface IctRegisterEntry {
+  id: string;
+  gaps: unknown[];
+  [field: string]: unknown;
+}
+
+/** The ICT third-party register, kept by a person in the app. Read-only here. */
+export interface IctRegister {
+  entity: Record<string, unknown> | null;
+  providers: (IctRegisterEntry & { name: string })[];
+  arrangements: (IctRegisterEntry & { providerId: string; providerName: string; aiSystems: { id: string; name: string; environment: AiSystem["environment"] }[] })[];
+  /** How many AI systems, and which critical or important functions, depend on each provider. */
+  concentration: Record<string, unknown>[];
+  /** Active AI systems not yet linked to an arrangement. */
+  unregisteredSystems: { id: string; name: string; environment: AiSystem["environment"] }[];
+  /** Which version of the regulation's lists this follows. */
+  rules: string;
+}
+
+export interface GovernanceSummaryInput {
+  aiSystemId?: string;
+  risk?: GovernanceRisk;
+  owner?: string;
+  provider?: string;
+  dataClassification?: string;
+  /** Enterprise. */
+  jurisdiction?: string;
+  /** Enterprise: tasks held to this framework. */
+  framework?: string;
+}
+
+/** The organisation's AI governance in counts. Never a compliance percentage. */
+export interface GovernanceSummary {
+  aiSystems: number;
+  production: number;
+  elevatedOrHighRisk: number;
+  governedTasks: number;
+  outstandingControls: number;
+  approvalsPending: number;
+  expiredExceptions: number;
+  openIncidents: number;
+  tasksRequiringReview: number;
+  systemsRequiringReview: number;
+  tasks: {
+    taskId: string;
+    title: string;
+    risk: GovernanceRisk;
+    aiSystem: string | null;
+    controls: { required: number; outstanding: number };
+    reassessmentOpen: boolean;
+    reviewOverdue: boolean;
+  }[];
+  filters: GovernanceSummaryInput;
+  advancedFilters: boolean;
+}
+
+/**
+ * A governed task's evidence pack: profile, controls, evidence, task graph,
+ * decisions, approvals and the audit timeline, with a digest. It assists
+ * audit; it does not certify compliance. Every export is audited.
+ */
+export interface GovernancePack {
+  packKind: "ai_governance";
+  packVersion: number;
+  generatedAt: string;
+  generatedBy: string;
+  organisation: { id: string; name: string };
+  statement: string;
+  subject: { taskId: string; title: string; objective: string; url: string };
+  aiSystem: AiSystem | null;
+  profile: GovernanceProfileInput & { requiredByPolicy: boolean };
+  readiness: GovernanceReadiness;
+  gate: GovernanceGate;
+  controls: GovernanceControl[];
+  evidence: GovernanceEvidence[];
+  frameworks: (GovernanceFramework & { requirements: RequirementCoverage[] })[];
+  frameworkStatement: string | null;
+  policies: Record<string, unknown>[];
+  exceptions: Record<string, unknown>[];
+  review: Record<string, unknown>;
+  reassessments: Reassessment[];
+  incidents: AiIncident[];
+  thirdParty: Record<string, unknown> | null;
+  doraReporting: Record<string, unknown>[];
+  taskGraph: { id: string; parentTaskId: string | null; kind: string; title: string; status: string; outcome: string | null; result: string | null }[];
+  findings: { taskId: string; kind: string; title: string; body: string; decisionStatus: string | null; decidedBy: string | null; recordedBy: string; at: string }[];
+  approvals: { id: string; status: string; for: string }[];
+  timeline: { at: string; event: string; actor: string; actorType: string; metadata: Record<string, unknown> }[];
+  integrity: { algorithm: "sha256"; digest: string; covers: string; doesNotCover: string };
+}
+
+export interface UpdateGovernanceProfileInput extends GovernanceProfileInput {
+  /** The version you read; refused if somebody wrote in between. */
+  expectedVersion?: number;
+}
+
+export interface ControlApprovalInput {
+  /** Emails, names or groups; the organisation's administrators when omitted. */
+  approvers?: string[];
+  note?: string;
+  /** An ISO time. */
+  expiresAt?: string;
+}
+
+export interface ControlApprovalResult {
+  governance: Governance;
+  approvalId: string;
+  approvalUrl: string;
+}
+
 export interface ListTasksInput {
   /** A status, or `active` for anything not completed or cancelled. */
   status?: TaskStatus | "active";
@@ -1971,4 +2495,53 @@ export interface CallbackEnvelope {
   requestType: "approval" | "review" | "collection" | "gate";
   requestId: string;
   data: Record<string, unknown>;
+}
+
+// ── Screening ──────────────────────────────────────────────────────────────
+
+/** `allow` | `redact` | `ask` | `deny`: what may happen to text bound for a model. */
+export type ScreenVerdict = "allow" | "redact" | "ask" | "deny";
+
+/** The AI register's record for the model the text is going to. */
+export interface ScreenTargetData {
+  aiSystemId: string;
+  name: string;
+  /** The highest classification it is approved to receive; null when the record does not say. */
+  approvedClassification: string | null;
+  personalData: boolean;
+}
+
+/** Where one finding is in the text you screened. Never its value. */
+export interface ScreenFindingData {
+  kind: string;
+  label: string;
+  start: number;
+  end: number;
+}
+
+export interface ScreenApprovalRef {
+  id: string;
+  url: string;
+  status: string;
+}
+
+/** What `POST /screen` answers: the verdict, and why. */
+export interface ScreenData {
+  verdict: ScreenVerdict;
+  /** Whether the text may be sent now: as it is for `allow`, redacted for `redact`. */
+  allowed: boolean;
+  classification: "public" | "internal" | "confidential" | "restricted";
+  personalData: boolean;
+  categories: string[];
+  /** What was found, by kind. */
+  counts: Record<string, number>;
+  /** The kinds behind the verdict: what redaction replaces. */
+  offending: string[];
+  reasons: string[];
+  target: ScreenTargetData | null;
+  /** Only when the server read the text. The SDK screens locally, so this is null from `screen()`. */
+  findings: ScreenFindingData[] | null;
+  redactedText: string | null;
+  /** The approval a person decides, for an `ask` verdict. */
+  approval: ScreenApprovalRef | null;
 }

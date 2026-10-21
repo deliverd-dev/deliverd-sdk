@@ -32,9 +32,11 @@ from ._wire import body_from
 from .paging import Page, list_or_collect
 from .types import (
     AppliedSideTask,
+    ControlApprovalResult,
     DecisionApproval,
     Governance,
     GovernanceGateCheck,
+    ReassessmentResult,
     TaskContext,
     TaskData,
     TaskFinding,
@@ -186,6 +188,34 @@ class Task:
     def check_governance_gate(self, action: Optional[str] = None) -> GovernanceGateCheck:
         """Whether the governed work may proceed. Ask before deploying, sending or acting on the result."""
         return Tasks(self._http).check_governance_gate(self._data.id, action=action)
+
+    def govern(self, **profile: Any) -> Governance:
+        """Govern it (Compliance Mode). Takes what :meth:`Tasks.govern` takes."""
+        return Tasks(self._http).govern(self._data.id, **profile)
+
+    def update_governance_profile(self, **changes: Any) -> Governance:
+        """Change its governance profile. Takes what :meth:`Tasks.update_governance_profile` takes."""
+        return Tasks(self._http).update_governance_profile(self._data.id, **changes)
+
+    def request_control_approval(
+        self,
+        control: str,
+        approvers: Optional[Sequence[str]] = None,
+        note: Optional[str] = None,
+        expires_at: Optional[str] = None,
+    ) -> ControlApprovalResult:
+        """Put an approval control to a person through the organisation's approval process."""
+        return Tasks(self._http).request_control_approval(
+            self._data.id, control, approvers=approvers, note=note, expires_at=expires_at
+        )
+
+    def trigger_reassessment(self, reason: str) -> ReassessmentResult:
+        """Ask for it to be reassessed (Enterprise). The gate stays closed until a person completes it."""
+        return Tasks(self._http).trigger_reassessment(self._data.id, reason)
+
+    def evidence_pack(self) -> Dict[str, Any]:
+        """Its evidence pack, with a digest. It assists audit; it does not certify compliance."""
+        return Tasks(self._http).evidence_pack(self._data.id)
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return "<Task {} {} {}>".format(self._data.id, self._data.kind, self._data.status)
@@ -511,3 +541,71 @@ class Tasks:
             self._http.request("GET", _path(task_id, "governance", "gate"), query={"action": action})
         )
 
+    def govern(self, task_id: str, **profile: Any) -> Governance:
+        """Govern an objective (Compliance Mode, Business and Enterprise).
+
+        Takes the profile as far as it is known, each optional: ``ai_system_id``,
+        ``purpose``, ``business_owner``, ``technical_owner``, ``risk``,
+        ``data_classification``, ``personal_data``, ``sensitive_data``,
+        ``customer_facing``, ``production_use``, ``critical_function``,
+        ``autonomy``, ``decision_impact``, ``oversight`` and ``jurisdictions``.
+        Idempotent: an objective already governed answers with its governance.
+        A side task's id answers for its objective.
+        """
+        return Governance.from_wire(
+            self._http.request("POST", _path(task_id, "governance"), body=body_from(profile))
+        )
+
+    def update_governance_profile(self, task_id: str, **changes: Any) -> Governance:
+        """Change a governed task's profile: any field :meth:`govern` takes, and ``expected_version``.
+
+        An agent may raise risk or add facts; only a person lowers or clears
+        them. With ``expected_version``, refused if somebody wrote in between.
+        """
+        return Governance.from_wire(
+            self._http.request("PATCH", _path(task_id, "governance"), body=body_from(changes))
+        )
+
+    def request_control_approval(
+        self,
+        task_id: str,
+        control: str,
+        approvers: Optional[Sequence[str]] = None,
+        note: Optional[str] = None,
+        expires_at: Optional[str] = None,
+    ) -> ControlApprovalResult:
+        """Put an approval control (a compliance or deployment approval) to a person.
+
+        Through the organisation's approval process; the control is satisfied
+        when that approval is approved. ``approvers`` defaults to the
+        organisation's administrators. Needs ``approvals:write``.
+        """
+        body = body_from(
+            {
+                "approvers": list(approvers) if approvers is not None else None,
+                "note": note,
+                "expires_at": expires_at,
+            }
+        )
+        return ControlApprovalResult.from_wire(
+            self._http.request("POST", _path(task_id, "governance", "controls", control, "approval"), body=body)
+        )
+
+    def trigger_reassessment(self, task_id: str, reason: str) -> ReassessmentResult:
+        """Ask for a governed task to be reassessed (Enterprise).
+
+        Its governance gate stays closed until a person completes the
+        reassessment in Deliverd.
+        """
+        return ReassessmentResult.from_wire(
+            self._http.request("POST", _path(task_id, "governance", "reassessments"), body={"reason": reason})
+        )
+
+    def evidence_pack(self, task_id: str) -> Dict[str, Any]:
+        """A governed task's evidence pack, as the API's own dict.
+
+        Profile, controls, evidence, task graph, decisions, approvals and the
+        audit timeline, with a digest. It assists audit; it does not certify
+        compliance. Every export is audited.
+        """
+        return self._http.request("GET", _path(task_id, "governance", "pack"))

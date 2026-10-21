@@ -37,6 +37,7 @@ from typing import Any, Dict, Optional, Sequence
 from ._http import DEFAULT_BASE_URL, HttpClient, Transport
 from .approvals import FAST_POLL_SCHEDULE, POLL_SCHEDULE, Approval, Approvals, DecisionSessions
 from .gates import Gate, Gates
+from .governance import AiGovernance, AiSystems, Incidents
 from .collections import Collection, Collections
 from .comments import Comments
 from .dev import DevelopmentOptions, development_transport
@@ -49,6 +50,8 @@ from .reviews import Review, Reviews
 from .schedules import Schedules
 from .tasks import Task, Tasks
 from .webhook_endpoints import WebhookEndpoints
+from .screen import Screened, request_body as _screen_body, settle as _screen_settle
+from .data_screen import ScreenTerm, redact, restore, screen_text, summarise
 from .types import (
     APPROVAL_RISKS,
     APPROVAL_STATUSES,
@@ -93,6 +96,7 @@ from .types import (
     InlineFile,
     OpenThread,
     PublishResult,
+    ScreenData,
     Question,
     ReportData,
     ReviewData,
@@ -142,6 +146,19 @@ from .types import (
     GovernanceGateCheck,
     GovernanceFramework,
     Governance,
+    AiSystem,
+    AiSystemDetail,
+    Reassessment,
+    ModelChangeResult,
+    ReassessmentResult,
+    ControlApprovalResult,
+    AuthorityDecision,
+    AiIncident,
+    IncidentReport,
+    ReportingStep,
+    ReportingSchedule,
+    AiIncidentDetail,
+    DraftedIncidentReport,
     WebhookEndpoint,
     CreatedWebhookEndpoint,
     WebhookTestResult,
@@ -170,6 +187,12 @@ DEVELOPMENT_TIMEOUT = 2.0
 __all__ = [
     "Deliverd",
     "deliverd",
+    "Screened",
+    "ScreenTerm",
+    "screen_text",
+    "redact",
+    "restore",
+    "summarise",
     "Decision",
     "GateDecision",
     "ReviewOutcome",
@@ -186,6 +209,9 @@ __all__ = [
     "Flows",
     "Task",
     "Tasks",
+    "AiGovernance",
+    "AiSystems",
+    "Incidents",
     "Comments",
     "Schedules",
     "Reports",
@@ -265,6 +291,19 @@ __all__ = [
     "GovernanceGateCheck",
     "GovernanceFramework",
     "Governance",
+    "AiSystem",
+    "AiSystemDetail",
+    "Reassessment",
+    "ModelChangeResult",
+    "ReassessmentResult",
+    "ControlApprovalResult",
+    "AuthorityDecision",
+    "AiIncident",
+    "IncidentReport",
+    "ReportingStep",
+    "ReportingSchedule",
+    "AiIncidentDetail",
+    "DraftedIncidentReport",
     "WebhookEndpoint",
     "CreatedWebhookEndpoint",
     "WebhookTestResult",
@@ -365,6 +404,7 @@ class Deliverd:
         self.tasks = Tasks(self.http, self)
         self.webhooks = Webhooks()
         self.webhook_endpoints = WebhookEndpoints(self.http)
+        self.governance = AiGovernance(self.http)
 
     # ── the four verbs ─────────────────────────────────────────────────────
 
@@ -590,6 +630,48 @@ class Deliverd:
             idempotency_key=idempotency_key,
         )
         return collection.wait(**self._wait_args(None, on_poll, timeout, cancel)).to_collected()
+
+    def screen(
+        self,
+        text: str,
+        ai_system_id: Optional[str] = None,
+        purpose: Optional[str] = None,
+        external_id: Optional[str] = None,
+        terms: Optional[Sequence[Any]] = None,
+        wait: bool = True,
+        timeout: Optional[Duration] = None,
+        cancel: Optional[threading.Event] = None,
+    ) -> Screened:
+        """Check text before it goes to an AI model, and wait if a person has to decide.
+
+        The detectors run here, so the text never leaves your machine: Deliverd
+        is told only what was found, by kind, and answers from what your AI
+        register approves that model to receive.
+
+            screened = deliverd.screen(prompt, ai_system_id=CLAIMS_MODEL)
+            if not screened.allowed:
+                return screened.reasons
+            answer = model.generate(screened.text)
+            return screened.restore(answer)
+
+        ``allow`` sends it as it is; ``redact`` gives ``screened.text`` with the
+        findings replaced by placeholders, and ``restore()`` puts them back in
+        the answer; ``ask`` puts it to a person and waits; ``deny`` sends
+        nothing. ``terms`` are your own words not to send — clients, code
+        names — as strings, dicts or :class:`ScreenTerm`. A net, not a
+        guarantee: names in particular are not reliably found.
+        """
+        body, findings = _screen_body(text, terms, ai_system_id, purpose, external_id)
+        data = ScreenData.from_wire(self.http.request("POST", "/screen", body=body))
+        settled = _screen_settle(data, text, findings)
+        if settled is not None:
+            return settled
+        if data.approval is None or not wait:
+            return Screened(data, None, False, {})
+        approval = self.approvals.get(data.approval.id).wait(**self._wait_args(None, None, timeout, cancel))
+        if approval.approved:
+            return Screened(data, text, True, {}, approval)
+        return Screened(data, None, False, {}, approval)
 
     def publish(self, **kwargs: Any) -> PublishResult:
         """Publish HTML to a secure URL. The other half of the product, one call in."""

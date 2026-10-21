@@ -7,6 +7,28 @@ this was opened as 0.18.2, and it carries that patch's change too.
 
 ### Added
 
+- **`deliverd.governance`, the rest of Compliance Mode**, sync and async, as
+  in the TypeScript SDK. `ai_systems.list`, `get`, `register`, `update` and
+  `record_model_change`; `check_authority(action)`; `incidents.report`, `get`,
+  `list`, `list_page` and `draft_report`; and `frameworks()`,
+  `framework_mapping()`, `create_custom_framework()`, `ict_register()` and
+  `summary()`, which return the API's own dicts. On tasks, `govern`,
+  `update_governance_profile`, `request_control_approval`,
+  `trigger_reassessment` and `evidence_pack`. New models: `AiSystem`,
+  `AiSystemDetail`, `AuthorityDecision`, `AiIncident`, `AiIncidentDetail`,
+  `IncidentReport`, `ReportingSchedule`, `ReportingStep`,
+  `DraftedIncidentReport`, `Reassessment`, `ReassessmentResult`,
+  `ModelChangeResult` and `ControlApprovalResult`.
+- **`deliverd.screen(text, ai_system_id=...)`**, the pre-send check: before
+  text goes to an AI model, find the email addresses, phone numbers, IBANs,
+  card numbers, national identifiers, secrets, special-category data and your
+  own terms in it, and ask Deliverd whether that model may receive them. The
+  detectors run in the SDK, so only counts by kind are sent, never the text.
+  `allow` sends it as it is; `redact` gives `screened.text` with placeholders
+  such as `[EMAIL_1]`, and `screened.restore(answer)` puts the values back;
+  `ask` waits for a person's approval; `deny` sends nothing. Every paid
+  plan; on Free the call is refused with `feature_unavailable`. The detectors are
+  held to the TypeScript SDK's by `packages/conformance/screening.json`.
 - **Pydantic AI** (`deliverd.adapters.pydantic_ai`). `deliverd_approvals(deliverd, ...)`
   is a `HandleDeferredToolCalls` capability that answers the tool calls an
   agent defers for approval — `requires_approval=True`, `ApprovalRequired`,

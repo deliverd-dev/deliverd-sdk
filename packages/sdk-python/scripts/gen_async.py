@@ -20,6 +20,7 @@ from deliverd.collections import Collection, Collections
 from deliverd.comments import Comments
 from deliverd.flows import Flow, Flows
 from deliverd.gates import Gate, Gates
+from deliverd.governance import AiGovernance, AiSystems, Incidents
 from deliverd.reports import Reports
 from deliverd.reviews import Review, Reviews
 from deliverd.schedules import Schedules
@@ -38,7 +39,10 @@ NAMESPACES = [
     ("flows", Flows),
     ("tasks", Tasks),
     ("webhook_endpoints", WebhookEndpoints),
+    ("governance", AiGovernance),
 ]
+#: Namespaces inside a namespace: `deliverd.governance.ai_systems`.
+SUB_NAMESPACES = {AiGovernance: [("ai_systems", AiSystems), ("incidents", Incidents)]}
 HANDLES = [Approval, Gate, Review, Collection, Flow, Task]
 HANDLE_NAMES = {h.__name__ for h in HANDLES}
 VERBS = ["approve", "gate", "confirm", "review", "collect", "publish"]
@@ -188,6 +192,7 @@ from .comments import Comments
 from .duration import Duration
 from .flows import Flow, Flows
 from .gates import Gate, Gates
+from .governance import AiGovernance, AiSystems, Incidents
 from .reports import Reports
 from .reviews import Review, Reviews
 from .schedules import Schedules
@@ -232,13 +237,18 @@ def render() -> str:
                 lines.append('        """Pure: no request, so no await."""')
                 lines.append("        return self._sync.%s(%s)" % (m, call))
 
-    for attr, cls in NAMESPACES:
+    subs = [(parent, attr, cls) for parent, children in SUB_NAMESPACES.items() for attr, cls in children]
+    parent_attr = {cls: attr for attr, cls in NAMESPACES}
+    for parent, attr, cls in subs + [(None, attr, cls) for attr, cls in NAMESPACES]:
         name = cls.__name__
+        where = "%s.%s" % (parent_attr[parent], attr) if parent else attr
         lines.append("\n\nclass Async%s:" % name)
-        lines.append('    """`deliverd.%s`, awaited."""' % attr)
+        lines.append('    """`deliverd.%s`, awaited."""' % where)
         lines.append("")
         lines.append("    def __init__(self, sync: %s) -> None:" % name)
         lines.append("        self._sync = sync")
+        for sub_attr, sub_cls in SUB_NAMESPACES.get(cls, []):
+            lines.append("        self.%s = Async%s(sync.%s)" % (sub_attr, sub_cls.__name__, sub_attr))
         for m in public_methods(cls):
             lines.append("")
             lines.extend(emit_method(name, m, getattr(cls, m)))

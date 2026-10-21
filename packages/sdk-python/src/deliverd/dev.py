@@ -30,6 +30,7 @@ import uuid
 from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 from ._http import Reply, Transport
+from .data_screen import assess_counts, describe_counts
 
 #: What the imaginary approver does.
 #: What development mode makes happen.
@@ -160,7 +161,7 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
                 "error": {
                     "code": "development_only",
                     "message": (
-                        "Development mode serves the ask primitives, flows and tasks, not "
+                        "Development mode serves the ask primitives, flows, tasks and screening, not "
                         "{} {}. Use a real API key for that call, or mode=\"live\".".format(
                             method, path
                         )
@@ -679,6 +680,42 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
             return create_approval(payload)
         if method == "POST" and path == "/gates":
             return create_gate(payload)
+        # Screening with no organisation behind it: no register record and no
+        # policy, so the defaults decide, and an `ask` files an ordinary
+        # development approval that the imaginary approver decides.
+        if method == "POST" and path == "/screen":
+            counts = payload.get("counts") or {}
+            term_classification = "restricted" if payload.get("termClassification") == "restricted" else "confidential"
+            assessment = assess_counts(counts, None, None, term_classification)
+            approval = None
+            if assessment.verdict == "ask" and payload.get("ask") is not False:
+                created = json.loads(
+                    create_approval(
+                        {
+                            "title": "Send {} to an AI model?".format(describe_counts(counts)),
+                            "description": "\n".join(assessment.reasons),
+                            "risk": "high" if assessment.classification == "restricted" else "medium",
+                            "externalId": payload.get("externalId"),
+                        }
+                    ).body
+                )
+                approval = {"id": created["id"], "url": created["url"], "status": created["status"]}
+            return reply(
+                {
+                    "verdict": assessment.verdict,
+                    "allowed": assessment.verdict in ("allow", "redact"),
+                    "classification": assessment.classification,
+                    "personalData": assessment.personal_data,
+                    "categories": assessment.categories,
+                    "counts": counts,
+                    "offending": assessment.offending,
+                    "reasons": assessment.reasons,
+                    "target": None,
+                    "findings": None,
+                    "redactedText": None,
+                    "approval": approval,
+                }
+            )
         if method == "POST" and len(parts) == 3 and parts[0] == "gates" and parts[2] in ("execution", "cancel"):
             return gate_action(parts[1], parts[2], payload)
         if method == "GET" and len(parts) == 2 and parts[0] == "gates":

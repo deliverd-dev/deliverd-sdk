@@ -31,6 +31,7 @@ from .comments import Comments
 from .duration import Duration
 from .flows import Flow, Flows
 from .gates import Gate, Gates
+from .governance import AiGovernance, AiSystems, Incidents
 from .reports import Reports
 from .reviews import Review, Reviews
 from .schedules import Schedules
@@ -553,6 +554,14 @@ class AsyncTask:
         """Branch a problem out of this task so it does not take over the thread."""
         return AsyncTask(await asyncio.to_thread(partial(self._sync.create_side_task, title=title, goal=goal, **kwargs)))
 
+    async def evidence_pack(self) -> Dict[str, Any]:
+        """Its evidence pack, with a digest. It assists audit; it does not certify compliance."""
+        return await asyncio.to_thread(partial(self._sync.evidence_pack))
+
+    async def govern(self, **profile: Any) -> Governance:
+        """Govern it (Compliance Mode). Takes what :meth:`Tasks.govern` takes."""
+        return await asyncio.to_thread(partial(self._sync.govern, **profile))
+
     async def governance(self) -> Governance:
         """Its governance: controls, their thresholds and scores, evidence, readiness and the gate."""
         return await asyncio.to_thread(partial(self._sync.governance))
@@ -572,6 +581,10 @@ class AsyncTask:
         """Open a completed task again. Its result is kept in ``previous_results``."""
         return AsyncTask(await asyncio.to_thread(partial(self._sync.reopen)))
 
+    async def request_control_approval(self, control: str, approvers: Optional[Sequence[str]] = None, note: Optional[str] = None, expires_at: Optional[str] = None) -> ControlApprovalResult:
+        """Put an approval control to a person through the organisation's approval process."""
+        return await asyncio.to_thread(partial(self._sync.request_control_approval, control=control, approvers=approvers, note=note, expires_at=expires_at))
+
     async def request_decision_approval(self, finding_id: str, **kwargs: Any) -> DecisionApproval:
         """Put a suggested decision on this task to a person."""
         return await asyncio.to_thread(partial(self._sync.request_decision_approval, finding_id=finding_id, **kwargs))
@@ -580,9 +593,70 @@ class AsyncTask:
         """Record evidence for the controls it speaks to. Takes what :meth:`Tasks.submit_evidence` takes."""
         return await asyncio.to_thread(partial(self._sync.submit_evidence, type=type, title=title, **kwargs))
 
+    async def trigger_reassessment(self, reason: str) -> ReassessmentResult:
+        """Ask for it to be reassessed (Enterprise). The gate stays closed until a person completes it."""
+        return await asyncio.to_thread(partial(self._sync.trigger_reassessment, reason=reason))
+
     async def update(self, **kwargs: Any) -> AsyncTask:
         """Change the title, status or working state. Takes what :meth:`Tasks.update` takes."""
         return AsyncTask(await asyncio.to_thread(partial(self._sync.update, **kwargs)))
+
+    async def update_governance_profile(self, **changes: Any) -> Governance:
+        """Change its governance profile. Takes what :meth:`Tasks.update_governance_profile` takes."""
+        return await asyncio.to_thread(partial(self._sync.update_governance_profile, **changes))
+
+
+class AsyncAiSystems:
+    """`deliverd.governance.ai_systems`, awaited."""
+
+    def __init__(self, sync: AiSystems) -> None:
+        self._sync = sync
+
+    async def get(self, system_id: str) -> AiSystemDetail:
+        """One system, and the governed tasks that name it."""
+        return await asyncio.to_thread(partial(self._sync.get, system_id=system_id))
+
+    async def list(self, status: Optional[str] = None) -> List[AiSystem]:
+        """The register, or only its ``active`` or ``retired`` systems."""
+        return await asyncio.to_thread(partial(self._sync.list, status=status))
+
+    async def record_model_change(self, system_id: str, provider: Optional[str] = None, model: Optional[str] = None, model_version: Optional[str] = None, prompt_hash: Optional[str] = None, guardrails_hash: Optional[str] = None, note: Optional[str] = None) -> ModelChangeResult:
+        """Record a new provider, model, version, prompt or guardrails (Enterprise)."""
+        return await asyncio.to_thread(partial(self._sync.record_model_change, system_id=system_id, provider=provider, model=model, model_version=model_version, prompt_hash=prompt_hash, guardrails_hash=guardrails_hash, note=note))
+
+    async def register(self, name: str, provider: Optional[str] = None, model: Optional[str] = None, model_version: Optional[str] = None, prompt_hash: Optional[str] = None, guardrails_hash: Optional[str] = None, purpose: Optional[str] = None, business_owner: Optional[str] = None, technical_owner: Optional[str] = None, environment: Optional[str] = None, risk: Optional[str] = None, oversight: Optional[str] = None, data_classification: Optional[str] = None, personal_data: Optional[bool] = None, customer_facing: Optional[bool] = None, ict_arrangement_id: Optional[str] = None) -> AiSystem:
+        """Add a system to the register. Digests of its prompt and guardrails, never the text."""
+        return await asyncio.to_thread(partial(self._sync.register, name=name, provider=provider, model=model, model_version=model_version, prompt_hash=prompt_hash, guardrails_hash=guardrails_hash, purpose=purpose, business_owner=business_owner, technical_owner=technical_owner, environment=environment, risk=risk, oversight=oversight, data_classification=data_classification, personal_data=personal_data, customer_facing=customer_facing, ict_arrangement_id=ict_arrangement_id))
+
+    async def update(self, system_id: str, **changes: Any) -> AiSystem:
+        """Change a system's record: any field ``register`` takes, and ``status``."""
+        return await asyncio.to_thread(partial(self._sync.update, system_id=system_id, **changes))
+
+
+class AsyncIncidents:
+    """`deliverd.governance.incidents`, awaited."""
+
+    def __init__(self, sync: Incidents) -> None:
+        self._sync = sync
+
+    async def draft_report(self, incident_id: str, kind: str, content: str, fields: Optional[Dict[str, Any]] = None, approvers: Optional[Sequence[str]] = None) -> DraftedIncidentReport:
+        """Draft a DORA report on a major incident and put it to a person to sign off."""
+        return await asyncio.to_thread(partial(self._sync.draft_report, incident_id=incident_id, kind=kind, content=content, fields=fields, approvers=approvers))
+
+    async def get(self, incident_id: str) -> AiIncidentDetail:
+        """One incident: its DORA classification, its reports and their sign-off, and which report is due next."""
+        return await asyncio.to_thread(partial(self._sync.get, incident_id=incident_id))
+
+    async def list(self, status: Optional[str] = None, ai_system_id: Optional[str] = None, limit: Optional[int] = None, cursor: Optional[str] = None) -> List[AiIncident]:
+        """Newest first. With no ``limit`` this is every incident; with one, a page of that size."""
+        return await asyncio.to_thread(partial(self._sync.list, status=status, ai_system_id=ai_system_id, limit=limit, cursor=cursor))
+
+    async def list_page(self, status: Optional[str] = None, ai_system_id: Optional[str] = None, limit: Optional[int] = None, cursor: Optional[str] = None) -> Page[AiIncident]:
+        return await asyncio.to_thread(partial(self._sync.list_page, status=status, ai_system_id=ai_system_id, limit=limit, cursor=cursor))
+
+    async def report(self, title: str, severity: str, task_id: Optional[str] = None, ai_system_id: Optional[str] = None, description: Optional[str] = None, detected_at: Optional[str] = None) -> AiIncident:
+        """Report an incident against a governed task, an AI system, or both."""
+        return await asyncio.to_thread(partial(self._sync.report, title=title, severity=severity, task_id=task_id, ai_system_id=ai_system_id, description=description, detected_at=detected_at))
 
 
 class AsyncApprovals:
@@ -867,9 +941,17 @@ class AsyncTasks:
         """Branch a side task out of ``parent_id``."""
         return AsyncTask(await asyncio.to_thread(partial(self._sync.create_side_task, parent_id=parent_id, title=title, goal=goal, kind=kind, relevant_context=relevant_context, known_constraints=known_constraints, resolves_question=resolves_question, origin=origin, session_url=session_url)))
 
+    async def evidence_pack(self, task_id: str) -> Dict[str, Any]:
+        """A governed task's evidence pack, as the API's own dict."""
+        return await asyncio.to_thread(partial(self._sync.evidence_pack, task_id=task_id))
+
     async def get(self, task_id: str) -> AsyncTask:
         """A task with its path, children, findings and links."""
         return AsyncTask(await asyncio.to_thread(partial(self._sync.get, task_id=task_id)))
+
+    async def govern(self, task_id: str, **profile: Any) -> Governance:
+        """Govern an objective (Compliance Mode, Business and Enterprise)."""
+        return await asyncio.to_thread(partial(self._sync.govern, task_id=task_id, **profile))
 
     async def governance(self, task_id: str) -> Governance:
         """A governed task's governance: controls, their thresholds and scores, evidence, readiness and the gate."""
@@ -892,6 +974,10 @@ class AsyncTasks:
     async def reopen(self, task_id: str) -> AsyncTask:
         return AsyncTask(await asyncio.to_thread(partial(self._sync.reopen, task_id=task_id)))
 
+    async def request_control_approval(self, task_id: str, control: str, approvers: Optional[Sequence[str]] = None, note: Optional[str] = None, expires_at: Optional[str] = None) -> ControlApprovalResult:
+        """Put an approval control (a compliance or deployment approval) to a person."""
+        return await asyncio.to_thread(partial(self._sync.request_control_approval, task_id=task_id, control=control, approvers=approvers, note=note, expires_at=expires_at))
+
     async def request_decision_approval(self, task_id: str, finding_id: str, approvers: Optional[Sequence[str]] = None, note: Optional[str] = None, expires_at: Optional[str] = None) -> DecisionApproval:
         """Put a suggested decision to a person. Needs ``approvals:write`` too."""
         return await asyncio.to_thread(partial(self._sync.request_decision_approval, task_id=task_id, finding_id=finding_id, approvers=approvers, note=note, expires_at=expires_at))
@@ -900,9 +986,17 @@ class AsyncTasks:
         """Record evidence for a governed task and the controls it speaks to."""
         return await asyncio.to_thread(partial(self._sync.submit_evidence, task_id=task_id, type=type, title=title, description=description, url=url, controls=controls, finding_id=finding_id, results=results, run=run, report=report, pull=pull, release=release))
 
+    async def trigger_reassessment(self, task_id: str, reason: str) -> ReassessmentResult:
+        """Ask for a governed task to be reassessed (Enterprise)."""
+        return await asyncio.to_thread(partial(self._sync.trigger_reassessment, task_id=task_id, reason=reason))
+
     async def update(self, task_id: str, title: Optional[str] = None, objective: Optional[str] = None, status: Optional[str] = None, session_url: Optional[str] = None, state: Optional[Dict[str, Any]] = None, expected_version: Optional[int] = None) -> AsyncTask:
         """Change a task. ``objective`` is refused to an agent: only a person"""
         return AsyncTask(await asyncio.to_thread(partial(self._sync.update, task_id=task_id, title=title, objective=objective, status=status, session_url=session_url, state=state, expected_version=expected_version)))
+
+    async def update_governance_profile(self, task_id: str, **changes: Any) -> Governance:
+        """Change a governed task's profile: any field :meth:`govern` takes, and ``expected_version``."""
+        return await asyncio.to_thread(partial(self._sync.update_governance_profile, task_id=task_id, **changes))
 
 
 class AsyncWebhookEndpoints:
@@ -939,6 +1033,39 @@ class AsyncWebhookEndpoints:
         return await asyncio.to_thread(partial(self._sync.update, endpoint_id=endpoint_id, url=url, events=events, description=description, format=format, enabled=enabled))
 
 
+class AsyncAiGovernance:
+    """`deliverd.governance`, awaited."""
+
+    def __init__(self, sync: AiGovernance) -> None:
+        self._sync = sync
+        self.ai_systems = AsyncAiSystems(sync.ai_systems)
+        self.incidents = AsyncIncidents(sync.incidents)
+
+    async def check_authority(self, action: str, agent_id: Optional[str] = None) -> AuthorityDecision:
+        """May this agent take this kind of action on its own (``allowed``), only with approval, or not at all?"""
+        return await asyncio.to_thread(partial(self._sync.check_authority, action=action, agent_id=agent_id))
+
+    async def create_custom_framework(self, key: str, version: str, name: str, requirements: Sequence[Dict[str, Any]], summary: Optional[str] = None, jurisdictions: Optional[Sequence[str]] = None, effective_from: Optional[str] = None) -> Dict[str, Any]:
+        """Draft the organisation's own framework (Enterprise)."""
+        return await asyncio.to_thread(partial(self._sync.create_custom_framework, key=key, version=version, name=name, requirements=requirements, summary=summary, jurisdictions=jurisdictions, effective_from=effective_from))
+
+    async def framework_mapping(self, task_id: Optional[str] = None, framework: Optional[str] = None) -> Dict[str, Any]:
+        """How requirements map onto controls and, with ``task_id``, how far that task's controls cover each."""
+        return await asyncio.to_thread(partial(self._sync.framework_mapping, task_id=task_id, framework=framework))
+
+    async def frameworks(self) -> Dict[str, Any]:
+        """The frameworks the organisation can see: the built-in packs and its own, and which are applied."""
+        return await asyncio.to_thread(partial(self._sync.frameworks))
+
+    async def ict_register(self) -> Dict[str, Any]:
+        """The ICT third-party register: providers, contracts, the AI systems under each, gaps and concentration."""
+        return await asyncio.to_thread(partial(self._sync.ict_register))
+
+    async def summary(self, ai_system_id: Optional[str] = None, risk: Optional[str] = None, owner: Optional[str] = None, provider: Optional[str] = None, data_classification: Optional[str] = None, jurisdiction: Optional[str] = None, framework: Optional[str] = None) -> Dict[str, Any]:
+        """The organisation's AI governance in counts, optionally narrowed. Never a compliance percentage."""
+        return await asyncio.to_thread(partial(self._sync.summary, ai_system_id=ai_system_id, risk=risk, owner=owner, provider=provider, data_classification=data_classification, jurisdiction=jurisdiction, framework=framework))
+
+
 class AsyncDeliverd:
     """The client, awaited. Takes exactly what `Deliverd` takes."""
 
@@ -955,6 +1082,7 @@ class AsyncDeliverd:
         self.flows = AsyncFlows(self._sync.flows)
         self.tasks = AsyncTasks(self._sync.tasks)
         self.webhook_endpoints = AsyncWebhookEndpoints(self._sync.webhook_endpoints)
+        self.governance = AsyncAiGovernance(self._sync.governance)
         # Pure functions: verification does no I/O, so it is not awaited.
         self.webhooks: Webhooks = self._sync.webhooks
         self.development: bool = self._sync.development

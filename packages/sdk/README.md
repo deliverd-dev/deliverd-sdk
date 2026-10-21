@@ -324,6 +324,47 @@ A finding of kind `decision` is a suggestion until a person confirms it.
 `task.requestDecisionApproval(findingId)` puts it to somebody. Only a person
 changes what a task is for; an agent proposes that as a finding too.
 
+## Compliance Mode
+
+On Business and Enterprise, a task can be governed: the AI system doing the
+work, its purpose, owners, risk, data and oversight, the controls that follow
+from them, and a gate that says whether the work may proceed.
+
+```ts
+const system = await deliverd.governance.aiSystems.register({
+  name: "Claims triage",
+  provider: "Anthropic",
+  model: "claude-opus",
+  promptHash: "sha256:9f2c…",           // a digest, never the prompt
+});
+
+await task.govern({ aiSystemId: system.id, purpose: "Route claims", risk: "high", personalData: true });
+await task.submitEvidence({ type: "model_evaluation", title: "Eval run", controls: ["model_evaluation"], results });
+await task.requestControlApproval("deployment_approval");
+
+const gate = await task.checkGovernanceGate({ action: "deploy" });
+if (!gate.allowed) throw new Error(gate.reason);
+
+const pack = await task.evidencePack();  // profile, controls, evidence, decisions, timeline, digest
+```
+
+`deliverd.governance` covers the organisation as a whole:
+
+- `checkAuthority({ action })` says whether this agent may `send`, `deploy`,
+  `delete` and the rest on its own, only with approval, or not at all.
+- `incidents.report()`, `get()`, `list()` and `draftReport()` record AI
+  incidents and draft the DORA reports a person signs off.
+- `aiSystems.recordModelChange()` records a new model or prompt, and every
+  task that uses the system is reassessed. `task.triggerReassessment(reason)`
+  asks for one by hand.
+- `frameworks()`, `frameworkMapping({ taskId })` and `createCustomFramework()`
+  show how requirements map onto controls. `ictRegister()` and `summary()`
+  are read-only views.
+
+An agent can raise a risk or add facts. Only a person can lower them, set
+thresholds, waive a control or resolve an incident. Every answer records
+governance and certifies nothing.
+
 ## Evidence
 
 Show your working. One call assembles the whole record of a piece of work —

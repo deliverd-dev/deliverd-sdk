@@ -7,6 +7,28 @@ this was opened as 0.25.2.
 
 ### Added
 
+- **`deliverd.governance`, the rest of Compliance Mode**, which REST and MCP
+  already had and no SDK did. `aiSystems.list`, `get`, `register`, `update`
+  and `recordModelChange` keep the register of AI systems (a model change
+  reassesses every task using the system). `checkAuthority({ action })` says
+  whether this agent may take an action on its own, only with approval, or
+  not at all. `incidents.report`, `get`, `list`, `listPage` and `draftReport`
+  record AI incidents and draft the DORA reports a person signs off.
+  `frameworks()`, `frameworkMapping()`, `createCustomFramework()`,
+  `ictRegister()` and `summary()` read the rest. On tasks, `govern`,
+  `updateGovernanceProfile`, `requestControlApproval`, `triggerReassessment`
+  and `evidencePack`, on `deliverd.tasks` and the `Task` handle. Business and
+  Enterprise; development mode answers `not_in_development_mode`.
+- **`deliverd.screen(text, { aiSystemId })`**, the pre-send check: before
+  text goes to an AI model, find the email addresses, phone numbers, IBANs,
+  card numbers, national identifiers, secrets, special-category data and your
+  own terms in it, and ask Deliverd whether that model may receive them. The
+  detectors run in the SDK, so only counts by kind are sent, never the text.
+  `allow` sends it as it is; `redact` gives `screened.text` with placeholders
+  such as `[EMAIL_1]`, and `screened.restore(answer)` puts the values back;
+  `ask` waits for a person's approval; `deny` sends nothing. Every paid
+  plan; on Free the call is refused with `feature_unavailable`. `screenText`,
+  `redact`, `restore` and `summarise` are exported for use on their own.
 - **A Mastra adapter** in `@deliverd/sdk/adapters`. Mark tools
   `requireApproval: true` (or pass `requireToolApproval`) as Mastra already
   has you do, and `generateWithDeliverdApprovals(agent, agent.generate(…),

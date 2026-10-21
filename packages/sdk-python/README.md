@@ -467,6 +467,29 @@ sets thresholds, on the task's page in the app, and no key can — whatever
 submits the results must not also decide what passes. `task.governance()` is the whole
 picture — controls, evidence, readiness and the frameworks it maps to.
 
+Governing the task in the first place, and the organisation around it:
+
+```python
+system = deliverd.governance.ai_systems.register(
+    "Claims triage", provider="Anthropic", model="claude-opus", prompt_hash="sha256:9f2c…"
+)
+task.govern(ai_system_id=system.id, purpose="Route claims", risk="high", personal_data=True)
+task.request_control_approval("deployment_approval")
+
+if deliverd.governance.check_authority("send").mode == "denied":
+    raise SystemExit("This agent may not send")
+
+deliverd.governance.incidents.report("Wrong payout", "high", task_id=task.id)
+pack = task.evidence_pack()  # profile, controls, evidence, decisions, timeline, digest
+```
+
+`deliverd.governance` also has `ai_systems.record_model_change()` (every task
+using the system is reassessed), `incidents.draft_report()` for DORA reports a
+person signs off, `frameworks()`, `framework_mapping(task_id=…)`,
+`create_custom_framework()`, `ict_register()` and `summary()`. The read-only
+views come back as the API's own dicts. An agent can raise a risk or add facts;
+only a person lowers them, waives a control or resolves an incident.
+
 ## Comments
 
 The other direction of publishing: what readers send back.

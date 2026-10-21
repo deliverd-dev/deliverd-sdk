@@ -6,8 +6,10 @@ import { Reviews, type ReviewWaitOptions } from "./reviews.js";
 import { Collections, type CollectWaitOptions } from "./collections.js";
 import { Flows } from "./flows.js";
 import { Tasks } from "./tasks.js";
+import { AiGovernance } from "./governance.js";
 import { Webhooks } from "./webhooks.js";
 import { WebhookEndpoints } from "./webhook-endpoints.js";
+import { screen, Screened, type ScreenOptions } from "./screen.js";
 import { developmentFetch, type DevelopmentOptions } from "./dev.js";
 import { durationMs, type Duration } from "./duration.js";
 import { DeliverdError } from "./errors.js";
@@ -30,7 +32,20 @@ export { Review, Reviews, type ReviewWaitOptions } from "./reviews.js";
 export { Collection, Collections, type CollectWaitOptions } from "./collections.js";
 export { Flow, Flows, type FlowPrimitives } from "./flows.js";
 export { Task, Tasks } from "./tasks.js";
+export { AiGovernance, AiSystems, Incidents } from "./governance.js";
 export { WebhookEndpoints } from "./webhook-endpoints.js";
+export { Screened, type ScreenOptions } from "./screen.js";
+export {
+  DATA_KINDS,
+  redact,
+  restore,
+  screenText,
+  summarise,
+  type DataKind,
+  type Redaction,
+  type ScreenFinding,
+  type ScreenTerm,
+} from "./data-screen.js";
 export {
   constructCallback,
   constructEvent,
@@ -148,6 +163,8 @@ export class Deliverd {
   readonly collections: Collections;
   readonly flows: Flows;
   readonly tasks: Tasks;
+  /** Compliance Mode across the organisation: AI systems, incidents, authority, frameworks, the ICT register. */
+  readonly governance: AiGovernance;
   readonly reports: Reports;
   readonly comments: Comments;
   readonly schedules: Schedules;
@@ -181,6 +198,7 @@ export class Deliverd {
      */
     this.flows = new Flows(this.http, this);
     this.tasks = new Tasks(this.http);
+    this.governance = new AiGovernance(this.http);
     this.reports = new Reports(this.http);
     this.comments = new Comments(this.http);
     this.schedules = new Schedules(this.http);
@@ -421,6 +439,29 @@ export class Deliverd {
   }
 
   /** Publish HTML to a secure URL. The sixth primitive, one call in. */
+  /**
+   * Check text before it goes to an AI model, and wait if a person has to decide.
+   *
+   * The detectors run here, so the text never leaves your machine: Deliverd is
+   * told only what was found, by kind, and answers from what your AI register
+   * approves that model to receive.
+   *
+   * ```ts
+   * const screened = await deliverd.screen(prompt, { aiSystemId: CLAIMS_MODEL });
+   * if (!screened.allowed) return screened.reasons;
+   * const answer = await model.generate(screened.text!);
+   * return screened.restore(answer);
+   * ```
+   *
+   * `allow` sends it as it is; `redact` gives you `screened.text` with the
+   * findings replaced by placeholders, and `restore()` puts them back in the
+   * answer; `ask` puts it to a person and waits; `deny` sends nothing. A net,
+   * not a guarantee: names in particular are not reliably found.
+   */
+  screen(text: string, options: ScreenOptions = {}): Promise<Screened> {
+    return screen(this.http, this.approvals, text, options, this.development);
+  }
+
   publish(input: PublishReportInput, signal?: AbortSignal): Promise<PublishResult> {
     return this.reports.publish(input, signal);
   }

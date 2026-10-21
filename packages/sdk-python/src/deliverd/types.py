@@ -1017,6 +1017,229 @@ class Governance(Model):
     _NESTED_LISTS = {"controls": GovernanceControl, "evidence": GovernanceEvidence, "frameworks": GovernanceFramework}
 
 
+# ── Compliance Mode across the organisation ────────────────────────────────
+
+
+@dataclass
+class AiSystem(Model):
+    """One entry in the organisation's register of AI systems."""
+
+    id: str
+    org_id: str
+    name: str
+    provider: Optional[str]
+    model: Optional[str]
+    model_version: Optional[str]
+    #: A digest of the prompt it runs with, never the prompt.
+    prompt_hash: Optional[str]
+    #: A digest of its guardrail configuration.
+    guardrails_hash: Optional[str]
+    purpose: Optional[str]
+    business_owner: Optional[str]
+    technical_owner: Optional[str]
+    #: ``development`` | ``pilot`` | ``production``
+    environment: str
+    risk: str
+    oversight: Optional[str]
+    data_classification: Optional[str]
+    personal_data: bool
+    customer_facing: bool
+    #: ``active`` | ``retired``
+    status: str
+    #: The contract in the ICT third-party register it runs under.
+    ict_arrangement_id: Optional[str]
+    created_by_label: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass
+class AiSystemDetail(Model):
+    """One AI system, and the governed tasks that name it."""
+
+    system: AiSystem
+    governed_task_ids: List[str]
+
+    _NESTED = {"system": AiSystem}
+
+
+@dataclass
+class Reassessment(Model):
+    """A governed task's reassessment. Its governance gate stays closed until a person completes it."""
+
+    id: str
+    task_id: str
+    #: ``profile_change`` | ``model_change`` | ``framework_version`` | ``policy_version`` | ``incident`` | ``manual``
+    trigger: str
+    #: Each ``{field, before, after, label}``.
+    changes: List[Dict[str, Any]]
+    #: Controls to look at again.
+    recheck: List[str]
+    reason: str
+    #: ``open`` | ``completed``
+    status: str
+    opened_by_label: str
+    opened_by_agent_id: Optional[str]
+    opened_at: str
+    completed_by_label: Optional[str]
+    completed_at: Optional[str]
+    completion_note: Optional[str]
+
+
+@dataclass
+class ModelChangeResult(Model):
+    system: AiSystem
+    #: The reassessment opened on each governed task that uses it.
+    reassessments: List[Reassessment]
+    #: Which of provider, model, modelVersion, promptHash and guardrailsHash changed.
+    changed: List[str]
+
+    _NESTED = {"system": AiSystem}
+    _NESTED_LISTS = {"reassessments": Reassessment}
+
+
+@dataclass
+class ReassessmentResult(Model):
+    reassessment: Reassessment
+    governance: Governance
+
+    _NESTED = {"reassessment": Reassessment, "governance": Governance}
+
+
+@dataclass
+class ControlApprovalResult(Model):
+    governance: Governance
+    approval_id: str
+    approval_url: str
+
+    _NESTED = {"governance": Governance}
+
+
+@dataclass
+class AuthorityDecision(Model):
+    """What an agent may do: on its own, only with a person's approval, or not at all."""
+
+    action: str
+    #: ``allowed`` | ``approval`` | ``denied``
+    mode: str
+    #: Which setting decided it: ``organisation``, ``agent`` or ``default``.
+    source: str
+    reason: str
+    agent_id: Optional[str]
+    agent_name: Optional[str]
+
+
+@dataclass
+class AiIncident(Model):
+    id: str
+    task_id: Optional[str]
+    ai_system_id: Optional[str]
+    title: str
+    description: str
+    severity: str
+    #: ``open`` | ``resolved``
+    status: str
+    reported_by_label: str
+    reported_by_agent_id: Optional[str]
+    reported_at: str
+    resolution: Optional[str]
+    resolved_by_label: Optional[str]
+    resolved_at: Optional[str]
+    detected_at: str
+    #: The DORA classification a person recorded, as the API returns it; ``None`` until classified.
+    dora: Optional[Dict[str, Any]]
+    #: When it was first classified major; the reporting clock runs from here.
+    dora_major_at: Optional[str]
+    dora_classified_at: Optional[str]
+    dora_classified_by: Optional[str]
+
+
+@dataclass
+class IncidentReport(Model):
+    id: str
+    incident_id: str
+    #: ``initial`` | ``intermediate`` | ``final`` | ``reclassification``
+    kind: str
+    content: str
+    fields: Dict[str, Any]
+    approval_id: Optional[str]
+    #: The sign-off approval's state; ``None`` when none was asked for.
+    approval_status: Optional[str]
+    submitted_at: Optional[str]
+    submitted_by_label: Optional[str]
+    authority_reference: Optional[str]
+    created_by_label: str
+    created_by_agent_id: Optional[str]
+    created_at: str
+
+
+@dataclass
+class ReportingStep(Model):
+    kind: str
+    #: ``None`` until the step before it is done.
+    due_at: Optional[str]
+    submitted_at: Optional[str]
+    overdue: bool
+    late: bool
+
+
+@dataclass
+class ReportingSchedule(Model):
+    """Which DORA report is due next and by when. Nothing is due unless the incident is classified major."""
+
+    required: bool
+    steps: List[ReportingStep]
+    next: Optional[ReportingStep]
+
+    _NESTED = {"next": ReportingStep}
+    _NESTED_LISTS = {"steps": ReportingStep}
+
+
+@dataclass
+class AiIncidentDetail(Model):
+    """One incident with its reports and reporting schedule."""
+
+    id: str
+    task_id: Optional[str]
+    ai_system_id: Optional[str]
+    title: str
+    description: str
+    severity: str
+    #: ``open`` | ``resolved``
+    status: str
+    reported_by_label: str
+    reported_by_agent_id: Optional[str]
+    reported_at: str
+    resolution: Optional[str]
+    resolved_by_label: Optional[str]
+    resolved_at: Optional[str]
+    detected_at: str
+    #: The DORA classification a person recorded, as the API returns it; ``None`` until classified.
+    dora: Optional[Dict[str, Any]]
+    #: When it was first classified major; the reporting clock runs from here.
+    dora_major_at: Optional[str]
+    dora_classified_at: Optional[str]
+    dora_classified_by: Optional[str]
+    url: str
+    reports: List[IncidentReport]
+    schedule: ReportingSchedule
+    #: Notified as major, now classified as not, and the authority not yet told.
+    reclassification_owed: bool
+
+    _NESTED = {"schedule": ReportingSchedule}
+    _NESTED_LISTS = {"reports": IncidentReport}
+
+
+@dataclass
+class DraftedIncidentReport(Model):
+    incident: AiIncidentDetail
+    report_id: str
+    approval_id: str
+    approval_url: str
+
+    _NESTED = {"incident": AiIncidentDetail}
+
+
 # ── Comments ───────────────────────────────────────────────────────────────
 
 
@@ -1465,3 +1688,64 @@ class WebhookTestResult(Model):
     #: ``None`` when it could not be reached.
     response_status: Optional[int]
     error: Optional[str]
+
+
+# ── Screening ──────────────────────────────────────────────────────────────
+
+#: ``allow`` | ``redact`` | ``ask`` | ``deny``
+SCREEN_VERDICTS = ("allow", "redact", "ask", "deny")
+
+
+@dataclass
+class ScreenTargetData(Model):
+    """The AI register's record for the model the text is going to."""
+
+    ai_system_id: str
+    name: str
+    #: The highest classification it is approved to receive; ``None`` when the record does not say.
+    approved_classification: Optional[str]
+    personal_data: bool
+
+
+@dataclass
+class ScreenFindingData(Model):
+    """Where one finding is in text the server read. Never its value."""
+
+    kind: str
+    label: str
+    start: int
+    end: int
+
+
+@dataclass
+class ScreenApprovalRef(Model):
+    id: str
+    url: str
+    status: str
+
+
+@dataclass
+class ScreenData(Model):
+    """What ``POST /screen`` answers: the verdict, and why."""
+
+    #: ``allow`` | ``redact`` | ``ask`` | ``deny``.
+    verdict: str
+    #: Whether the text may be sent now: as it is for ``allow``, redacted for ``redact``.
+    allowed: bool
+    classification: str
+    personal_data: bool
+    categories: List[str]
+    #: What was found, by kind.
+    counts: Dict[str, int]
+    #: The kinds behind the verdict: what redaction replaces.
+    offending: List[str]
+    reasons: List[str]
+    target: Optional[ScreenTargetData]
+    #: Only when the server read the text; ``None`` from :meth:`Deliverd.screen`, which screens locally.
+    findings: Optional[List[ScreenFindingData]]
+    redacted_text: Optional[str]
+    #: The approval a person decides, for an ``ask``.
+    approval: Optional[ScreenApprovalRef]
+
+    _NESTED = {"target": ScreenTargetData, "approval": ScreenApprovalRef}
+    _NESTED_LISTS = {"findings": ScreenFindingData}

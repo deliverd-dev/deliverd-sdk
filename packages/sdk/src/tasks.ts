@@ -6,13 +6,18 @@ import type {
   ApplySideTaskInput,
   CancelTaskInput,
   CompleteTaskInput,
+  ControlApprovalInput,
+  ControlApprovalResult,
   CreateSideTaskInput,
   CreateTaskInput,
   DecisionApproval,
   Governance,
   GovernanceGateCheck,
+  GovernancePack,
+  GovernanceProfileInput,
   LinkTasksInput,
   ListTasksInput,
+  ReassessmentResult,
   RequestDecisionApprovalInput,
   SubmitEvidenceInput,
   TaskContext,
@@ -20,6 +25,7 @@ import type {
   TaskFinding,
   TaskGraph,
   TaskLinkResult,
+  UpdateGovernanceProfileInput,
   UpdateTaskInput,
 } from "./types.js";
 
@@ -219,6 +225,31 @@ export class Task {
   checkGovernanceGate(options: { action?: string } = {}, signal?: AbortSignal): Promise<GovernanceGateCheck> {
     return new Tasks(this.http).checkGovernanceGate(this.data.id, options, signal);
   }
+
+  /** Govern it (Compliance Mode). Already governed, it answers with the governance it has. */
+  govern(profile: GovernanceProfileInput = {}, signal?: AbortSignal): Promise<Governance> {
+    return new Tasks(this.http).govern(this.data.id, profile, signal);
+  }
+
+  /** Change its governance profile. An agent may raise risk or add facts; only a person lowers or clears them. */
+  updateGovernanceProfile(input: UpdateGovernanceProfileInput, signal?: AbortSignal): Promise<Governance> {
+    return new Tasks(this.http).updateGovernanceProfile(this.data.id, input, signal);
+  }
+
+  /** Put an approval control to a person through the organisation's approval process. */
+  requestControlApproval(control: string, input: ControlApprovalInput = {}, signal?: AbortSignal): Promise<ControlApprovalResult> {
+    return new Tasks(this.http).requestControlApproval(this.data.id, control, input, signal);
+  }
+
+  /** Ask for it to be reassessed (Enterprise). The governance gate stays closed until a person completes it. */
+  triggerReassessment(reason: string, signal?: AbortSignal): Promise<ReassessmentResult> {
+    return new Tasks(this.http).triggerReassessment(this.data.id, reason, signal);
+  }
+
+  /** Its evidence pack, with a digest. It assists audit; it does not certify compliance. */
+  evidencePack(signal?: AbortSignal): Promise<GovernancePack> {
+    return new Tasks(this.http).evidencePack(this.data.id, signal);
+  }
 }
 
 export class Tasks {
@@ -363,5 +394,62 @@ export class Tasks {
       query: { action: options.action },
       signal,
     });
+  }
+
+  /**
+   * Govern an objective (Compliance Mode, Business and Enterprise): the AI
+   * system, purpose, owners, risk, data and oversight, as far as they are
+   * known. Idempotent: an objective already governed answers with its
+   * governance. A side task's id answers for its objective.
+   */
+  govern(id: string, profile: GovernanceProfileInput = {}, signal?: AbortSignal): Promise<Governance> {
+    return this.http.request<Governance>({ method: "POST", path: `/tasks/${enc(id)}/governance`, body: profile, signal });
+  }
+
+  /**
+   * Change a governed task's profile. An agent may raise risk or add facts;
+   * only a person lowers or clears them. With `expectedVersion`, refused if
+   * somebody wrote in between.
+   */
+  updateGovernanceProfile(id: string, input: UpdateGovernanceProfileInput, signal?: AbortSignal): Promise<Governance> {
+    return this.http.request<Governance>({ method: "PATCH", path: `/tasks/${enc(id)}/governance`, body: input, signal });
+  }
+
+  /**
+   * Put an approval control (a compliance or deployment approval) to a person
+   * through the organisation's approval process. The control is satisfied
+   * when that approval is approved. Needs `approvals:write`.
+   */
+  requestControlApproval(
+    id: string,
+    control: string,
+    input: ControlApprovalInput = {},
+    signal?: AbortSignal
+  ): Promise<ControlApprovalResult> {
+    return this.http.request<ControlApprovalResult>({
+      method: "POST",
+      path: `/tasks/${enc(id)}/governance/controls/${enc(control)}/approval`,
+      body: input,
+      signal,
+    });
+  }
+
+  /** Ask for a governed task to be reassessed (Enterprise). Its governance gate stays closed until a person completes it. */
+  triggerReassessment(id: string, reason: string, signal?: AbortSignal): Promise<ReassessmentResult> {
+    return this.http.request<ReassessmentResult>({
+      method: "POST",
+      path: `/tasks/${enc(id)}/governance/reassessments`,
+      body: { reason },
+      signal,
+    });
+  }
+
+  /**
+   * A governed task's evidence pack: profile, controls, evidence, task graph,
+   * decisions, approvals and the audit timeline, with a digest. It assists
+   * audit; it does not certify compliance. Every export is audited.
+   */
+  evidencePack(id: string, signal?: AbortSignal): Promise<GovernancePack> {
+    return this.http.request<GovernancePack>({ method: "GET", path: `/tasks/${enc(id)}/governance/pack`, signal });
   }
 }

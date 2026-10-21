@@ -50,3 +50,13 @@ Error class names. They follow each language's own conventions and the
 code-to-status mapping is already held to the server's table by
 `apps/web/src/lib/api/` — a second copy here would drift from that one rather
 than from anything a caller sees.
+
+## `screening.json`
+
+The pre-send check's vectors: for each text, what the detectors find and how
+it is redacted, and for each set of counts and register record, the verdict.
+Generated from `packages/core/src/data-screen.ts`, which the TypeScript SDK
+carries a byte-for-byte copy of; the Python port in
+`packages/sdk-python/src/deliverd/data_screen.py` is held to it by
+`tests/test_screen.py`. The Rust SDK does not screen yet, so it does not read
+this file; when it does, it reads every case here.

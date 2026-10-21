@@ -11,6 +11,7 @@ import type {
   TaskNode,
   TaskState,
 } from "./types.js";
+import { assessCounts, DEFAULT_SCREEN_POLICY, describeCounts, type ScreenCounts } from "./data-screen.js";
 
 /**
  * Development mode: the whole loop, on your machine, with nobody in it.
@@ -95,7 +96,7 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
   const flowStore = new Map<string, FlowData>();
   const tasks = developmentTasks(options);
 
-  return (async (input: string | URL | Request, init?: RequestInit) => {
+  const handle = (async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = new URL(String(input));
     const path = url.pathname.replace(/^\/api\/v1/, "");
     const method = (init?.method ?? "GET").toUpperCase();
@@ -658,6 +659,47 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
       return json({ tasks: tasks.list(url.searchParams), nextCursor: null });
     }
 
+    /*
+     * Screening with no organisation behind it: no register record and no
+     * policy, so the defaults decide — internal data and no personal data
+     * approved — and an `ask` files an ordinary development approval, which
+     * the imaginary approver decides like any other.
+     */
+    if (method === "POST" && path === "/screen") {
+      const counts = (body.counts ?? {}) as ScreenCounts;
+      const termClassification = body.termClassification === "restricted" ? "restricted" : "confidential";
+      const assessment = assessCounts(counts, null, DEFAULT_SCREEN_POLICY, termClassification);
+      let approval: { id: string; url: string; status: string } | null = null;
+      if (assessment.verdict === "ask" && body.ask !== false) {
+        const created = (await (
+          await handle(`${url.origin}/api/v1/approvals`, {
+            method: "POST",
+            body: JSON.stringify({
+              title: `Send ${describeCounts(counts)} to an AI model?`,
+              description: assessment.reasons.join("\n"),
+              risk: assessment.classification === "restricted" ? "high" : "medium",
+              externalId: body.externalId,
+            }),
+          })
+        ).json()) as ApprovalData;
+        approval = { id: created.id, url: created.url, status: created.status };
+      }
+      return json({
+        verdict: assessment.verdict,
+        allowed: assessment.verdict === "allow" || assessment.verdict === "redact",
+        classification: assessment.classification,
+        personalData: assessment.personalData,
+        categories: assessment.categories,
+        counts,
+        offending: assessment.offending,
+        reasons: assessment.reasons,
+        target: null,
+        findings: null,
+        redactedText: null,
+        approval,
+      });
+    }
+
     const taskMatch = /^\/tasks\/([^/]+)(?:\/(context|graph|side-tasks|findings|complete|apply|reopen|cancel|links))?$/.exec(path);
     if (taskMatch) {
       const [status, payload] = tasks.act(method, taskMatch[1]!, taskMatch[2] ?? null, body);
@@ -668,12 +710,13 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
       {
         error: {
           code: "not_in_development_mode",
-          message: `Development mode simulates approvals, reviews, collections, flows and tasks only, and something called ${method} ${path}. Use a real API key for the rest of the API.`,
+          message: `Development mode simulates approvals, reviews, collections, flows, tasks and screening only, and something called ${method} ${path}. Use a real API key for the rest of the API.`,
         },
       },
       501
     );
   }) as typeof globalThis.fetch;
+  return handle;
 }
 
 function resolveOutcome(

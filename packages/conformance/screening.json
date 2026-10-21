@@ -1,0 +1,319 @@
+{
+  "_readme": "Screening vectors: what the detectors find and decide. Generated from packages/core/src/data-screen.ts; the TypeScript and Python SDKs must both reproduce every case.",
+  "texts": [
+    {
+      "text": "Write to mary.byrne@example.ie today",
+      "findings": [
+        {
+          "kind": "email",
+          "value": "mary.byrne@example.ie"
+        }
+      ],
+      "redacted": "Write to [EMAIL_1] today"
+    },
+    {
+      "text": "Pay IE29 AIBK 9311 5212 3456 78 please, not IE29 AIBK 9311 5212 3456 79",
+      "findings": [
+        {
+          "kind": "iban",
+          "value": "IE29 AIBK 9311 5212 3456 78"
+        }
+      ],
+      "redacted": "Pay [IBAN_1] please, not IE29 AIBK 9311 5212 3456 79"
+    },
+    {
+      "text": "card 4111 1111 1111 1111 exp 12/29, or 4111 1111 1111 1112",
+      "findings": [
+        {
+          "kind": "payment_card",
+          "value": "4111 1111 1111 1111"
+        }
+      ],
+      "redacted": "card [CARD_1] exp 12/29, or 4111 1111 1111 1112"
+    },
+    {
+      "text": "NI number AB 12 34 56 C, SSN 123-45-6789, PPS 1234567T and 1234567A",
+      "findings": [
+        {
+          "kind": "uk_national_insurance",
+          "value": "AB 12 34 56 C"
+        },
+        {
+          "kind": "us_ssn",
+          "value": "123-45-6789"
+        },
+        {
+          "kind": "ie_pps",
+          "value": "1234567T"
+        }
+      ],
+      "redacted": "NI number [NINO_1], SSN [SSN_1], PPS [PPS_1] and 1234567A"
+    },
+    {
+      "text": "Call +353 87 123 4567 or 020 7946 0958",
+      "findings": [
+        {
+          "kind": "phone",
+          "value": "+353 87 123 4567"
+        },
+        {
+          "kind": "phone",
+          "value": "020 7946 0958"
+        }
+      ],
+      "redacted": "Call [PHONE_1] or [PHONE_2]"
+    },
+    {
+      "text": "Invoice 123456789 for €1,240.00 on 2026-10-20",
+      "findings": [],
+      "redacted": "Invoice 123456789 for €1,240.00 on 2026-10-20"
+    },
+    {
+      "text": "DOB: 14/03/1987, meeting on 14/03/2027",
+      "findings": [
+        {
+          "kind": "date_of_birth",
+          "value": "14/03/1987"
+        }
+      ],
+      "redacted": "DOB: [DOB_1], meeting on 14/03/2027"
+    },
+    {
+      "text": "from 203.0.113.7, not 127.0.0.1",
+      "findings": [
+        {
+          "kind": "ip_address",
+          "value": "203.0.113.7"
+        }
+      ],
+      "redacted": "from [IP_1], not 127.0.0.1"
+    },
+    {
+      "text": "key AKIAIOSFODNN7EXAMPLE and api_key = \"abcdefgh12345678\"",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "AKIAIOSFODNN7EXAMPLE"
+        },
+        {
+          "kind": "secret",
+          "value": "api_key = \"abcdefgh12345678\""
+        }
+      ],
+      "redacted": "key [SECRET_1] and [SECRET_2]"
+    },
+    {
+      "text": "Her diagnosis was confirmed; email mary@example.ie",
+      "findings": [
+        {
+          "kind": "special_category",
+          "value": "diagnosis"
+        },
+        {
+          "kind": "email",
+          "value": "mary@example.ie"
+        }
+      ],
+      "redacted": "Her diagnosis was confirmed; email [EMAIL_1]"
+    },
+    {
+      "text": "The project falcon numbers for ACME, not Acmeville",
+      "terms": [
+        {
+          "term": "Project Falcon",
+          "label": "Code name"
+        },
+        {
+          "term": "Acme",
+          "label": "Client"
+        }
+      ],
+      "findings": [
+        {
+          "kind": "term",
+          "value": "project falcon"
+        },
+        {
+          "kind": "term",
+          "value": "ACME"
+        }
+      ],
+      "redacted": "The [CODE_NAME_1] numbers for [CLIENT_1], not Acmeville"
+    },
+    {
+      "text": "Email mary@example.ie, cc john@example.ie, then mary@example.ie again",
+      "findings": [
+        {
+          "kind": "email",
+          "value": "mary@example.ie"
+        },
+        {
+          "kind": "email",
+          "value": "john@example.ie"
+        },
+        {
+          "kind": "email",
+          "value": "mary@example.ie"
+        }
+      ],
+      "redacted": "Email [EMAIL_1], cc [EMAIL_2], then [EMAIL_1] again"
+    },
+    {
+      "text": "Summarise the quarterly results for the board, in three bullet points.",
+      "findings": [],
+      "redacted": "Summarise the quarterly results for the board, in three bullet points."
+    }
+  ],
+  "decisions": [
+    {
+      "counts": {},
+      "target": null,
+      "verdict": "allow",
+      "classification": "public",
+      "personalData": false,
+      "offending": []
+    },
+    {
+      "counts": {
+        "email": 2
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "confidential",
+        "personalData": true,
+        "active": true
+      },
+      "verdict": "allow",
+      "classification": "confidential",
+      "personalData": true,
+      "offending": []
+    },
+    {
+      "counts": {
+        "email": 2,
+        "iban": 1
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "confidential",
+        "personalData": false,
+        "active": true
+      },
+      "verdict": "redact",
+      "classification": "confidential",
+      "personalData": true,
+      "offending": [
+        "email",
+        "iban"
+      ]
+    },
+    {
+      "counts": {
+        "special_category": 1,
+        "email": 1
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "confidential",
+        "personalData": true,
+        "active": true
+      },
+      "verdict": "ask",
+      "classification": "restricted",
+      "personalData": true,
+      "offending": [
+        "special_category"
+      ]
+    },
+    {
+      "counts": {
+        "special_category": 1
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "restricted",
+        "personalData": true,
+        "active": true
+      },
+      "verdict": "allow",
+      "classification": "restricted",
+      "personalData": true,
+      "offending": []
+    },
+    {
+      "counts": {
+        "secret": 1
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "restricted",
+        "personalData": true,
+        "active": true
+      },
+      "verdict": "deny",
+      "classification": "restricted",
+      "personalData": false,
+      "offending": [
+        "secret"
+      ]
+    },
+    {
+      "counts": {},
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "restricted",
+        "personalData": true,
+        "active": false
+      },
+      "verdict": "deny",
+      "classification": "public",
+      "personalData": false,
+      "offending": []
+    },
+    {
+      "counts": {
+        "term": 1
+      },
+      "target": null,
+      "verdict": "redact",
+      "classification": "confidential",
+      "personalData": false,
+      "offending": [
+        "term"
+      ]
+    },
+    {
+      "counts": {
+        "term": 1
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "confidential",
+        "personalData": false,
+        "active": true
+      },
+      "verdict": "allow",
+      "classification": "confidential",
+      "personalData": false,
+      "offending": []
+    },
+    {
+      "counts": {
+        "term": 1
+      },
+      "target": {
+        "name": "Claims assistant",
+        "approvedClassification": "confidential",
+        "personalData": true,
+        "active": true
+      },
+      "termClassification": "restricted",
+      "verdict": "redact",
+      "classification": "restricted",
+      "personalData": false,
+      "offending": [
+        "term"
+      ]
+    }
+  ]
+}

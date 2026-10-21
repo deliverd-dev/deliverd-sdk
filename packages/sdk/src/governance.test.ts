@@ -117,3 +117,120 @@ describe("governance on tasks", () => {
     await expect(deliverd.tasks.checkGovernanceGate("t1")).rejects.toMatchObject({ code: "not_in_development_mode" });
   });
 });
+
+describe("governance across the organisation", () => {
+  it("keeps the register of AI systems", async () => {
+    const { seen, deliverd } = recording({ aiSystems: [] });
+    await deliverd.governance.aiSystems.list({ status: "active" });
+    await deliverd.governance.aiSystems.get("s 1");
+    await deliverd.governance.aiSystems.register({ name: "Claims triage", provider: "Anthropic", model: "claude", promptHash: "sha256:ab" });
+    await deliverd.governance.aiSystems.update("s1", { risk: "high" });
+    await deliverd.governance.aiSystems.recordModelChange("s1", { modelVersion: "2026-10", note: "New version" });
+    expect(seen.map((s) => [s.method, s.url.replace("https://deliverd.example/api/v1", ""), s.body])).toEqual([
+      ["GET", "/ai-systems?status=active", undefined],
+      ["GET", "/ai-systems/s%201", undefined],
+      ["POST", "/ai-systems", { name: "Claims triage", provider: "Anthropic", model: "claude", promptHash: "sha256:ab" }],
+      ["PATCH", "/ai-systems/s1", { risk: "high" }],
+      ["POST", "/ai-systems/s1/model-change", { modelVersion: "2026-10", note: "New version" }],
+    ]);
+  });
+
+  it("returns the register's list, not its envelope", async () => {
+    const { deliverd } = recording({ aiSystems: [{ id: "s1", name: "Claims triage" }] });
+    expect(await deliverd.governance.aiSystems.list()).toEqual([{ id: "s1", name: "Claims triage" }]);
+  });
+
+  it("asks what an agent may do", async () => {
+    const { seen, deliverd } = recording({ action: "send", mode: "approval" });
+    const answer = await deliverd.governance.checkAuthority({ action: "send" });
+    expect(answer.mode).toBe("approval");
+    expect(seen[0]).toMatchObject({ method: "POST", url: "https://deliverd.example/api/v1/governance/authority/evaluate", body: { action: "send" } });
+  });
+
+  it("reports incidents, reads them and drafts their DORA reports", async () => {
+    const { seen, deliverd } = recording({ items: [], nextCursor: null });
+    await deliverd.governance.incidents.report({ taskId: "t1", title: "Wrong payout", severity: "high" });
+    await deliverd.governance.incidents.get("i1");
+    await deliverd.governance.incidents.list({ status: "open", aiSystemId: "s1" });
+    await deliverd.governance.incidents.listPage({ limit: 10, cursor: "c" });
+    await deliverd.governance.incidents.draftReport("i1", { kind: "initial", content: "What happened", approvers: ["cro@example.com"] });
+    expect(seen.map((s) => `${s.method} ${s.url.replace("https://deliverd.example/api/v1", "")}`)).toEqual([
+      "POST /governance/incidents",
+      "GET /governance/incidents/i1",
+      "GET /governance/incidents?status=open&aiSystemId=s1",
+      "GET /governance/incidents?limit=10&cursor=c",
+      "POST /governance/incidents/i1/reports",
+    ]);
+    expect(seen[0]!.body).toEqual({ taskId: "t1", title: "Wrong payout", severity: "high" });
+    expect(seen[4]!.body).toEqual({ kind: "initial", content: "What happened", approvers: ["cro@example.com"] });
+  });
+
+  it("follows the incident cursor to the end with no limit", async () => {
+    const pages = [
+      { items: [{ id: "i1" }], nextCursor: "c2" },
+      { items: [{ id: "i2" }], nextCursor: null },
+    ];
+    const urls: string[] = [];
+    const fetchImpl = (async (input: string | URL | Request) => {
+      urls.push(String(input));
+      return new Response(JSON.stringify(pages.shift()), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof globalThis.fetch;
+    const deliverd = new Deliverd({ apiKey: "dlv_test", baseUrl: "https://deliverd.example", fetch: fetchImpl });
+    expect((await deliverd.governance.incidents.list()).map((i) => i.id)).toEqual(["i1", "i2"]);
+    expect(urls[1]).toContain("cursor=c2");
+  });
+
+  it("reads the frameworks, their mapping, the ICT register and the summary", async () => {
+    const { seen, deliverd } = recording();
+    await deliverd.governance.frameworks();
+    await deliverd.governance.frameworkMapping({ taskId: "t1", framework: "eu_ai_act" });
+    await deliverd.governance.createCustomFramework({
+      key: "custom_underwriting",
+      version: "1.0",
+      name: "Underwriting AI standard",
+      requirements: [{ ref: "UW-1", title: "A person signs off every decline", controls: ["human_oversight"] }],
+    });
+    await deliverd.governance.ictRegister();
+    await deliverd.governance.summary({ risk: "high", provider: "Anthropic" });
+    expect(seen.map((s) => `${s.method} ${s.url.replace("https://deliverd.example/api/v1", "")}`)).toEqual([
+      "GET /governance/frameworks",
+      "GET /governance/frameworks/mapping?taskId=t1&framework=eu_ai_act",
+      "POST /governance/frameworks",
+      "GET /governance/ict-register",
+      "GET /governance/summary?risk=high&provider=Anthropic",
+    ]);
+  });
+
+  it("governs a task, changes its profile, asks for control approval and reassessment, and exports the pack", async () => {
+    const { seen, deliverd } = recording({ id: "t1", kind: "objective", status: "active" });
+    await deliverd.tasks.govern("t1", { aiSystemId: "s1", risk: "high" });
+    await deliverd.tasks.updateGovernanceProfile("t1", { personalData: true, expectedVersion: 3 });
+    await deliverd.tasks.requestControlApproval("t1", "deployment_approval", { approvers: ["cto@example.com"] });
+    await deliverd.tasks.triggerReassessment("t1", "The data source changed");
+    await deliverd.tasks.evidencePack("t1");
+    const task = await deliverd.tasks.get("t1");
+    await task.govern();
+    await task.updateGovernanceProfile({ customerFacing: true });
+    await task.requestControlApproval("compliance_approval");
+    await task.triggerReassessment("New jurisdiction");
+    await task.evidencePack();
+    expect(seen.map((s) => [s.method, new URL(s.url).pathname.replace("/api/v1", ""), s.body])).toEqual([
+      ["POST", "/tasks/t1/governance", { aiSystemId: "s1", risk: "high" }],
+      ["PATCH", "/tasks/t1/governance", { personalData: true, expectedVersion: 3 }],
+      ["POST", "/tasks/t1/governance/controls/deployment_approval/approval", { approvers: ["cto@example.com"] }],
+      ["POST", "/tasks/t1/governance/reassessments", { reason: "The data source changed" }],
+      ["GET", "/tasks/t1/governance/pack", undefined],
+      ["GET", "/tasks/t1", undefined],
+      ["POST", "/tasks/t1/governance", {}],
+      ["PATCH", "/tasks/t1/governance", { customerFacing: true }],
+      ["POST", "/tasks/t1/governance/controls/compliance_approval/approval", {}],
+      ["POST", "/tasks/t1/governance/reassessments", { reason: "New jurisdiction" }],
+      ["GET", "/tasks/t1/governance/pack", undefined],
+    ]);
+  });
+
+  it("is refused in development mode too", async () => {
+    const deliverd = new Deliverd({ mode: "development", development: { log: false } });
+    await expect(deliverd.governance.checkAuthority({ action: "send" })).rejects.toMatchObject({ code: "not_in_development_mode" });
+  });
+});

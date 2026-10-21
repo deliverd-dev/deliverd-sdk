@@ -7,6 +7,13 @@ this was opened as 0.25.2.
 
 ### Added
 
+- **Names, from a model you plug in.** `deliverd.screen()` takes
+  `detectors`, functions from the text to spans that run on your machine
+  beside the patterns, and `spans` already found. A new kind, `person_name`,
+  is counted like any other, so a named-entity model can find what patterns
+  cannot. The open-source `@deliverd/screen` has adapters for Hugging Face
+  token classifiers and Presidio. New types: `DetectedSpan`, `SpanDetector`.
+
 - **`deliverd.governance`, the rest of Compliance Mode**, which REST and MCP
   already had and no SDK did. `aiSystems.list`, `get`, `register`, `update`
   and `recordModelChange` keep the register of AI systems (a model change

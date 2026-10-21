@@ -12,8 +12,8 @@
  * - **The text need not leave the caller.** Everything here is pure and has no
  *   imports, so the SDKs run the same detectors where the agent runs and send
  *   Deliverd only counts: "two email addresses, one IBAN". This file is copied
- *   verbatim into `packages/sdk/src/data-screen.ts`, and a test fails when the
- *   two differ.
+ *   verbatim into `packages/sdk/src/data-screen.ts` and into the open-source
+ *   `packages/screen/src/data-screen.ts`, and a test fails when they differ.
  * - **A finding never carries its value off the machine.** `ScreenFinding` has
  *   offsets into the caller's own text; `summarise` keeps only counts.
  * - **Detection is a net, not a guarantee.** Patterns find structured
@@ -60,6 +60,8 @@ export const DATA_KINDS = {
   us_ssn: { label: "US Social Security number", category: "personal", placeholder: "SSN", redactable: true },
   ip_address: { label: "IP address", category: "personal", placeholder: "IP", redactable: true },
   date_of_birth: { label: "Date of birth", category: "personal", placeholder: "DOB", redactable: true },
+  /** Never found by a pattern here: only by a model detector the caller plugs in (`spans`). */
+  person_name: { label: "Person's name", category: "personal", placeholder: "NAME", redactable: true },
   special_category: { label: "Special-category data", category: "special", placeholder: "SPECIAL", redactable: false },
   secret: { label: "Secret or credential", category: "secret", placeholder: "SECRET", redactable: true },
   term: { label: "Confidential term", category: "confidential", placeholder: "TERM", redactable: true },
@@ -229,7 +231,7 @@ const DETECTORS: Detector[] = [
 
 /** Earlier wins an overlap: a card number is not also a phone number. */
 const PRIORITY: Record<DataKind, number> = Object.fromEntries(
-  ["secret", "iban", "payment_card", "us_ssn", "uk_national_insurance", "ie_pps", "email", "date_of_birth", "phone", "ip_address", "term", "special_category"].map(
+  ["secret", "iban", "payment_card", "us_ssn", "uk_national_insurance", "ie_pps", "email", "date_of_birth", "phone", "ip_address", "term", "person_name", "special_category"].map(
     (k, i) => [k, i]
   )
 ) as Record<DataKind, number>;
@@ -240,10 +242,30 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export const MAX_SCREEN_TERMS = 500;
 
 /**
- * Find what is in a text. Overlapping matches keep the stronger kind, so each
- * character belongs to at most one finding.
+ * What another detector found — a named-entity model, a DLP service — handed
+ * in as offsets into the same text. Patterns cannot find names; a model can,
+ * and this is where its answer joins theirs.
  */
-export function screenText(text: string, terms: readonly ScreenTerm[] = []): ScreenFinding[] {
+export interface DetectedSpan {
+  kind: DataKind;
+  start: number;
+  end: number;
+}
+
+/**
+ * A detector to run beside the patterns: a function from the text to its
+ * spans. The open-source `@deliverd/screen` package has adapters that turn a
+ * Hugging Face token classifier or a Presidio analyzer into one.
+ */
+export type SpanDetector = (text: string) => readonly DetectedSpan[] | Promise<readonly DetectedSpan[]>;
+
+/**
+ * Find what is in a text. Overlapping matches keep the stronger kind, so each
+ * character belongs to at most one finding. `spans` are another detector's
+ * findings, held to the same rules; one outside the text or of no known kind
+ * is dropped.
+ */
+export function screenText(text: string, terms: readonly ScreenTerm[] = [], spans: readonly DetectedSpan[] = []): ScreenFinding[] {
   const raw: ScreenFinding[] = [];
   const add = (kind: DataKind, start: number, end: number, label?: string, classification?: ScreenClassification) => {
     const spec = DATA_KINDS[kind];
@@ -275,6 +297,12 @@ export function screenText(text: string, terms: readonly ScreenTerm[] = []): Scr
     for (const m of text.matchAll(pattern)) {
       add("term", m.index!, m.index! + m[0].length, t.label?.trim() || DATA_KINDS.term.label, t.classification ?? "confidential");
     }
+  }
+
+  for (const s of spans) {
+    if (!Object.hasOwn(DATA_KINDS, s.kind) || s.kind === "term") continue;
+    if (!Number.isInteger(s.start) || !Number.isInteger(s.end) || s.start < 0 || s.end > text.length || s.end <= s.start) continue;
+    add(s.kind, s.start, s.end);
   }
 
   raw.sort((a, b) => PRIORITY[a.kind] - PRIORITY[b.kind] || b.end - b.start - (a.end - a.start) || a.start - b.start);
@@ -418,6 +446,7 @@ export function describeCounts(counts: ScreenCounts): string {
     if (k === "special_category") return `${n} mention${n === 1 ? "" : "s"} of special-category data`;
     if (k === "secret") return `${n} secret${n === 1 ? "" : "s"} or credential${n === 1 ? "" : "s"}`;
     if (k === "term") return plural(n, "confidential term");
+    if (k === "person_name") return `${n} ${n === 1 ? "person's name" : "people's names"}`;
     return /^[A-Z]{2,}/.test(label) ? `${n} ${label}${n === 1 ? "" : "s"}` : plural(n, label);
   });
   if (parts.length <= 1) return parts[0] ?? "nothing";

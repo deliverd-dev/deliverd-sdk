@@ -80,9 +80,18 @@ def request_body(
     ai_system_id: Optional[str],
     purpose: Optional[str],
     external_id: Optional[str],
+    detectors: Any = None,
+    spans: Any = None,
 ) -> "tuple[Dict[str, Any], list]":
-    """What is sent: counts by kind, never the text. Returns the body and the findings."""
-    findings = screen_text(text, terms or ())
+    """What is sent: counts by kind, never the text. Returns the body and the findings.
+
+    ``detectors`` are callables from the text to spans, run here beside the
+    patterns (a named-entity model for names); ``spans`` are ones already found.
+    """
+    found = list(spans or ())
+    for detect in detectors or ():
+        found.extend(detect(text))
+    findings = screen_text(text, terms or (), found)
     body: Dict[str, Any] = {
         "counts": summarise(findings),
         "termClassification": term_classification_of(findings),

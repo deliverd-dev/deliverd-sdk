@@ -18,6 +18,31 @@ the CLI has two, and the Rust SDK uses reqwest, serde and tokio rather than
 writing its own HTTP client. The Deliverd service they talk to is a separate,
 proprietary product.
 
+### Deliverd Screen: a pre-send check for every prompt
+
+It finds personal data, secrets and your own confidential terms in text
+before the text goes to an AI model, and redacts them. Everything runs on your machine,
+with no account and no network call, so it works whether or not you use
+Deliverd.
+
+| Package | Install | Source |
+|---|---|---|
+| Deliverd Screen for TypeScript | `npm install @deliverd/screen` | [`packages/screen`](packages/screen) |
+| Deliverd Screen for Python | `pip install deliverd-screen` | [`packages/screen-python`](packages/screen-python) |
+
+```ts
+import { screen } from "@deliverd/screen";
+
+const checked = await screen(prompt);
+if (checked.allowed) return checked.restore(await model.generate(checked.text));
+```
+
+Both are MIT with no runtime dependency, and they use the same detectors as the SDKs.
+You can plug in a model for people's names, a Vercel AI SDK middleware, a CLI
+for pre-commit hooks and CI, and a local MCP server. When a person has to
+decide whether something may be sent, Deliverd's Data Gate asks them and keeps
+the record.
+
 ## Start free
 
 1. [Create a free Deliverd account](https://deliverd.dev/sign-up?utm_source=github&utm_medium=repository&utm_campaign=sdk-repo&utm_content=readme).
@@ -77,9 +102,12 @@ deliverd = Deliverd(mode="development")
   1.89 and up, async on tokio.
 - **[`packages/cli`](packages/cli)**: `deliverd` on npm. For build steps,
   pipelines, scripts and connecting your AI tools over MCP.
+- **[`packages/screen`](packages/screen)** and
+  **[`packages/screen-python`](packages/screen-python)**: Deliverd Screen,
+  `@deliverd/screen` on npm and `deliverd-screen` on PyPI.
 - **[`packages/conformance`](packages/conformance)**: one table of behaviour
-  every SDK must share: retries, idempotency, webhook signatures, durations
-  and gating.
+  every SDK must share: retries, idempotency, webhook signatures, durations,
+  gating and data screening.
   Each SDK's test suite reads it, so a case added there fails in whichever
   language has not implemented it.
 
@@ -95,6 +123,9 @@ pnpm --filter @deliverd/sdk build   # release.test.ts reads dist/
 pnpm vitest run
 
 cd packages/sdk-python
+PYTHONPATH=src python -m unittest discover -s tests
+
+cd ../screen-python
 PYTHONPATH=src python -m unittest discover -s tests
 
 cd ../sdk-rust

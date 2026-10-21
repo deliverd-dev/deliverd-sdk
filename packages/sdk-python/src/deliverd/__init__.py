@@ -32,7 +32,7 @@ from __future__ import annotations
 import os
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from ._http import DEFAULT_BASE_URL, HttpClient, Transport
 from .approvals import FAST_POLL_SCHEDULE, POLL_SCHEDULE, Approval, Approvals, DecisionSessions
@@ -51,7 +51,7 @@ from .schedules import Schedules
 from .tasks import Task, Tasks
 from .webhook_endpoints import WebhookEndpoints
 from .screen import Screened, request_body as _screen_body, settle as _screen_settle
-from .data_screen import ScreenTerm, redact, restore, screen_text, summarise
+from .data_screen import DetectedSpan, ScreenTerm, redact, restore, screen_text, summarise
 from .types import (
     APPROVAL_RISKS,
     APPROVAL_STATUSES,
@@ -189,6 +189,7 @@ __all__ = [
     "deliverd",
     "Screened",
     "ScreenTerm",
+    "DetectedSpan",
     "screen_text",
     "redact",
     "restore",
@@ -641,6 +642,8 @@ class Deliverd:
         wait: bool = True,
         timeout: Optional[Duration] = None,
         cancel: Optional[threading.Event] = None,
+        detectors: Optional[Sequence[Callable[[str], Sequence[Any]]]] = None,
+        spans: Optional[Sequence[Any]] = None,
     ) -> Screened:
         """Check text before it goes to an AI model, and wait if a person has to decide.
 
@@ -659,9 +662,12 @@ class Deliverd:
         the answer; ``ask`` puts it to a person and waits; ``deny`` sends
         nothing. ``terms`` are your own words not to send — clients, code
         names — as strings, dicts or :class:`ScreenTerm`. A net, not a
-        guarantee: names in particular are not reliably found.
+        guarantee: names in particular are not reliably found, unless you pass
+        ``detectors``: callables from the text to spans, such as the Hugging
+        Face or Presidio adapters in ``deliverd-screen``. They run here too,
+        and only their counts are sent.
         """
-        body, findings = _screen_body(text, terms, ai_system_id, purpose, external_id)
+        body, findings = _screen_body(text, terms, ai_system_id, purpose, external_id, detectors, spans)
         data = ScreenData.from_wire(self.http.request("POST", "/screen", body=body))
         settled = _screen_settle(data, text, findings)
         if settled is not None:

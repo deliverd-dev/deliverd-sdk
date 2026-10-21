@@ -18,7 +18,7 @@ VECTORS = json.loads((Path(__file__).resolve().parents[2] / "conformance" / "scr
 
 
 def check_text(case):
-    found = screen_text(case["text"], case.get("terms") or [])
+    found = screen_text(case["text"], case.get("terms") or [], case.get("spans") or [])
     assert [{"kind": f.kind, "value": case["text"][f.start : f.end]} for f in found] == case["findings"], case["text"]
     assert redact(case["text"], found).text == case["redacted"]
 

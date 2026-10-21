@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deliverd-screen"
+version = "0.1.0"
+description = "A pre-send check for every prompt. Finds and redacts personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network calls."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+keywords = ["pii", "redaction", "privacy", "dlp", "llm", "prompt", "ai", "gdpr", "deliverd"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Security",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
+# None. The detectors are the standard library's re; a model for names is
+# yours to install and pass in (deliverd_screen.adapters).
+dependencies = []
+
+[project.scripts]
+deliverd-screen = "deliverd_screen.cli:main"
+
+[project.urls]
+Homepage = "https://deliverd.dev/docs/developers/screen?utm_source=pypi&utm_medium=package&utm_campaign=screen&utm_content=metadata"
+Source = "https://github.com/deliverd-dev/deliverd-sdk/tree/main/packages/screen-python"
+Changelog = "https://github.com/deliverd-dev/deliverd-sdk/blob/main/packages/screen-python/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/deliverd_screen"]
+artifacts = ["src/deliverd_screen/py.typed"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/deliverd_screen", "README.md", "LICENSE"]

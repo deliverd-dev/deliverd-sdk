@@ -1,5 +1,15 @@
 import type { Approval, Approvals } from "./approvals.js";
-import { redactFor, restore, screenText, summarise, termClassificationOf, type DataKind, type ScreenTerm } from "./data-screen.js";
+import {
+  redactFor,
+  restore,
+  screenText,
+  summarise,
+  termClassificationOf,
+  type DataKind,
+  type DetectedSpan,
+  type ScreenTerm,
+  type SpanDetector,
+} from "./data-screen.js";
 import { durationMs, type Duration } from "./duration.js";
 import type { HttpClient } from "./http.js";
 import type { ScreenData, ScreenVerdict } from "./types.js";
@@ -45,6 +55,16 @@ export interface ScreenOptions {
    * applied only to text the server reads, so pass yours here.
    */
   terms?: readonly ScreenTerm[];
+  /**
+   * Detectors to run here beside the patterns, such as a named-entity model
+   * for people's names, which patterns cannot find. Each gets the text and
+   * returns spans; `@deliverd/screen` has adapters for Hugging Face and
+   * Presidio. They run on your machine, like the patterns, and only their
+   * counts are sent.
+   */
+  detectors?: readonly SpanDetector[];
+  /** Spans another detector already found in this text. */
+  spans?: readonly DetectedSpan[];
   /** Whether to wait for a person on an `ask`. Default true. */
   wait?: boolean;
   timeout?: Duration;
@@ -90,7 +110,9 @@ export async function screen(
   options: ScreenOptions = {},
   development = false
 ): Promise<Screened> {
-  const findings = screenText(text, options.terms ?? []);
+  const spans = [...(options.spans ?? [])];
+  for (const detect of options.detectors ?? []) spans.push(...(await detect(text)));
+  const findings = screenText(text, options.terms ?? [], spans);
   const data = await http.request<ScreenData>({
     method: "POST",
     path: "/screen",

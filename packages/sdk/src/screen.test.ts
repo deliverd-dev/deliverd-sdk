@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Deliverd } from "./index.js";
-import { assessCounts, redact, screenText, type ScreenTarget } from "./data-screen.js";
+import { assessCounts, redact, screenText, type DetectedSpan, type ScreenTarget } from "./data-screen.js";
 
 /**
  * Screening, in the language the agent runs in.
@@ -12,7 +12,7 @@ import { assessCounts, redact, screenText, type ScreenTarget } from "./data-scre
  */
 
 interface Vectors {
-  texts: { text: string; terms?: { term: string; label?: string }[]; findings: { kind: string; value: string }[]; redacted: string }[];
+  texts: { text: string; terms?: { term: string; label?: string }[]; spans?: DetectedSpan[]; findings: { kind: string; value: string }[]; redacted: string }[];
   decisions: {
     counts: Record<string, number>;
     target: ScreenTarget | null;
@@ -28,7 +28,7 @@ const VECTORS: Vectors = JSON.parse(readFileSync(new URL("../../conformance/scre
 
 describe("the shared screening vectors", () => {
   it.each(VECTORS.texts.map((t) => [t.text, t] as const))("finds and redacts %s", (_, t) => {
-    const found = screenText(t.text, t.terms ?? []);
+    const found = screenText(t.text, t.terms ?? [], t.spans ?? []);
     expect(found.map((f) => ({ kind: f.kind, value: t.text.slice(f.start, f.end) }))).toEqual(t.findings);
     expect(redact(t.text, found).text).toBe(t.redacted);
   });

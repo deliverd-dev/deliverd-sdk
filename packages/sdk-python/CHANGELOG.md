@@ -7,6 +7,12 @@ this was opened as 0.18.2, and it carries that patch's change too.
 
 ### Added
 
+- **Names, from a model you plug in.** `deliverd.screen()` takes
+  `detectors`, callables from the text to spans that run on your machine
+  beside the patterns, and `spans` already found. A new kind, `person_name`,
+  is counted like any other. The open-source `deliverd-screen` has adapters
+  for Hugging Face pipelines and Presidio. `DetectedSpan` is exported.
+
 - **`deliverd.governance`, the rest of Compliance Mode**, sync and async, as
   in the TypeScript SDK. `ai_systems.list`, `get`, `register`, `update` and
   `record_model_change`; `check_authority(action)`; `incidents.report`, `get`,

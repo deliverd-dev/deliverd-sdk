@@ -1,0 +1,70 @@
+{
+  "name": "@deliverd/screen",
+  "version": "0.1.0",
+  "description": "A pre-send check for every prompt. Finds and redacts personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network calls. Bring your own model for names.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "deliverd-screen": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters.d.ts",
+      "default": "./dist/adapters.js"
+    },
+    "./ai-sdk": {
+      "types": "./dist/ai-sdk.d.ts",
+      "default": "./dist/ai-sdk.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pii",
+    "redaction",
+    "privacy",
+    "dlp",
+    "llm",
+    "prompt",
+    "ai",
+    "gdpr",
+    "mcp",
+    "deliverd"
+  ],
+  "homepage": "https://deliverd.dev/docs/developers/screen?utm_source=npm&utm_medium=package&utm_campaign=screen&utm_content=metadata",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deliverd-dev/deliverd-sdk.git",
+    "directory": "packages/screen"
+  },
+  "bugs": {
+    "url": "https://deliverd.dev/contact?utm_source=npm&utm_medium=package&utm_campaign=screen&utm_content=metadata"
+  }
+}

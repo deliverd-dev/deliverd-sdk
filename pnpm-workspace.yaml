@@ -1,3 +1,4 @@
 packages:
   - packages/sdk
   - packages/cli
+  - packages/screen

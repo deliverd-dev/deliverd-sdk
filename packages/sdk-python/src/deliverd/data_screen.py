@@ -40,6 +40,8 @@ DATA_KINDS: Dict[str, Dict[str, object]] = {
     "us_ssn": {"label": "US Social Security number", "category": "personal", "placeholder": "SSN", "redactable": True},
     "ip_address": {"label": "IP address", "category": "personal", "placeholder": "IP", "redactable": True},
     "date_of_birth": {"label": "Date of birth", "category": "personal", "placeholder": "DOB", "redactable": True},
+    # Never found by a pattern here: only by a model detector the caller plugs in (``spans``).
+    "person_name": {"label": "Person's name", "category": "personal", "placeholder": "NAME", "redactable": True},
     "special_category": {"label": "Special-category data", "category": "special", "placeholder": "SPECIAL", "redactable": False},
     "secret": {"label": "Secret or credential", "category": "secret", "placeholder": "SECRET", "redactable": True},
     "term": {"label": "Confidential term", "category": "confidential", "placeholder": "TERM", "redactable": True},
@@ -68,6 +70,15 @@ class ScreenTerm:
     label: Optional[str] = None
     #: ``confidential`` (default) or ``restricted``.
     classification: Optional[str] = None
+
+
+@dataclass
+class DetectedSpan:
+    """What another detector found, as offsets into the same text."""
+
+    kind: str
+    start: int
+    end: int
 
 
 @dataclass
@@ -217,6 +228,7 @@ _PRIORITY = {
             "phone",
             "ip_address",
             "term",
+            "person_name",
             "special_category",
         ]
     )
@@ -231,10 +243,25 @@ def _term_of(t: object) -> ScreenTerm:
     return ScreenTerm(term=str(t))
 
 
-def screen_text(text: str, terms: Sequence[object] = ()) -> List[ScreenFinding]:
+def _span_of(s: object) -> Optional[DetectedSpan]:
+    if isinstance(s, DetectedSpan):
+        return s
+    if isinstance(s, Mapping):
+        try:
+            return DetectedSpan(kind=str(s.get("kind", "")), start=s["start"], end=s["end"])
+        except KeyError:
+            return None
+    return None
+
+
+def screen_text(text: str, terms: Sequence[object] = (), spans: Sequence[object] = ()) -> List[ScreenFinding]:
     """Find what is in a text. Each character belongs to at most one finding.
 
     ``terms`` are :class:`ScreenTerm`, dicts with the same keys, or strings.
+    ``spans`` are another detector's findings — a named-entity model, a DLP
+    service — as :class:`DetectedSpan` or dicts of ``kind``, ``start`` and
+    ``end``, held to the same rules; one outside the text or of no known kind
+    is dropped.
     """
     raw: List[ScreenFinding] = []
 
@@ -267,6 +294,15 @@ def screen_text(text: str, terms: Sequence[object] = ()) -> List[ScreenFinding]:
         pattern = re.compile(r"(?<![^\W_])" + re.escape(term) + r"(?![^\W_])", re.IGNORECASE)
         for m in pattern.finditer(text):
             add("term", m.start(), m.end(), (t.label or "").strip() or None, t.classification or "confidential")
+
+    for sp in (_span_of(s) for s in spans):
+        if sp is None or sp.kind not in DATA_KINDS or sp.kind == "term":
+            continue
+        if not isinstance(sp.start, int) or not isinstance(sp.end, int) or isinstance(sp.start, bool) or isinstance(sp.end, bool):
+            continue
+        if sp.start < 0 or sp.end > len(text) or sp.end <= sp.start:
+            continue
+        add(sp.kind, sp.start, sp.end)
 
     raw.sort(key=lambda f: (_PRIORITY[f.kind], -(f.end - f.start), f.start))
     kept: List[ScreenFinding] = []
@@ -394,6 +430,8 @@ def describe_counts(counts: Mapping[str, int]) -> str:
             parts.append("{} secret{} or credential{}".format(n, s, s))
         elif k == "term":
             parts.append("{} confidential term{}".format(n, s))
+        elif k == "person_name":
+            parts.append("{} {}".format(n, "person's name" if n == 1 else "people's names"))
         elif re.match(r"^[A-Z]{2,}", label):
             parts.append("{} {}{}".format(n, label, s))
         else:

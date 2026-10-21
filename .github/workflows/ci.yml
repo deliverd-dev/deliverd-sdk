@@ -48,6 +48,13 @@ jobs:
         working-directory: packages/sdk-python
         env:
           PYTHONPATH: src
+      # Deliverd Screen, the open-source detectors, the same way.
+      - run: |
+          python3.9 -m unittest discover -s tests
+          python3.14 -m unittest discover -s tests
+        working-directory: packages/screen-python
+        env:
+          PYTHONPATH: src
 
   rust:
     runs-on: ubuntu-latest

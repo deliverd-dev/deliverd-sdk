@@ -42,9 +42,11 @@ export {
   screenText,
   summarise,
   type DataKind,
+  type DetectedSpan,
   type Redaction,
   type ScreenFinding,
   type ScreenTerm,
+  type SpanDetector,
 } from "./data-screen.js";
 export {
   constructCallback,

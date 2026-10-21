@@ -1,5 +1,5 @@
 {
-  "_readme": "Screening vectors: what the detectors find and decide. Generated from packages/core/src/data-screen.ts; the TypeScript and Python SDKs must both reproduce every case.",
+  "_readme": "Screening vectors: what the detectors find and decide. Generated from packages/core/src/data-screen.ts (spans stand for a model detector's findings); the TypeScript and Python SDKs must both reproduce every case.",
   "texts": [
     {
       "text": "Write to mary.byrne@example.ie today",
@@ -162,6 +162,72 @@
       "text": "Summarise the quarterly results for the board, in three bullet points.",
       "findings": [],
       "redacted": "Summarise the quarterly results for the board, in three bullet points."
+    },
+    {
+      "text": "Ring Mary Byrne on 087 123 4567 about the renewal",
+      "spans": [
+        {
+          "kind": "person_name",
+          "start": 5,
+          "end": 15
+        }
+      ],
+      "findings": [
+        {
+          "kind": "person_name",
+          "value": "Mary Byrne"
+        },
+        {
+          "kind": "phone",
+          "value": "087 123 4567"
+        }
+      ],
+      "redacted": "Ring [NAME_1] on [PHONE_1] about the renewal"
+    },
+    {
+      "text": "Mary Byrne wrote from mary.byrne@example.ie; Mary Byrne again",
+      "spans": [
+        {
+          "kind": "person_name",
+          "start": 0,
+          "end": 10
+        },
+        {
+          "kind": "person_name",
+          "start": 22,
+          "end": 32
+        },
+        {
+          "kind": "person_name",
+          "start": 45,
+          "end": 55
+        },
+        {
+          "kind": "person_name",
+          "start": 50,
+          "end": 99
+        },
+        {
+          "kind": "nonsense",
+          "start": 0,
+          "end": 4
+        }
+      ],
+      "findings": [
+        {
+          "kind": "person_name",
+          "value": "Mary Byrne"
+        },
+        {
+          "kind": "email",
+          "value": "mary.byrne@example.ie"
+        },
+        {
+          "kind": "person_name",
+          "value": "Mary Byrne"
+        }
+      ],
+      "redacted": "[NAME_1] wrote from [EMAIL_1]; [NAME_1] again"
     }
   ],
   "decisions": [
@@ -314,6 +380,34 @@
       "offending": [
         "term"
       ]
+    },
+    {
+      "counts": {
+        "person_name": 2
+      },
+      "target": null,
+      "verdict": "redact",
+      "classification": "confidential",
+      "personalData": true,
+      "offending": [
+        "person_name"
+      ]
+    },
+    {
+      "counts": {
+        "person_name": 1,
+        "email": 1
+      },
+      "target": {
+        "name": "Support assistant",
+        "approvedClassification": "confidential",
+        "personalData": true,
+        "active": true
+      },
+      "verdict": "allow",
+      "classification": "confidential",
+      "personalData": true,
+      "offending": []
     }
   ]
 }

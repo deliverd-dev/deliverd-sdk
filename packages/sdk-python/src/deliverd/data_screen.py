@@ -159,6 +159,10 @@ def _phone_valid(m: str) -> bool:
 _A = re.ASCII
 _AI = re.ASCII | re.IGNORECASE
 
+#: JavaScript's ``\s``, which is Unicode whatever the flags, so a no-break
+#: space between "born on" and the date counts as one. ``re.ASCII`` would not.
+_WS = r"[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]"
+
 #: The same credential patterns the publish scanner blocks a report for.
 _SECRET_PATTERNS = [
     re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b", _A),
@@ -170,7 +174,7 @@ _SECRET_PATTERNS = [
     re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{32,}\b", _A),
     re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b", _A),
     re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", _A),
-    re.compile(r"""\b(?:password|passwd|secret_key|api_key|apikey|auth_token)\s*[:=]\s*["'][^"']{8,}["']""", _AI),
+    re.compile(r"""\b(?:password|passwd|secret_key|api_key|apikey|auth_token)""" + _WS + r"""*[:=]""" + _WS + r"""*["'][^"']{8,}["']""", _AI),
     re.compile(r"\b(?:dlv|dlvk)_[A-Za-z0-9]{24,}\b", _A),
 ]
 
@@ -196,7 +200,7 @@ _DETECTORS = [
     (
         "date_of_birth",
         re.compile(
-            r"\b(?:date of birth|d\.?o\.?b\.?|born(?: on)?)\s*[:\-]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2} (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{4})",
+            r"\b(?:date of birth|d\.?o\.?b\.?|born(?: on)?)" + _WS + r"*[:\-]?" + _WS + r"*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2} (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{4})",
             _AI,
         ),
         None,
@@ -432,6 +436,12 @@ def describe_counts(counts: Mapping[str, int]) -> str:
             parts.append("{} confidential term{}".format(n, s))
         elif k == "person_name":
             parts.append("{} {}".format(n, "person's name" if n == 1 else "people's names"))
+        elif k == "ip_address":
+            parts.append("{} IP address{}".format(n, "" if n == 1 else "es"))
+        elif k == "date_of_birth":
+            parts.append("{} date{} of birth".format(n, s))
+        elif k == "ie_pps":
+            parts.append("{} Irish PPS number{}".format(n, s))
         elif re.match(r"^[A-Z]{2,}", label):
             parts.append("{} {}{}".format(n, label, s))
         else:

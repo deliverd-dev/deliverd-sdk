@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.26.1
+
+A patch. 0.26.0 went to npm on 21 October 2026 from 80475ec.
+
+### Fixed
+
+- **Reasons from `deliverd.screen()` read properly**: "2 IP addresses",
+  "2 dates of birth" and "1 Irish PPS number", where they said
+  "2 IP addresss", "2 date of births" and "1 irish pps number".
+
 ## 0.26.0
 
 A minor, for an addition. 0.25.1 went to npm on 15 October 2026 from 4c58d4e;

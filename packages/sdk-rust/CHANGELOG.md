@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+A patch, with no change to the API. The README gains the Muse Spark section
+the other SDKs already had, and this release is the first to go to crates.io
+by trusted publishing from the public mirror rather than with a token.
+
 ## 0.1.0
 
 The first release.

@@ -29,6 +29,7 @@ Deliverd.
 |---|---|---|
 | Deliverd Screen for TypeScript | `npm install @deliverd/screen` | [`packages/screen`](packages/screen) |
 | Deliverd Screen for Python | `pip install deliverd-screen` | [`packages/screen-python`](packages/screen-python) |
+| Deliverd Screen for Rust | `cargo add deliverd-screen` | [`packages/screen-rust`](packages/screen-rust) |
 
 ```ts
 import { screen } from "@deliverd/screen";
@@ -37,9 +38,11 @@ const checked = await screen(prompt);
 if (checked.allowed) return checked.restore(await model.generate(checked.text));
 ```
 
-Both are MIT with no runtime dependency, and they use the same detectors as the SDKs.
-You can plug in a model for people's names, a Vercel AI SDK middleware, a CLI
-for pre-commit hooks and CI, and a local MCP server. When a person has to
+All three are MIT. The TypeScript and Python packages have no runtime
+dependency, and the Rust crate's library has one, regex. They find the same
+things as the SDKs, held to one set of test cases. You can plug in a model for
+people's names, a CLI for pre-commit hooks and CI, and a local MCP server, and
+in TypeScript a Vercel AI SDK middleware. When a person has to
 decide whether something may be sent, Deliverd's Data Gate asks them and keeps
 the record.
 
@@ -102,9 +105,10 @@ deliverd = Deliverd(mode="development")
   1.89 and up, async on tokio.
 - **[`packages/cli`](packages/cli)**: `deliverd` on npm. For build steps,
   pipelines, scripts and connecting your AI tools over MCP.
-- **[`packages/screen`](packages/screen)** and
-  **[`packages/screen-python`](packages/screen-python)**: Deliverd Screen,
-  `@deliverd/screen` on npm and `deliverd-screen` on PyPI.
+- **[`packages/screen`](packages/screen)**,
+  **[`packages/screen-python`](packages/screen-python)** and
+  **[`packages/screen-rust`](packages/screen-rust)**: Deliverd Screen,
+  `@deliverd/screen` on npm and `deliverd-screen` on PyPI and crates.io.
 - **[`packages/conformance`](packages/conformance)**: one table of behaviour
   every SDK must share: retries, idempotency, webhook signatures, durations,
   gating and data screening.
@@ -129,6 +133,9 @@ cd ../screen-python
 PYTHONPATH=src python -m unittest discover -s tests
 
 cd ../sdk-rust
+cargo test
+
+cd ../screen-rust
 cargo test
 ```
 

@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 from deliverd import Deliverd, DevelopmentOptions, redact, screen_text
-from deliverd.data_screen import ScreenTarget, assess_counts
+from deliverd.data_screen import ScreenTarget, assess_counts, describe_counts
 
 VECTORS = json.loads((Path(__file__).resolve().parents[2] / "conformance" / "screening.json").read_text("utf-8"))
 
@@ -121,6 +121,10 @@ class ScreeningTest(unittest.TestCase):
         for i, case in enumerate(VECTORS["decisions"]):
             with self.subTest(i):
                 check_decision(case)
+
+    def test_describes_counts_like_typescript(self):
+        for case in VECTORS["descriptions"]:
+            self.assertEqual(describe_counts(case["counts"]), case["text"])
 
     def test_sends_counts_never_the_text(self):
         _t_sends_counts_never_the_text()

@@ -447,6 +447,9 @@ export function describeCounts(counts: ScreenCounts): string {
     if (k === "secret") return `${n} secret${n === 1 ? "" : "s"} or credential${n === 1 ? "" : "s"}`;
     if (k === "term") return plural(n, "confidential term");
     if (k === "person_name") return `${n} ${n === 1 ? "person's name" : "people's names"}`;
+    if (k === "ip_address") return `${n} IP address${n === 1 ? "" : "es"}`;
+    if (k === "date_of_birth") return `${n} date${n === 1 ? "" : "s"} of birth`;
+    if (k === "ie_pps") return `${n} Irish PPS number${n === 1 ? "" : "s"}`;
     return /^[A-Z]{2,}/.test(label) ? `${n} ${label}${n === 1 ? "" : "s"}` : plural(n, label);
   });
   if (parts.length <= 1) return parts[0] ?? "nothing";

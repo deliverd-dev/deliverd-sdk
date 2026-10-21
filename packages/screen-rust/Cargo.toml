@@ -1,0 +1,38 @@
+[package]
+name = "deliverd-screen"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "A pre-send check for every prompt. Find and redact personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network."
+license = "MIT"
+readme = "README.md"
+# The public repository the crate is published from (docs/public-sdk.md); the
+# links to deliverd.dev are tagged, like every link a package page carries.
+repository = "https://github.com/deliverd-dev/deliverd-sdk"
+homepage = "https://deliverd.dev/docs/developers/screen?utm_source=crates&utm_medium=package&utm_campaign=screen&utm_content=metadata"
+documentation = "https://docs.rs/deliverd-screen"
+keywords = ["pii", "redaction", "privacy", "llm", "dlp"]
+categories = ["text-processing", "command-line-utilities"]
+# The source, the README crates.io shows, the licence and the changelog. Not
+# the tests, which read the shared vectors from outside this directory.
+include = ["src/**/*.rs", "README.md", "CHANGELOG.md", "LICENSE", "Cargo.toml"]
+
+[[bin]]
+name = "deliverd-screen"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+# The command-line tool and the local MCP server, which need JSON. Turn
+# default features off for the library alone, whose one dependency is regex.
+default = ["cli"]
+cli = ["dep:serde_json"]
+
+# One dependency for the library: the patterns. The `regex` crate matches in
+# time linear in the text, so no prompt, however hostile, makes a screen slow.
+[dependencies]
+regex = "1"
+serde_json = { version = "1", optional = true }
+
+[dev-dependencies]
+serde_json = "1"

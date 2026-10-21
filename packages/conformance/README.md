@@ -58,5 +58,7 @@ it is redacted, and for each set of counts and register record, the verdict.
 Generated from `packages/core/src/data-screen.ts`, which the TypeScript SDK
 carries a byte-for-byte copy of; the Python port in
 `packages/sdk-python/src/deliverd/data_screen.py` is held to it by
-`tests/test_screen.py`. The Rust SDK does not screen yet, so it does not read
-this file; when it does, it reads every case here.
+`tests/test_screen.py`, and the Rust port in `packages/screen-rust` by
+`tests/conformance.rs`. It also says how counts are described ("2 dates of
+birth"), which every reason a check gives is built from. The Rust SDK itself
+does not screen yet.

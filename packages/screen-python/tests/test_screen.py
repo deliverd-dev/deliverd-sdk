@@ -11,7 +11,7 @@ from pathlib import Path
 from deliverd_screen import __version__, screen
 from deliverd_screen.adapters import presidio, token_classifier
 from deliverd_screen.cli import main
-from deliverd_screen.data_screen import DetectedSpan, ScreenTarget, assess_counts, redact, screen_text
+from deliverd_screen.data_screen import DetectedSpan, ScreenTarget, assess_counts, describe_counts, redact, screen_text
 
 ROOT = Path(__file__).resolve().parents[1]
 VECTORS = json.loads((ROOT.parent / "conformance" / "screening.json").read_text("utf-8"))
@@ -30,6 +30,10 @@ class Vectors(unittest.TestCase):
             target = ScreenTarget(t["name"], t["approvedClassification"], t["personalData"], t["active"]) if t else None
             a = assess_counts(case["counts"], target, None, case.get("termClassification") or "confidential")
             self.assertEqual((a.verdict, a.classification, a.personal_data, a.offending), (case["verdict"], case["classification"], case["personalData"], case["offending"]))
+
+    def test_descriptions(self):
+        for case in VECTORS["descriptions"]:
+            self.assertEqual(describe_counts(case["counts"]), case["text"])
 
 
 class Screen(unittest.TestCase):

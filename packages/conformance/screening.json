@@ -1,5 +1,5 @@
 {
-  "_readme": "Screening vectors: what the detectors find and decide. Generated from packages/core/src/data-screen.ts (spans stand for a model detector's findings); the TypeScript and Python SDKs must both reproduce every case.",
+  "_readme": "Screening vectors: what the detectors find and decide, and how counts are described. Generated from packages/core/src/data-screen.ts (spans stand for a model detector's findings); the TypeScript, Python and Rust packages must all reproduce every case.",
   "texts": [
     {
       "text": "Write to mary.byrne@example.ie today",
@@ -228,6 +228,190 @@
         }
       ],
       "redacted": "[NAME_1] wrote from [EMAIL_1]; [NAME_1] again"
+    },
+    {
+      "text": "Call 087 1234 5678x or +44 20 7946 0958 today",
+      "findings": [
+        {
+          "kind": "phone",
+          "value": "+44 20 7946 0958"
+        }
+      ],
+      "redacted": "Call 087 1234 5678x or [PHONE_1] today"
+    },
+    {
+      "text": "ref+0871234567 and id A0871234567 but (01) 234 5678 rings",
+      "findings": [
+        {
+          "kind": "phone",
+          "value": "(01) 234 5678"
+        }
+      ],
+      "redacted": "ref+0871234567 and id A0871234567 but [PHONE_1] rings"
+    },
+    {
+      "text": "SSNs 000-12-3456, 666-12-3456, 912-12-3456, 123-00-4567, 123-45-0000 and 123-45-6789",
+      "findings": [
+        {
+          "kind": "phone",
+          "value": "000-12-3456"
+        },
+        {
+          "kind": "us_ssn",
+          "value": "123-45-6789"
+        }
+      ],
+      "redacted": "SSNs [PHONE_1], 666-12-3456, 912-12-3456, 123-00-4567, 123-45-0000 and [SSN_1]"
+    },
+    {
+      "text": "NINO GB 12 34 56 A is never issued; AB 12 34 56 C is",
+      "findings": [
+        {
+          "kind": "uk_national_insurance",
+          "value": "AB 12 34 56 C"
+        }
+      ],
+      "redacted": "NINO GB 12 34 56 A is never issued; [NINO_1] is"
+    },
+    {
+      "text": "Acme Acme-Corp acmes ACME. Acme",
+      "terms": [
+        {
+          "term": "Acme",
+          "label": "Client"
+        }
+      ],
+      "findings": [
+        {
+          "kind": "term",
+          "value": "Acme"
+        },
+        {
+          "kind": "term",
+          "value": "Acme"
+        },
+        {
+          "kind": "term",
+          "value": "ACME"
+        },
+        {
+          "kind": "term",
+          "value": "Acme"
+        }
+      ],
+      "redacted": "[CLIENT_1] [CLIENT_1]-Corp acmes [CLIENT_1]. [CLIENT_1]"
+    },
+    {
+      "text": "Café Müller met CAFÉ MÜLLER",
+      "terms": [
+        {
+          "term": "café müller",
+          "label": "Kunde (vertraulich)"
+        }
+      ],
+      "findings": [
+        {
+          "kind": "term",
+          "value": "Café Müller"
+        },
+        {
+          "kind": "term",
+          "value": "CAFÉ MÜLLER"
+        }
+      ],
+      "redacted": "[KUNDE_VERTRAULICH_1] met [KUNDE_VERTRAULICH_1]"
+    },
+    {
+      "text": "Born on 12/03/1985, DOB: 1990-07-14, date of birth 3 March 1979",
+      "findings": [
+        {
+          "kind": "date_of_birth",
+          "value": "12/03/1985"
+        },
+        {
+          "kind": "date_of_birth",
+          "value": "1990-07-14"
+        },
+        {
+          "kind": "date_of_birth",
+          "value": "3 March 1979"
+        }
+      ],
+      "redacted": "Born on [DOB_1], DOB: [DOB_2], date of birth [DOB_3]"
+    },
+    {
+      "text": "Her Diagnosis and a MEDICAL HISTORY; HIVE is not HIV",
+      "findings": [
+        {
+          "kind": "special_category",
+          "value": "Diagnosis"
+        },
+        {
+          "kind": "special_category",
+          "value": "MEDICAL HISTORY"
+        },
+        {
+          "kind": "special_category",
+          "value": "HIV"
+        }
+      ],
+      "redacted": "Her Diagnosis and a MEDICAL HISTORY; HIVE is not HIV"
+    },
+    {
+      "text": "config password = \"hunter2hunter2\" and api_key: 'abcdefgh'",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "password = \"hunter2hunter2\""
+        },
+        {
+          "kind": "secret",
+          "value": "api_key: 'abcdefgh'"
+        }
+      ],
+      "redacted": "config [SECRET_1] and [SECRET_2]"
+    },
+    {
+      "text": "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        }
+      ],
+      "redacted": "token [SECRET_1]"
+    },
+    {
+      "text": "Card 4111 1111 1111 1111, not 4111 1111 1111 1112; IBAN DE89 3704 0044 0532 0130 00",
+      "findings": [
+        {
+          "kind": "payment_card",
+          "value": "4111 1111 1111 1111"
+        },
+        {
+          "kind": "iban",
+          "value": "DE89 3704 0044 0532 0130 00"
+        }
+      ],
+      "redacted": "Card [CARD_1], not 4111 1111 1111 1112; IBAN [IBAN_1]"
+    },
+    {
+      "text": "PPS 1234567T and 1234567TW, servers 10.0.0.1 and 127.0.0.1 and 999.1.1.1",
+      "findings": [
+        {
+          "kind": "ie_pps",
+          "value": "1234567T"
+        },
+        {
+          "kind": "ie_pps",
+          "value": "1234567TW"
+        },
+        {
+          "kind": "ip_address",
+          "value": "10.0.0.1"
+        }
+      ],
+      "redacted": "PPS [PPS_1] and [PPS_2], servers [IP_1] and 127.0.0.1 and 999.1.1.1"
     }
   ],
   "decisions": [
@@ -408,6 +592,68 @@
       "classification": "confidential",
       "personalData": true,
       "offending": []
+    }
+  ],
+  "descriptions": [
+    {
+      "counts": {
+        "email": 1
+      },
+      "text": "1 email address"
+    },
+    {
+      "counts": {
+        "email": 2,
+        "iban": 1
+      },
+      "text": "2 email addresses and 1 IBAN"
+    },
+    {
+      "counts": {
+        "ip_address": 1
+      },
+      "text": "1 IP address"
+    },
+    {
+      "counts": {
+        "ip_address": 3
+      },
+      "text": "3 IP addresses"
+    },
+    {
+      "counts": {
+        "date_of_birth": 2
+      },
+      "text": "2 dates of birth"
+    },
+    {
+      "counts": {
+        "ie_pps": 1
+      },
+      "text": "1 Irish PPS number"
+    },
+    {
+      "counts": {
+        "ie_pps": 2,
+        "us_ssn": 2,
+        "uk_national_insurance": 1
+      },
+      "text": "1 UK National Insurance number, 2 Irish PPS numbers and 2 US Social Security numbers"
+    },
+    {
+      "counts": {
+        "person_name": 2,
+        "phone": 1,
+        "payment_card": 2,
+        "special_category": 1,
+        "secret": 2,
+        "term": 3
+      },
+      "text": "1 phone number, 2 payment card numbers, 2 people's names, 1 mention of special-category data, 2 secrets or credentials and 3 confidential terms"
+    },
+    {
+      "counts": {},
+      "text": "nothing"
     }
   ]
 }

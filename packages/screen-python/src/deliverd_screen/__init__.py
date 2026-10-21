@@ -50,7 +50,7 @@ from .data_screen import (
     term_classification_of,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 #: A detector: a callable from the text to spans (``DetectedSpan`` or dicts of kind, start, end).
 SpanDetector = Callable[[str], Sequence[object]]

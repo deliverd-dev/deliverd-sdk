@@ -71,3 +71,11 @@ jobs:
           cargo +stable test --locked
           cargo +1.89 test --locked
         working-directory: packages/sdk-rust
+      # Deliverd Screen for Rust, the same way, and its library without the CLI.
+      - run: |
+          cargo +stable fmt --check
+          cargo +stable clippy --all-targets --locked -- -D warnings
+          cargo +stable test --locked
+          cargo +1.89 test --locked
+          cargo +stable build --locked --no-default-features
+        working-directory: packages/screen-rust

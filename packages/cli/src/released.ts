@@ -402,6 +402,19 @@ export const RELEASED: Record<string, readonly string[]> = {
     "simulate", "start", "tasks", "templates", "unarchive",
     "unshare", "update", "versions", "who", "workspaces",
   ],
+
+  /* Opened because 0.16.2 is on npm (21 October 2026, from 80475ec). Same commands. */
+  "0.16.3": [
+    "actions", "activate", "add", "agents", "analytics", "answer", "apply",
+    "approvals", "approve-decision", "archive", "ask", "cancel", "check",
+    "collect", "comments", "complete", "context", "copy", "create", "data",
+    "evidence", "finding", "flows", "gates", "get", "governance", "graph",
+    "link", "list", "login", "open", "pack", "policy", "publish", "push",
+    "release", "rename", "reopen", "resolve", "retract", "reviews", "rm", "rollback",
+    "schedules", "send", "set", "setup", "share", "show", "side-task",
+    "simulate", "start", "tasks", "templates", "unarchive",
+    "unshare", "update", "versions", "who", "workspaces",
+  ],
 };
 
 /**
@@ -466,4 +479,5 @@ export const PUBLISHED_TO_NPM = [
   "0.15.1",
   "0.16.0",
   "0.16.1",
+  "0.16.2",
 ] as const;

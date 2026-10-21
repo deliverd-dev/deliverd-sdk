@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { presidio, tokenClassifier } from "./adapters.js";
 import { restoringStream, ScreenBlockedError, screenMiddleware } from "./ai-sdk.js";
 import { main } from "./cli-main.js";
-import { assessCounts, redact, screenText, type DetectedSpan, type ScreenTarget } from "./data-screen.js";
+import { assessCounts, describeCounts, redact, screenText, type DetectedSpan, type ScreenTarget } from "./data-screen.js";
 import { screen } from "./index.js";
 import { handle } from "./mcp.js";
 import { VERSION } from "./version.js";
@@ -20,6 +20,7 @@ interface Vectors {
     personalData: boolean;
     offending: string[];
   }[];
+  descriptions: { counts: Record<string, number>; text: string }[];
 }
 
 const VECTORS: Vectors = JSON.parse(readFileSync(new URL("../../conformance/screening.json", import.meta.url), "utf8"));
@@ -39,6 +40,10 @@ describe("the shared screening vectors", () => {
       personalData: d.personalData,
       offending: d.offending,
     });
+  });
+
+  it.each(VECTORS.descriptions.map((d) => [d.text, d] as const))("describes counts as %s", (_, d) => {
+    expect(describeCounts(d.counts)).toBe(d.text);
   });
 });
 

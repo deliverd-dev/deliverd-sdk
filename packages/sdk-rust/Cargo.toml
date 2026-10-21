@@ -1,6 +1,6 @@
 [package]
 name = "deliverd"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.89"
 description = "Add human approval to any AI agent. Ask a person, wait for the answer, act on it. Start free at deliverd.dev."

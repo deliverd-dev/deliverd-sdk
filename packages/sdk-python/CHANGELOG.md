@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.1
+
+A patch. 0.19.0 went to PyPI on 21 October 2026 from 80475ec.
+
+### Fixed
+
+- **A no-break space counts as a space in `screen()`**, as it does in the
+  TypeScript SDK: "born on" followed by a no-break space and a date is found
+  as a date of birth, and the same for `password = "..."`.
+- **Reasons read properly**: "2 IP addresses", "2 dates of birth" and
+  "1 Irish PPS number", where they said "2 IP addresss", "2 date of births"
+  and "1 irish pps number".
+
 ## 0.19.0
 
 A minor, for additions. 0.18.1 went to PyPI on 15 October 2026 from 4c58d4e;

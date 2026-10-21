@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Deliverd } from "./index.js";
-import { assessCounts, redact, screenText, type DetectedSpan, type ScreenTarget } from "./data-screen.js";
+import { assessCounts, describeCounts, redact, screenText, type DetectedSpan, type ScreenTarget } from "./data-screen.js";
 
 /**
  * Screening, in the language the agent runs in.
@@ -22,6 +22,7 @@ interface Vectors {
     personalData: boolean;
     offending: string[];
   }[];
+  descriptions: { counts: Record<string, number>; text: string }[];
 }
 
 const VECTORS: Vectors = JSON.parse(readFileSync(new URL("../../conformance/screening.json", import.meta.url), "utf8"));
@@ -41,6 +42,10 @@ describe("the shared screening vectors", () => {
       personalData: d.personalData,
       offending: d.offending,
     });
+  });
+
+  it.each(VECTORS.descriptions.map((d) => [d.text, d] as const))("describes counts as %s", (_, d) => {
+    expect(describeCounts(d.counts)).toBe(d.text);
   });
 });
 

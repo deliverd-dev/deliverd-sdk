@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deliverd-screen"
-version = "0.1.0"
+version = "0.1.1"
 description = "A pre-send check for every prompt. Finds and redacts personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network calls."
 readme = "README.md"
 license = "MIT"

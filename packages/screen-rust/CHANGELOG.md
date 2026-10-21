@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+No change to the library or the CLI. The first release published to
+crates.io from deliverd-dev/deliverd-sdk by trusted publishing rather than
+by hand.
+
 ## 0.1.0
 
 The first release: Deliverd Screen for Rust, finding what `@deliverd/screen`

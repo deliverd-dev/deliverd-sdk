@@ -1,0 +1,383 @@
+{
+  "//": "Decision tokens (apps/web/src/lib/governance/decision-token.ts). A TEST-ONLY key, generated for this file and used nowhere else. The server test re-signs `claims` with it and must produce `tokens` exactly (Ed25519 is deterministic); each SDK verifies every case.",
+  "issuer": "https://deliverd.example",
+  "testKey": {
+    "privateKeyD": "V09AGNiFBJujLGR0TAn6-TCqXq5-e6Bj_OI4v80RJCI",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA0ffDIPhli+WDjiC5NmPN3pVU93JNTbaBjMt73s1yoSk=\n-----END PUBLIC KEY-----\n",
+    "publicKeyRaw": "0ffDIPhli-WDjiC5NmPN3pVU93JNTbaBjMt73s1yoSk"
+  },
+  "signed": [
+    {
+      "claims": {
+        "v": 1,
+        "kid": "test",
+        "iss": "https://deliverd.example",
+        "org": "00000000-0000-4000-8000-000000000001",
+        "gate": "00000000-0000-4000-8000-000000000002",
+        "action": "finance.refund",
+        "input": "424997eae2ad03116bc42a3c0a6e08ae1c3f6767530caf0d147232da47e882e6",
+        "dest": null,
+        "artifact": null,
+        "iat": 1793000000,
+        "exp": 1793000900
+      },
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "approvedInput": {
+        "customer_id": "cus_42",
+        "amount": 1200,
+        "currency": "GBP",
+        "note": "Duplicate charge, £1200 — refunded",
+        "lines": [
+          {
+            "sku": "A",
+            "qty": 1
+          }
+        ],
+        "approved": true,
+        "extra": null
+      }
+    },
+    {
+      "claims": {
+        "v": 1,
+        "kid": "test",
+        "iss": "https://deliverd.example",
+        "org": "00000000-0000-4000-8000-000000000001",
+        "gate": "00000000-0000-4000-8000-000000000003",
+        "action": "report.publish",
+        "input": "107fb74069fd051ce1f8a0eeb543dc58e93155c152437f36a294863ff23e3f9f",
+        "dest": {
+          "type": "email",
+          "id": "Board@Example.com"
+        },
+        "artifact": "abababababababababababababababababababababababababababababababab",
+        "iat": 1793000000,
+        "exp": 1793000900
+      },
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMyIsImFjdGlvbiI6InJlcG9ydC5wdWJsaXNoIiwiaW5wdXQiOiIxMDdmYjc0MDY5ZmQwNTFjZTFmOGEwZWViNTQzZGM1OGU5MzE1NWMxNTI0MzdmMzZhMjk0ODYzZmYyM2UzZjlmIiwiZGVzdCI6eyJ0eXBlIjoiZW1haWwiLCJpZCI6IkJvYXJkQEV4YW1wbGUuY29tIn0sImFydGlmYWN0IjoiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYiIsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.6x3R6p8SYfvsl8yCCuAtfoZmwhLXMAFXOXYuc9TOZhPyAsfGWzv9YPCvrF815fR7uhFaPsQQHfY__f9-jCFuCQ",
+      "approvedInput": {
+        "title": "Weekly"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "the approved input verifies",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "ok"
+    },
+    {
+      "name": "key order does not matter",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "currency": "GBP",
+          "amount": 1200,
+          "extra": null,
+          "approved": true,
+          "lines": [
+            {
+              "qty": 1,
+              "sku": "A"
+            }
+          ],
+          "note": "Duplicate charge, £1200 — refunded"
+        }
+      },
+      "now": 1793000100,
+      "result": "ok"
+    },
+    {
+      "name": "a different amount is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1240,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "input_mismatch"
+    },
+    {
+      "name": "another action is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "expected": {
+        "action": "finance.payout",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "wrong_action"
+    },
+    {
+      "name": "an expired token is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000930,
+      "result": "expired"
+    },
+    {
+      "name": "inside the skew it still verifies",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000920,
+      "result": "ok"
+    },
+    {
+      "name": "another key's signature is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.MFyVIqKNP-xECCrV2_nOirzOLsRcd05V9LN-QLYizI4-Dj79dinedrn-KLZM-kxD6oItF-gF-8MlqBqQ5p25Bg",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "bad_signature"
+    },
+    {
+      "name": "an evidence pack signature is not a token signature",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.mxpGYnj1_O_RF9RDr_Zmc-1NXmx6zmdxxTvYC_d_By4f2tfS-PF157rmGDQ9kjRKA-7h21AfozJ7Cz1-WKASDA",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "bad_signature"
+    },
+    {
+      "name": "a token from another deployment is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImFjdGlvbiI6ImZpbmFuY2UucmVmdW5kIiwiaW5wdXQiOiI0MjQ5OTdlYWUyYWQwMzExNmJjNDJhM2MwYTZlMDhhZTFjM2Y2NzY3NTMwY2FmMGQxNDcyMzJkYTQ3ZTg4MmU2IiwiZGVzdCI6bnVsbCwiYXJ0aWZhY3QiOm51bGwsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.y5yQUPeYYqwstjjh0TZoduRprH-jQB6fXAMts9llZ2zyyiXjsIsi3RYygcew4MnC-UdK4m__OmU1t4r8om_1AA",
+      "issuer": "https://other.example",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "wrong_issuer"
+    },
+    {
+      "name": "not a token",
+      "token": "dlv_dt1.e30",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "malformed"
+    },
+    {
+      "name": "no token",
+      "token": "",
+      "expected": {
+        "action": "finance.refund",
+        "input": {
+          "customer_id": "cus_42",
+          "amount": 1200,
+          "currency": "GBP",
+          "note": "Duplicate charge, £1200 — refunded",
+          "lines": [
+            {
+              "sku": "A",
+              "qty": 1
+            }
+          ],
+          "approved": true,
+          "extra": null
+        }
+      },
+      "now": 1793000100,
+      "result": "missing"
+    },
+    {
+      "name": "destination and artifact verify, address case ignored",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMyIsImFjdGlvbiI6InJlcG9ydC5wdWJsaXNoIiwiaW5wdXQiOiIxMDdmYjc0MDY5ZmQwNTFjZTFmOGEwZWViNTQzZGM1OGU5MzE1NWMxNTI0MzdmMzZhMjk0ODYzZmYyM2UzZjlmIiwiZGVzdCI6eyJ0eXBlIjoiZW1haWwiLCJpZCI6IkJvYXJkQEV4YW1wbGUuY29tIn0sImFydGlmYWN0IjoiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYiIsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.6x3R6p8SYfvsl8yCCuAtfoZmwhLXMAFXOXYuc9TOZhPyAsfGWzv9YPCvrF815fR7uhFaPsQQHfY__f9-jCFuCQ",
+      "expected": {
+        "action": "report.publish",
+        "input": {
+          "title": "Weekly"
+        },
+        "destination": {
+          "type": "email",
+          "id": "board@example.com"
+        },
+        "artifactSha256": "abababababababababababababababababababababababababababababababab"
+      },
+      "now": 1793000100,
+      "result": "ok"
+    },
+    {
+      "name": "another destination is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMyIsImFjdGlvbiI6InJlcG9ydC5wdWJsaXNoIiwiaW5wdXQiOiIxMDdmYjc0MDY5ZmQwNTFjZTFmOGEwZWViNTQzZGM1OGU5MzE1NWMxNTI0MzdmMzZhMjk0ODYzZmYyM2UzZjlmIiwiZGVzdCI6eyJ0eXBlIjoiZW1haWwiLCJpZCI6IkJvYXJkQEV4YW1wbGUuY29tIn0sImFydGlmYWN0IjoiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYiIsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.6x3R6p8SYfvsl8yCCuAtfoZmwhLXMAFXOXYuc9TOZhPyAsfGWzv9YPCvrF815fR7uhFaPsQQHfY__f9-jCFuCQ",
+      "expected": {
+        "action": "report.publish",
+        "input": {
+          "title": "Weekly"
+        },
+        "destination": {
+          "type": "email",
+          "id": "all@example.com"
+        },
+        "artifactSha256": "abababababababababababababababababababababababababababababababab"
+      },
+      "now": 1793000100,
+      "result": "destination_mismatch"
+    },
+    {
+      "name": "no destination is refused when one was agreed",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMyIsImFjdGlvbiI6InJlcG9ydC5wdWJsaXNoIiwiaW5wdXQiOiIxMDdmYjc0MDY5ZmQwNTFjZTFmOGEwZWViNTQzZGM1OGU5MzE1NWMxNTI0MzdmMzZhMjk0ODYzZmYyM2UzZjlmIiwiZGVzdCI6eyJ0eXBlIjoiZW1haWwiLCJpZCI6IkJvYXJkQEV4YW1wbGUuY29tIn0sImFydGlmYWN0IjoiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYiIsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.6x3R6p8SYfvsl8yCCuAtfoZmwhLXMAFXOXYuc9TOZhPyAsfGWzv9YPCvrF815fR7uhFaPsQQHfY__f9-jCFuCQ",
+      "expected": {
+        "action": "report.publish",
+        "input": {
+          "title": "Weekly"
+        },
+        "artifactSha256": "abababababababababababababababababababababababababababababababab"
+      },
+      "now": 1793000100,
+      "result": "destination_mismatch"
+    },
+    {
+      "name": "another artifact is refused",
+      "token": "dlv_dt1.eyJ2IjoxLCJraWQiOiJ0ZXN0IiwiaXNzIjoiaHR0cHM6Ly9kZWxpdmVyZC5leGFtcGxlIiwib3JnIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZ2F0ZSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMyIsImFjdGlvbiI6InJlcG9ydC5wdWJsaXNoIiwiaW5wdXQiOiIxMDdmYjc0MDY5ZmQwNTFjZTFmOGEwZWViNTQzZGM1OGU5MzE1NWMxNTI0MzdmMzZhMjk0ODYzZmYyM2UzZjlmIiwiZGVzdCI6eyJ0eXBlIjoiZW1haWwiLCJpZCI6IkJvYXJkQEV4YW1wbGUuY29tIn0sImFydGlmYWN0IjoiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYiIsImlhdCI6MTc5MzAwMDAwMCwiZXhwIjoxNzkzMDAwOTAwfQ.6x3R6p8SYfvsl8yCCuAtfoZmwhLXMAFXOXYuc9TOZhPyAsfGWzv9YPCvrF815fR7uhFaPsQQHfY__f9-jCFuCQ",
+      "expected": {
+        "action": "report.publish",
+        "input": {
+          "title": "Weekly"
+        },
+        "destination": {
+          "type": "email",
+          "id": "board@example.com"
+        },
+        "artifactSha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+      },
+      "now": 1793000100,
+      "result": "artifact_mismatch"
+    }
+  ]
+}

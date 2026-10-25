@@ -1517,6 +1517,10 @@ class GateData(Model):
     description: Optional[str]
     requested_by: str
     created_at: Optional[str]
+    #: The yes, signed, while ``can_execute`` and the deployment signs: hand it
+    #: to the code that performs the action, which checks it with
+    #: ``client.decision_tokens.verify`` before acting. None otherwise.
+    decision_token: Optional[str]
     #: Returned once, by the call that made the gate and named a callback URL.
     callback_secret: Optional[str]
     #: On a single read: what has been reported against it.
@@ -1549,6 +1553,10 @@ class GateDecision:
     approval_url: Optional[str]
     #: The handle, for anything the fields above do not carry.
     gate: Any
+    #: The signed yes, for the code that performs the action to verify with
+    #: ``client.decision_tokens.verify``. None unless it may be acted on now.
+    #: Last, with a default, so code that builds one in a test keeps working.
+    decision_token: Optional[str] = None
 
 
 # ── Webhooks ───────────────────────────────────────────────────────────────
@@ -1599,6 +1607,8 @@ WEBHOOK_EVENTS = (
     "task.completed",
     "task.blocked",
     "side_task.completed",
+    # An AI risk indicator went red for a month: its figure, limits and owner.
+    "risk_indicator.breached",
     # Opt-in: one audit log entry, with its chain position and hashes. For a SIEM.
     "audit.event",
 )

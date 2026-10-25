@@ -181,6 +181,10 @@ export const EXPLANATIONS: Record<string, Explanation> = {
     message: "That permission was withdrawn after it was given.",
     hint: "Do not act. Read the gate for who revoked it and why, and ask again if the work still needs doing.",
   },
+  agents_stopped: {
+    message: "A person has stopped every agent in this organisation.",
+    hint: "Do not act, and do not retry. Tell the user; nothing proceeds until somebody resumes the agents.",
+  },
   gate_cancelled: {
     message: "That request was withdrawn.",
     hint: "Ask again if the work still needs doing.",

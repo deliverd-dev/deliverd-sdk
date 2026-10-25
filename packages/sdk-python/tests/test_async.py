@@ -56,7 +56,7 @@ class Mirrors(unittest.TestCase):
         self.assertGreater(len(namespaces), 6)
         for name in namespaces:
             self.assertTrue(hasattr(aio, name), "AsyncDeliverd has no {}".format(name))
-            if name in ("webhooks", "development"):
+            if name in ("webhooks", "decision_tokens", "development"):
                 continue  # pure, and deliberately not wrapped
             for method in dir(getattr(sync, name)):
                 if method.startswith("_"):

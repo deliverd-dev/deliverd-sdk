@@ -38,6 +38,7 @@ from .schedules import Schedules
 from .tasks import Task, Tasks
 from .types import *  # noqa: F401,F403 - the response types, same names as the sync client
 from .webhook_endpoints import WebhookEndpoints
+from .decision_token import DecisionTokens
 from .webhooks import Webhooks
 
 __all__ = ["AsyncDeliverd"]
@@ -181,6 +182,10 @@ class AsyncGate:
     @property
     def decision(self) -> Any:
         return self._sync.decision
+
+    @property
+    def decision_token(self) -> Any:
+        return self._sync.decision_token
 
     @property
     def denied(self) -> Any:
@@ -1085,6 +1090,8 @@ class AsyncDeliverd:
         self.governance = AsyncAiGovernance(self._sync.governance)
         # Pure functions: verification does no I/O, so it is not awaited.
         self.webhooks: Webhooks = self._sync.webhooks
+        # Verification is pure once the public key is held; it is fetched once.
+        self.decision_tokens: DecisionTokens = self._sync.decision_tokens
         self.development: bool = self._sync.development
 
     @property

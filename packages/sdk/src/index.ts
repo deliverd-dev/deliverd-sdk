@@ -8,6 +8,7 @@ import { Flows } from "./flows.js";
 import { Tasks } from "./tasks.js";
 import { AiGovernance } from "./governance.js";
 import { Webhooks } from "./webhooks.js";
+import { DecisionTokens } from "./decision-token.js";
 import { WebhookEndpoints } from "./webhook-endpoints.js";
 import { screen, Screened, type ScreenOptions } from "./screen.js";
 import { developmentFetch, type DevelopmentOptions } from "./dev.js";
@@ -34,6 +35,19 @@ export { Flow, Flows, type FlowPrimitives } from "./flows.js";
 export { Task, Tasks } from "./tasks.js";
 export { AiGovernance, AiSystems, Incidents } from "./governance.js";
 export { WebhookEndpoints } from "./webhook-endpoints.js";
+export {
+  canonicalJson,
+  DECISION_TOKEN_CONTEXT,
+  DECISION_TOKEN_PREFIX,
+  decisionInputHash,
+  DecisionTokens,
+  EVIDENCE_KEY_PATH,
+  verifyDecisionToken,
+  type DecisionTokenClaims,
+  type DecisionTokenExpectation,
+  type DecisionTokenFailure,
+  type DecisionTokenResult,
+} from "./decision-token.js";
 export { Screened, type ScreenOptions } from "./screen.js";
 export {
   DATA_KINDS,
@@ -172,6 +186,8 @@ export class Deliverd {
   readonly schedules: Schedules;
   readonly webhooks: Webhooks;
   readonly webhookEndpoints: WebhookEndpoints;
+  /** Check a gate's signed yes where the action happens, before it happens. */
+  readonly decisionTokens: DecisionTokens;
   readonly http: HttpClient;
   /** Whether an imaginary approver is deciding these. */
   readonly development: boolean;
@@ -206,6 +222,7 @@ export class Deliverd {
     this.schedules = new Schedules(this.http);
     this.webhooks = new Webhooks();
     this.webhookEndpoints = new WebhookEndpoints(this.http);
+    this.decisionTokens = new DecisionTokens(this.http.baseUrl, options.fetch);
   }
 
   /**

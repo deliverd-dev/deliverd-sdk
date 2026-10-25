@@ -4,8 +4,13 @@
 
 ## 0.19.2
 
-Nothing yet. 0.19.1 went to PyPI on 21 October 2026 from 9d480e9, and the
-working version has to be one the registry has not served.
+A patch. 0.19.1 went to PyPI on 21 October 2026 from 9d480e9.
+
+### Added
+
+- **`risk_indicator.breached`** in `WEBHOOK_EVENTS`: an AI risk indicator went
+  red for a month, with its figure, limits, owner and a link to the stop
+  controls. It never stops anything itself.
 
 ## 0.19.1
 

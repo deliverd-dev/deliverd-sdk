@@ -163,6 +163,13 @@ from .types import (
     CreatedWebhookEndpoint,
     WebhookTestResult,
 )
+from .decision_token import (
+    DecisionTokenResult,
+    DecisionTokens,
+    canonical_json,
+    decision_input_hash,
+    verify_decision_token,
+)
 from .webhooks import (
     DELIVERY_HEADER,
     EVENT_HEADER,
@@ -187,6 +194,11 @@ DEVELOPMENT_TIMEOUT = 2.0
 __all__ = [
     "Deliverd",
     "deliverd",
+    "DecisionTokens",
+    "DecisionTokenResult",
+    "verify_decision_token",
+    "decision_input_hash",
+    "canonical_json",
     "Screened",
     "ScreenTerm",
     "DetectedSpan",
@@ -406,6 +418,8 @@ class Deliverd:
         self.webhooks = Webhooks()
         self.webhook_endpoints = WebhookEndpoints(self.http)
         self.governance = AiGovernance(self.http)
+        #: Check a gate's signed yes where the action happens, before it happens.
+        self.decision_tokens = DecisionTokens(self.http.base_url)
 
     # ── the four verbs ─────────────────────────────────────────────────────
 

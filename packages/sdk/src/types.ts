@@ -240,6 +240,12 @@ export interface GateData {
   description: string | null;
   requestedBy: string;
   createdAt: string | null;
+  /**
+   * The yes, signed, while `canExecute` is true and the deployment signs:
+   * pass it to the code that performs the action, which checks it with
+   * `deliverd.decisionTokens.verify` before it acts. Null otherwise.
+   */
+  decisionToken?: string | null;
   /** Returned once, by the call that made the gate and named a callbackUrl. */
   callbackSecret?: string;
   /** On a single read: what has been reported against it. */
@@ -264,6 +270,8 @@ export interface GateDecision {
   changes: FieldChange[];
   id: string;
   approvalUrl: string | null;
+  /** The signed yes, for the code that performs the action to verify. Null unless it may be acted on now. */
+  decisionToken: string | null;
   gate: unknown;
 }
 
@@ -800,6 +808,8 @@ export type WebhookEventName =
    * result waits to be applied, kept or discarded. */
   | "task.blocked"
   | "side_task.completed"
+  /** An AI risk indicator went red for a month: its figure, limits and owner. */
+  | "risk_indicator.breached"
   /** Opt-in: one audit log entry, with its chain position and hashes. For a SIEM. */
   | "audit.event";
 

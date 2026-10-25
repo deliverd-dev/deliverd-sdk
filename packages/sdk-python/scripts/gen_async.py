@@ -199,6 +199,7 @@ from .schedules import Schedules
 from .tasks import Task, Tasks
 from .types import *  # noqa: F401,F403 - the response types, same names as the sync client
 from .webhook_endpoints import WebhookEndpoints
+from .decision_token import DecisionTokens
 from .webhooks import Webhooks
 
 __all__ = ["AsyncDeliverd"]
@@ -262,6 +263,8 @@ def render() -> str:
         lines.append("        self.%s = Async%s(self._sync.%s)" % (attr, cls.__name__, attr))
     lines.append("        # Pure functions: verification does no I/O, so it is not awaited.")
     lines.append("        self.webhooks: Webhooks = self._sync.webhooks")
+    lines.append("        # Verification is pure once the public key is held; it is fetched once.")
+    lines.append("        self.decision_tokens: DecisionTokens = self._sync.decision_tokens")
     lines.append("        self.development: bool = self._sync.development")
     lines.append("")
     lines.append("    @property")

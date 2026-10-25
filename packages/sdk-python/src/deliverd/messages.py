@@ -264,6 +264,10 @@ EXPLANATIONS: Dict[str, Explanation] = {
             "Ask again. The window is set by policy, and an approval does not stretch to cover the same act later."
         ),
     ),
+    "agents_stopped": Explanation(
+        message="A person has stopped every agent in this organisation.",
+        hint="Do not act, and do not retry. Tell the user; nothing proceeds until somebody resumes the agents.",
+    ),
     "gate_revoked": Explanation(
         message="That permission was withdrawn after it was given.",
         hint=(

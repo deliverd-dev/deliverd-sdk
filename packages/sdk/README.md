@@ -223,6 +223,43 @@ the handle exposed, for work that resumes on a webhook rather than in this call.
 Try it before you have an account: `DELIVERD_DEV_OUTCOME=denied` rehearses a
 policy refusal, which is the branch agents most often forget to write.
 
+### Checking the yes where the action happens
+
+A gate on its own is advisory: the agent asks, then acts. When the code that
+actually performs the action is yours — the refund service, the deploy job —
+make it check. Every gate that may be acted on carries `decisionToken`, the yes
+signed with your deployment's Ed25519 key. Pass it along with the request, and
+verify it against what you are about to do:
+
+```ts
+// In the agent
+await fetch(REFUND_SERVICE, {
+  method: "POST",
+  headers: { "deliverd-decision": decision.decisionToken ?? "" },
+  body: JSON.stringify(decision.input),
+});
+
+// In the refund service
+const check = await deliverd.decisionTokens.verify(req.headers["deliverd-decision"], {
+  action: "finance.refund",
+  input: req.body,
+});
+if (!check.ok) return res.status(403).json({ error: check.reason });
+```
+
+It refuses a token signed by any other key, an expired one (tokens last at most
+fifteen minutes, and never past the permission's own window), one for another
+action, and one agreed for a different input: a yes for £1200 does not cover
+£1240. When the gate named a `destination` or an artifact, pass `destination`
+and `artifactSha256` too. The public key is fetched once from
+`/.well-known/deliverd-evidence-key` on the deployment the client talks to, and
+the token must have been issued by that deployment. With the key already in
+hand, `verifyDecisionToken(token, expected, { publicKey, issuer })` does the
+same with no network at all.
+
+A token does not count uses. Record the execution against the gate to spend
+it, and the server refuses a second.
+
 ## Flows
 
 A job that takes more than one of them is one job, and a firm asking about it

@@ -142,6 +142,11 @@ class Gate:
         return bool(self._data.can_execute)
 
     @property
+    def decision_token(self) -> Optional[str]:
+        """The signed yes to hand the code that performs the action. None unless :attr:`can_execute`."""
+        return self._data.decision_token
+
+    @property
     def decision(self) -> str:
         """``ALLOW``, ``APPROVAL_REQUIRED``, ``REVIEW_REQUIRED`` or ``DENY``."""
         return self._data.decision
@@ -200,6 +205,7 @@ class Gate:
             changes=list(self._data.changes or []),
             id=self._data.id,
             approval_url=self._data.approval_url,
+            decision_token=self._data.decision_token,
             gate=self,
         )
 

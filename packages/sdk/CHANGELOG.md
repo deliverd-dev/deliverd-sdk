@@ -16,6 +16,9 @@ this was opened as 0.26.1.
   shows them on the request and its project, marked as declared; nothing is
   decided on them. `ApprovalData`, `ReviewData` and `CollectionData` return
   them as `agent` and `model`, null when unsaid. Development mode echoes them.
+- **`risk_indicator.breached`** in `WebhookEventName`: an AI risk indicator
+  went red for a month, with its figure, limits, owner and a link to the stop
+  controls. It never stops anything itself.
 - **`audit.event`** in `WebhookEventName`: the opt-in audit stream, one
   delivery per audit log entry with its `chainSeq`, `prevHash` and `rowHash`,
   for a SIEM.

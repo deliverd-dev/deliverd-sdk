@@ -136,6 +136,8 @@ export class Gate {
   get scope(): GateData["scope"] { return this.data.scope; }
   /** How long it lasts and how many uses are left. */
   get authorisation(): GateData["authorisation"] { return this.data.authorisation; }
+  /** The signed yes to hand the code that performs the action. Null unless `canExecute`. */
+  get decisionToken(): string | null { return this.data.decisionToken ?? null; }
   /** A person sent it back. Revise and ask again with `supersedesGateId: gate.id`. */
   get changesRequested(): boolean { return this.data.status === "changes_requested"; }
 
@@ -175,6 +177,7 @@ export class Gate {
       changes: this.data.changes ?? [],
       id: this.data.id,
       approvalUrl: this.data.approvalUrl,
+      decisionToken: this.data.decisionToken ?? null,
       gate: this,
     };
   }

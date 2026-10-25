@@ -85,6 +85,20 @@ describe("deliverd.screen()", () => {
     expect(screened.restore("Sent to [EMAIL_1].")).toBe("Sent to mary@example.ie.");
   });
 
+  it("asks Purview first, and sends Deliverd only Purview's answer", async () => {
+    const deliverd = new Deliverd({ mode: "development", development: quiet });
+    const seen: string[] = [];
+    const purview = async (text: string) => {
+      seen.push(text);
+      return { restriction: "block" as const, actions: 1, scopeModified: false, unavailable: false };
+    };
+    const screened = await deliverd.screen("Summarise the board pack in three bullets.", { purview });
+    expect(seen).toEqual(["Summarise the board pack in three bullets."]);
+    expect(screened.verdict).toBe("deny");
+    expect(screened.text).toBeNull();
+    expect(screened.reasons.join(" ")).toMatch(/Purview policy blocks/);
+  });
+
   it("allows an ordinary prompt as it is, offline", async () => {
     const deliverd = new Deliverd({ mode: "development", development: quiet });
     const screened = await deliverd.screen("Summarise the board pack in three bullets.");

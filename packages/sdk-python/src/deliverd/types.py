@@ -1802,6 +1802,18 @@ class ScreenApprovalRef(Model):
 
 
 @dataclass
+class ScreenPurviewData(Model):
+    """Microsoft Purview's answer, as the caller sent it. Never the text."""
+
+    #: ``audit`` | ``warn`` | ``block``; ``None`` when Purview returned no restriction.
+    restriction: Optional[str]
+    actions: int
+    scope_modified: bool
+    #: Purview could not be reached; ``restriction`` is what the caller chose for that case.
+    unavailable: bool
+
+
+@dataclass
 class ScreenData(Model):
     """What ``POST /screen`` answers: the verdict, and why."""
 
@@ -1823,8 +1835,10 @@ class ScreenData(Model):
     redacted_text: Optional[str]
     #: The approval a person decides, for an ``ask``.
     approval: Optional[ScreenApprovalRef]
+    #: Microsoft Purview's answer, when ``screen(purview=…)`` asked it.
+    purview: Optional[ScreenPurviewData] = None
 
-    _NESTED = {"target": ScreenTargetData, "approval": ScreenApprovalRef}
+    _NESTED = {"target": ScreenTargetData, "approval": ScreenApprovalRef, "purview": ScreenPurviewData}
     _NESTED_LISTS = {"findings": ScreenFindingData}
 
 

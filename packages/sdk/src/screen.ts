@@ -12,6 +12,7 @@ import {
 } from "./data-screen.js";
 import { durationMs, type Duration } from "./duration.js";
 import type { HttpClient } from "./http.js";
+import type { PurviewCheck } from "./purview.js";
 import type { ScreenData, ScreenVerdict } from "./types.js";
 
 /**
@@ -65,6 +66,13 @@ export interface ScreenOptions {
   detectors?: readonly SpanDetector[];
   /** Spans another detector already found in this text. */
   spans?: readonly DetectedSpan[];
+  /**
+   * Your organisation's Microsoft Purview, asked about the text before
+   * Deliverd: build one with `purviewCheck()`. The text goes from here to
+   * Microsoft, never to Deliverd, and only Purview's answer is sent on. A
+   * Purview block stops the text; a warn puts it to a person.
+   */
+  purview?: PurviewCheck;
   /** Whether to wait for a person on an `ask`. Default true. */
   wait?: boolean;
   timeout?: Duration;
@@ -113,6 +121,7 @@ export async function screen(
   const spans = [...(options.spans ?? [])];
   for (const detect of options.detectors ?? []) spans.push(...(await detect(text)));
   const findings = screenText(text, options.terms ?? [], spans);
+  const purview = options.purview ? await options.purview(text) : null;
   const data = await http.request<ScreenData>({
     method: "POST",
     path: "/screen",
@@ -122,6 +131,7 @@ export async function screen(
       ...(options.aiSystemId ? { aiSystemId: options.aiSystemId } : {}),
       ...(options.purpose ? { purpose: options.purpose } : {}),
       ...(options.externalId ? { externalId: options.externalId } : {}),
+      ...(purview ? { purview } : {}),
     },
     signal: options.signal,
   });

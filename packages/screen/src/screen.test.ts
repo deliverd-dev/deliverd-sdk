@@ -5,7 +5,8 @@ import { presidio, tokenClassifier } from "./adapters.js";
 import { restoringStream, ScreenBlockedError, screenMiddleware } from "./ai-sdk.js";
 import { main } from "./cli-main.js";
 import { assessCounts, describeCounts, redact, screenText, type DetectedSpan, type ScreenTarget } from "./data-screen.js";
-import { screen } from "./index.js";
+import { purviewCheck, screen } from "./index.js";
+import { purviewFromEnv } from "./purview-env.js";
 import { handle } from "./mcp.js";
 import { VERSION } from "./version.js";
 
@@ -212,4 +213,62 @@ describe("the MCP server", () => {
 
 it("reports the version in package.json", () => {
   expect(VERSION).toBe(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version);
+});
+
+describe("Microsoft Purview", () => {
+  const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+  const APP = { name: "Test", entraAppId: "11111111-2222-3333-4444-555555555555" };
+  const USER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+  it("denies what Purview blocks, even a text it would otherwise allow", async () => {
+    const purview = purviewCheck({ token: "t", userId: USER, app: APP, fetch: async () => ok({ policyActions: [{ restrictionAction: "block" }] }) });
+    const checked = await screen("Summarise the board pack.", { purview });
+    expect(checked.verdict).toBe("deny");
+    expect(checked.allowed).toBe(false);
+    expect(checked.text).toBeNull();
+    expect(checked.purview?.restriction).toBe("block");
+    expect(checked.reasons.join(" ")).toMatch(/Purview policy blocks/);
+  });
+
+  it("treats a warn as an ask, which nobody here can answer", async () => {
+    const purview = purviewCheck({ token: "t", app: APP, fetch: async () => ok({ policyActions: [{ restrictionAction: "warn" }] }) });
+    const checked = await screen("Summarise the board pack.", { purview });
+    expect(checked.verdict).toBe("ask");
+    expect(checked.allowed).toBe(false);
+    expect(checked.redacted).toBe("Summarise the board pack.");
+  });
+
+  it("changes nothing when Purview has nothing to say", async () => {
+    const purview = purviewCheck({ token: "t", app: APP, fetch: async () => ok({ policyActions: [] }) });
+    const checked = await screen("Summarise the board pack.", { purview });
+    expect(checked.verdict).toBe("allow");
+    expect(checked.text).toBe("Summarise the board pack.");
+  });
+
+  it("is off, and sends nothing, unless every variable is set", async () => {
+    expect(purviewFromEnv({})).toBeNull();
+    expect(() => purviewFromEnv({ DELIVERD_PURVIEW_TENANT_ID: "x" })).toThrow(/missing/);
+  });
+
+  it("takes a token as the app itself, once, and asks for the configured person", async () => {
+    const calls: string[] = [];
+    const doFetch = (async (url: string) => {
+      calls.push(url);
+      if (url.includes("login.microsoftonline.com")) return ok({ access_token: "app-token", expires_in: 3600 });
+      return ok({ policyActions: [{ restrictionAction: "audit" }] });
+    }) as unknown as typeof fetch;
+    const purview = purviewFromEnv(
+      {
+        DELIVERD_PURVIEW_TENANT_ID: "99999999-8888-7777-6666-555555555555",
+        DELIVERD_PURVIEW_CLIENT_ID: APP.entraAppId,
+        DELIVERD_PURVIEW_CLIENT_SECRET: "s",
+        DELIVERD_PURVIEW_USER_ID: USER,
+      },
+      doFetch
+    )!;
+    expect((await purview("a")).restriction).toBe("audit");
+    await purview("b");
+    expect(calls.filter((u) => u.includes("login.microsoftonline.com"))).toHaveLength(1);
+    expect(calls[1]).toContain(`/users/${USER}/dataSecurityAndGovernance/processContent`);
+  });
 });

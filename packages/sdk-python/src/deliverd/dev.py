@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 from ._http import Reply, Transport
 from .data_screen import assess_counts, describe_counts
+from .purview import PurviewOutcome, apply_purview
 
 #: What the imaginary approver does.
 #: What development mode makes happen.
@@ -705,12 +706,16 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
             counts = payload.get("counts") or {}
             term_classification = "restricted" if payload.get("termClassification") == "restricted" else "confidential"
             assessment = assess_counts(counts, None, None, term_classification)
+            purview = PurviewOutcome.from_wire(payload["purview"]) if isinstance(payload.get("purview"), dict) else None
+            assessment.verdict, assessment.reasons = apply_purview(assessment.verdict, assessment.reasons, purview)
             approval = None
             if assessment.verdict == "ask" and payload.get("ask") is not False:
                 created = json.loads(
                     create_approval(
                         {
-                            "title": "Send {} to an AI model?".format(describe_counts(counts)),
+                            "title": "Send {} to an AI model?".format(describe_counts(counts))
+                            if assessment.offending
+                            else "Send text Microsoft Purview flagged to an AI model?",
                             "description": "\n".join(assessment.reasons),
                             "risk": "high" if assessment.classification == "restricted" else "medium",
                             "externalId": payload.get("externalId"),
@@ -732,6 +737,7 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
                     "findings": None,
                     "redactedText": None,
                     "approval": approval,
+                    "purview": payload.get("purview"),
                 }
             )
         if method == "POST" and len(parts) == 3 and parts[0] == "gates" and parts[2] in ("execution", "cancel"):

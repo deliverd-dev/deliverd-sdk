@@ -5,7 +5,10 @@
  *   npx @deliverd/screen mcp
  *
  * It speaks MCP over stdio, one JSON-RPC message per line, and nothing else:
- * no network, no account. The tool returns the verdict, the counts and the
+ * no network, no account. The one exception is yours to turn on: with the
+ * `DELIVERD_PURVIEW_*` variables set (see `purview-env.ts`), each text is
+ * also checked against your organisation's Microsoft Purview DLP policies,
+ * and goes to Microsoft for that, nowhere else. The tool returns the verdict, the counts and the
  * redacted text, never the values it replaced, so the originals do not enter
  * the agent's context through it.
  */
@@ -13,6 +16,8 @@
 import { createInterface } from "node:readline";
 import { describeCounts, SCREEN_CLASSIFICATIONS, type ScreenClassification } from "./data-screen.js";
 import { screen } from "./index.js";
+import type { PurviewCheck } from "./purview.js";
+import { purviewFromEnv } from "./purview-env.js";
 import { VERSION } from "./version.js";
 
 const PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -40,7 +45,7 @@ interface Request {
   params?: Record<string, unknown>;
 }
 
-export async function handle(req: Request): Promise<object | null> {
+export async function handle(req: Request, purview: PurviewCheck | null = null): Promise<object | null> {
   const reply = (result: object) => ({ jsonrpc: "2.0", id: req.id ?? null, result });
   const fail = (code: number, message: string) => ({ jsonrpc: "2.0", id: req.id ?? null, error: { code, message } });
   if (req.id === undefined) return null; // A notification: nothing to answer.
@@ -69,6 +74,7 @@ export async function handle(req: Request): Promise<object | null> {
         model: "the destination",
         terms,
         allow: { personalData: args.personalData === true, classification },
+        ...(purview ? { purview } : {}),
       });
       const summary = {
         verdict: checked.verdict,
@@ -77,6 +83,7 @@ export async function handle(req: Request): Promise<object | null> {
         counts: checked.counts,
         reasons: checked.reasons,
         text: checked.text,
+        ...(checked.purview ? { purview: checked.purview } : {}),
       };
       return reply({ content: [{ type: "text", text: JSON.stringify(summary, null, 2) }], structuredContent: summary, isError: false });
     }
@@ -86,6 +93,7 @@ export async function handle(req: Request): Promise<object | null> {
 }
 
 export function serve(input: NodeJS.ReadableStream = process.stdin, output: NodeJS.WritableStream = process.stdout): Promise<void> {
+  const purview = purviewFromEnv();
   const lines = createInterface({ input, crlfDelay: Infinity });
   const pending: Promise<void>[] = [];
   lines.on("line", (line) => {
@@ -98,7 +106,7 @@ export function serve(input: NodeJS.ReadableStream = process.stdin, output: Node
       return;
     }
     pending.push(
-      handle(req).then((res) => {
+      handle(req, purview).then((res) => {
         if (res) output.write(JSON.stringify(res) + "\n");
       })
     );

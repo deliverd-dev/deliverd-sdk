@@ -13,6 +13,7 @@ import type {
   TaskState,
 } from "./types.js";
 import { assessCounts, DEFAULT_SCREEN_POLICY, describeCounts, type ScreenCounts } from "./data-screen.js";
+import { applyPurview, type PurviewOutcome } from "./purview-rules.js";
 
 /**
  * Development mode: the whole loop, on your machine, with nobody in it.
@@ -672,14 +673,14 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
     if (method === "POST" && path === "/screen") {
       const counts = (body.counts ?? {}) as ScreenCounts;
       const termClassification = body.termClassification === "restricted" ? "restricted" : "confidential";
-      const assessment = assessCounts(counts, null, DEFAULT_SCREEN_POLICY, termClassification);
+      const assessment = applyPurview(assessCounts(counts, null, DEFAULT_SCREEN_POLICY, termClassification), (body.purview ?? null) as PurviewOutcome | null);
       let approval: { id: string; url: string; status: string } | null = null;
       if (assessment.verdict === "ask" && body.ask !== false) {
         const created = (await (
           await handle(`${url.origin}/api/v1/approvals`, {
             method: "POST",
             body: JSON.stringify({
-              title: `Send ${describeCounts(counts)} to an AI model?`,
+              title: assessment.offending.length ? `Send ${describeCounts(counts)} to an AI model?` : "Send text Microsoft Purview flagged to an AI model?",
               description: assessment.reasons.join("\n"),
               risk: assessment.classification === "restricted" ? "high" : "medium",
               externalId: body.externalId,
@@ -701,6 +702,7 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
         findings: null,
         redactedText: null,
         approval,
+        purview: body.purview ?? null,
       });
     }
 

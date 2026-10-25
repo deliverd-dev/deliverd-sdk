@@ -52,6 +52,7 @@ from .tasks import Task, Tasks
 from .context import Knowledge, Playbooks
 from .webhook_endpoints import WebhookEndpoints
 from .screen import Screened, request_body as _screen_body, settle as _screen_settle
+from .purview import PurviewCheck, PurviewOutcome, entra_app_token, purview_check
 from .data_screen import DetectedSpan, ScreenTerm, redact, restore, screen_text, summarise
 from .types import (
     APPROVAL_RISKS,
@@ -194,7 +195,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.20.1"
+__version__ = "0.21.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -216,6 +217,10 @@ __all__ = [
     "ScreenTerm",
     "DetectedSpan",
     "screen_text",
+    "purview_check",
+    "entra_app_token",
+    "PurviewCheck",
+    "PurviewOutcome",
     "redact",
     "restore",
     "summarise",
@@ -701,6 +706,7 @@ class Deliverd:
         cancel: Optional[threading.Event] = None,
         detectors: Optional[Sequence[Callable[[str], Sequence[Any]]]] = None,
         spans: Optional[Sequence[Any]] = None,
+        purview: Optional[PurviewCheck] = None,
     ) -> Screened:
         """Check text before it goes to an AI model, and wait if a person has to decide.
 
@@ -722,9 +728,12 @@ class Deliverd:
         guarantee: names in particular are not reliably found, unless you pass
         ``detectors``: callables from the text to spans, such as the Hugging
         Face or Presidio adapters in ``deliverd-screen``. They run here too,
-        and only their counts are sent.
+        and only their counts are sent. ``purview`` is a :func:`purview_check`:
+        it asks your organisation's Microsoft Purview first, from here, and
+        Deliverd is sent only its answer. A Purview block denies; a warn puts
+        it to a person.
         """
-        body, findings = _screen_body(text, terms, ai_system_id, purpose, external_id, detectors, spans)
+        body, findings = _screen_body(text, terms, ai_system_id, purpose, external_id, detectors, spans, purview)
         data = ScreenData.from_wire(self.http.request("POST", "/screen", body=body))
         settled = _screen_settle(data, text, findings)
         if settled is not None:

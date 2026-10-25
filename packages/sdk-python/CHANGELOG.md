@@ -2,9 +2,25 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.20.1
+## 0.21.0
 
-A patch. 0.20.0 went to PyPI on 25 October 2026 from ae62d74.
+A minor, for additions. 0.20.0 went to PyPI on 25 October 2026 from ae62d74;
+this was opened as 0.20.1.
+
+### Added
+
+- **Microsoft Purview in `screen()`**: `purview_check(token=…, user_id=…,
+  app={"name": …, "entra_app_id": …})` asks your organisation's Purview
+  (Microsoft Graph `processContent`) about a text before it goes to a model,
+  and `screen(text, purview=…)` holds its answer beside Deliverd's. The text
+  goes from your machine to Microsoft, never to Deliverd; Deliverd is sent only
+  the outcome. A Purview `block` denies, on every plan; a `warn` puts it to a
+  person; `audit` holds nothing back. `on_unavailable` (`ask` by default) says
+  what happens when Purview cannot be reached. `ScreenData.purview` echoes what
+  was sent.
+- **`entra_app_token(tenant_id, client_id, client_secret)`**: a Graph token
+  for an app acting as itself, cached until shortly before it expires, for
+  `purview_check` where there is no signed-in user.
 
 ## 0.20.0
 

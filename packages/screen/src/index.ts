@@ -11,7 +11,8 @@
  * ```
  *
  * Everything runs here. Nothing is sent anywhere: there is no account, no
- * key and no network call. The detectors are the same code Deliverd's servers
+ * key and no network call, unless you pass `purview`, which asks your own
+ * Microsoft Purview about the text. The detectors are the same code Deliverd's servers
  * and SDKs run, held to the shared vectors in `packages/conformance`.
  *
  * Patterns find structured identifiers well (email addresses, phone numbers,
@@ -49,7 +50,12 @@ import {
   type SpanDetector,
 } from "./data-screen.js";
 
+import { applyPurview, type PurviewOutcome } from "./purview-rules.js";
+import type { PurviewCheck } from "./purview.js";
+
 export * from "./data-screen.js";
+export { entraAppToken, purviewCheck, type EntraAppTokenOptions, type PurviewCheck, type PurviewCheckOptions } from "./purview.js";
+export type { PurviewOnUnavailable, PurviewOutcome, PurviewRestriction } from "./purview-rules.js";
 
 /** What the model the text is going to may receive. */
 export interface ScreenAllowance {
@@ -72,6 +78,13 @@ export interface ScreenOptions {
   detectors?: readonly SpanDetector[];
   /** Spans another detector already found in this text. */
   spans?: readonly DetectedSpan[];
+  /**
+   * Your organisation's Microsoft Purview, from `purviewCheck()`. Asked about
+   * the text first, with your own Entra app, so the text goes to Microsoft and
+   * nowhere else; the stricter answer wins. A Purview block denies; a warn is
+   * an ask, which nobody here can answer.
+   */
+  purview?: PurviewCheck;
 }
 
 export interface Screened {
@@ -92,6 +105,8 @@ export interface Screened {
   replacements: Readonly<Record<string, string>>;
   /** Put the original values back into text a model wrote using the placeholders. */
   restore(answer: string): string;
+  /** Microsoft Purview's answer, when `purview` was given. */
+  purview: PurviewOutcome | null;
 }
 
 /** Find what is in a text, whatever it is going to: the findings and their counts, no verdict. */
@@ -133,18 +148,21 @@ export async function screen(text: string, options: ScreenOptions = {}): Promise
     policy,
     termClassificationOf(findings)
   );
+  const purview = options.purview ? await options.purview(text) : null;
+  const held = applyPurview(assessment, purview);
   const redaction = redactFor(text, findings, assessment);
-  const replacements = assessment.verdict === "redact" ? redaction?.replacements ?? {} : {};
-  const sent = assessment.verdict === "allow" ? text : assessment.verdict === "redact" ? redaction?.text ?? null : null;
+  const replacements = held.verdict === "redact" ? redaction?.replacements ?? {} : {};
+  const sent = held.verdict === "allow" ? text : held.verdict === "redact" ? redaction?.text ?? null : null;
   return {
-    verdict: assessment.verdict,
+    verdict: held.verdict,
     allowed: sent !== null,
     text: sent,
-    redacted: assessment.verdict === "allow" ? text : redaction?.text ?? null,
+    redacted: held.verdict === "deny" ? null : assessment.verdict === "allow" ? text : redaction?.text ?? null,
     findings,
     counts,
-    reasons: assessment.verdict === "ask" ? [...assessment.reasons, ASK_REASON] : assessment.reasons,
+    reasons: held.verdict === "ask" ? [...held.reasons, ASK_REASON] : held.reasons,
     replacements,
     restore: (answer: string) => restore(answer, replacements),
+    purview,
   };
 }

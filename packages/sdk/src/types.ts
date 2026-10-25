@@ -2621,6 +2621,16 @@ export interface ScreenApprovalRef {
   status: string;
 }
 
+/** Microsoft Purview's answer, as the caller sent it. Never the text. */
+export interface ScreenPurviewData {
+  /** `null` when Purview returned no restriction. */
+  restriction: "audit" | "warn" | "block" | null;
+  actions: number;
+  scopeModified: boolean;
+  /** Purview could not be reached; `restriction` is what the caller chose for that case. */
+  unavailable: boolean;
+}
+
 /** What `POST /screen` answers: the verdict, and why. */
 export interface ScreenData {
   verdict: ScreenVerdict;
@@ -2640,6 +2650,8 @@ export interface ScreenData {
   redactedText: string | null;
   /** The approval a person decides, for an `ask` verdict. */
   approval: ScreenApprovalRef | null;
+  /** Microsoft Purview's answer, when `screen()` was given a `purview` check. */
+  purview?: ScreenPurviewData | null;
 }
 
 // ── Context: knowledge and playbooks ────────────────────────────────────────

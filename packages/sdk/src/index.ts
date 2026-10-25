@@ -51,6 +51,7 @@ export {
   type DecisionTokenResult,
 } from "./decision-token.js";
 export { Screened, type ScreenOptions } from "./screen.js";
+export { entraAppToken, purviewCheck, type EntraAppTokenOptions, type PurviewCheck, type PurviewCheckOptions, type PurviewOutcome, type PurviewOnUnavailable, type PurviewRestriction } from "./purview.js";
 export {
   DATA_KINDS,
   redact,

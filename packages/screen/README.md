@@ -4,7 +4,8 @@
 and your own confidential terms before text goes to an AI model.
 
 - **Local.** No account, no key, no network call. The text never leaves your
-  process.
+  process, unless you turn on the optional Microsoft Purview check, which
+  sends it to your own Microsoft tenant and nowhere else.
 - **Reversible.** Values become placeholders such as `[EMAIL_1]` (the same
   value gets the same placeholder throughout), and `restore()` puts them back
   in the model's answer.
@@ -103,6 +104,35 @@ claude mcp add deliverd-screen -- npx -y @deliverd/screen mcp
 This gives an agent in Claude Code, Cursor or Codex one tool, `screen_text`.
 It returns the verdict and the redacted text, and never the values it
 replaced, so they don't enter the agent's context through the tool.
+
+## Microsoft Purview
+
+If your organisation writes its data loss prevention rules in Microsoft
+Purview, the same rules can apply here, for any model and any tool. Pass a
+Purview check and the stricter answer wins: a Purview block denies, and a warn
+is an ask.
+
+```ts
+import { entraAppToken, purviewCheck, screen } from "@deliverd/screen";
+
+const purview = purviewCheck({
+  token: entraAppToken({ tenantId, clientId, clientSecret }),
+  userId: entraObjectIdOfThePerson,
+  app: { name: "Claims assistant", entraAppId: clientId },
+});
+const checked = await screen(prompt, { purview });
+```
+
+This is the one thing in the package that uses the network, and only when you
+pass it: the text goes to Microsoft Graph (`processContent`), in your own
+tenant, and nowhere else. The Entra app needs `Content.Process.All`, and the
+DLP rule must be created with `New-DlpComplianceRule` (Purview does not apply a
+portal-only rule to an Entra-registered app).
+
+For the MCP server, set `DELIVERD_PURVIEW_TENANT_ID`,
+`DELIVERD_PURVIEW_CLIENT_ID`, `DELIVERD_PURVIEW_CLIENT_SECRET` and
+`DELIVERD_PURVIEW_USER_ID` (and optionally `DELIVERD_PURVIEW_ON_UNAVAILABLE`:
+`allow`, `ask` or `deny`).
 
 ## A net, not a certificate
 

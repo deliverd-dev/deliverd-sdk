@@ -82,11 +82,14 @@ def request_body(
     external_id: Optional[str],
     detectors: Any = None,
     spans: Any = None,
+    purview: Any = None,
 ) -> "tuple[Dict[str, Any], list]":
     """What is sent: counts by kind, never the text. Returns the body and the findings.
 
     ``detectors`` are callables from the text to spans, run here beside the
     patterns (a named-entity model for names); ``spans`` are ones already found.
+    ``purview`` is a :func:`deliverd.purview_check`: it asks Microsoft Purview
+    about the text first, and only its answer is sent.
     """
     found = list(spans or ())
     for detect in detectors or ():
@@ -102,6 +105,8 @@ def request_body(
         body["purpose"] = purpose
     if external_id:
         body["externalId"] = external_id
+    if purview is not None:
+        body["purview"] = purview(text).to_wire()
     return body, findings
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@deliverd/sdk",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "description": "Add human approval to any AI agent. Ask a person, wait for the answer, act on it. Start free at deliverd.dev.",
   "type": "module",
   "main": "./dist/index.js",

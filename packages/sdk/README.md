@@ -363,6 +363,48 @@ A finding of kind `decision` is a suggestion until a person confirms it.
 `task.requestDecisionApproval(findingId)` puts it to somebody. Only a person
 changes what a task is for; an agent proposes that as a finding too.
 
+## Context
+
+What your agents know, and how the job gets done, kept in Deliverd rather than
+in any one agent's memory. An agent proposes knowledge; a person confirms it;
+every agent after that reads it.
+
+```ts
+const { entries } = await deliverd.knowledge.search({ q: "supplier bank details" });
+
+await deliverd.knowledge.propose({
+  kind: "convention",
+  title: "Bank details are confirmed by phone",
+  body: "Call the number on file, never the one in the email asking for the change.",
+  tags: ["payments"],
+});
+```
+
+A task's context carries the confirmed entries relevant to it as
+`context.knowledge`, so most agents never call `search()` at all. The
+knowledge is yours to take anywhere: `deliverd.knowledge.exportMarkdown()`
+returns Markdown that `import()` reads back, and `agentsMd()` writes an
+AGENTS.md for a tool that reads files rather than calling APIs.
+
+A playbook is a job written down as steps, each with the rule that applies
+before it acts. A person puts it in force; running it starts an objective with
+a side task per step:
+
+```ts
+const [playbook] = await deliverd.playbooks.list();
+const run = await deliverd.playbooks.start(playbook.inForce!.id, {
+  inputs: { supplier: "Northwind" },
+  externalId: "onboard-northwind",
+});
+run.steps;   // [{ key, taskId, title, rule }], in order
+```
+
+A step's context names the call its rule needs (`check_gate`,
+`request_approval` or `request_review`). `deliverd.knowledge.given(taskId)`
+says what a run was given, and who confirmed it. Confirming knowledge and
+putting a playbook in force are a person's, in the app; a key can draft and
+propose, never decide.
+
 ## Compliance Mode
 
 On Business and Enterprise, a task can be governed: the AI system doing the

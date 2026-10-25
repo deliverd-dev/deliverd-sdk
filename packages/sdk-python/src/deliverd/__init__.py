@@ -49,6 +49,7 @@ from .reports import Reports
 from .reviews import Review, Reviews
 from .schedules import Schedules
 from .tasks import Task, Tasks
+from .context import Knowledge, Playbooks
 from .webhook_endpoints import WebhookEndpoints
 from .screen import Screened, request_body as _screen_body, settle as _screen_settle
 from .data_screen import DetectedSpan, ScreenTerm, redact, restore, screen_text, summarise
@@ -122,6 +123,18 @@ from .types import (
     TaskContextDecisions,
     TaskContextFinding,
     TaskContextReport,
+    ContextGiven,
+    ImportedKnowledge,
+    KnowledgeDetail,
+    KnowledgeEntryData,
+    KnowledgeSearchResult,
+    PlaybookData,
+    PlaybookDetail,
+    PlaybookSummary,
+    ProposedKnowledge,
+    StartedPlaybook,
+    TaskContextKnowledge,
+    TaskContextPlaybook,
     TaskContextSideTasks,
     ActiveSideTask,
     AwaitingSideTask,
@@ -181,7 +194,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.19.2"
+__version__ = "0.20.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -280,6 +293,20 @@ __all__ = [
     "TaskContextDecisions",
     "TaskContextFinding",
     "TaskContextReport",
+    "ContextGiven",
+    "ImportedKnowledge",
+    "KnowledgeDetail",
+    "KnowledgeEntryData",
+    "KnowledgeSearchResult",
+    "PlaybookData",
+    "PlaybookDetail",
+    "PlaybookSummary",
+    "ProposedKnowledge",
+    "StartedPlaybook",
+    "TaskContextKnowledge",
+    "TaskContextPlaybook",
+    "Knowledge",
+    "Playbooks",
     "TaskContextSideTasks",
     "ActiveSideTask",
     "AwaitingSideTask",
@@ -415,6 +442,10 @@ class Deliverd:
         # implementation that can drift from it.
         self.flows = Flows(self.http, self)
         self.tasks = Tasks(self.http, self)
+        #: What your agents know: proposed by agents, confirmed by people, exported to anywhere.
+        self.knowledge = Knowledge(self.http)
+        #: Jobs written down as steps, each with the rule that applies before it acts.
+        self.playbooks = Playbooks(self.http)
         self.webhooks = Webhooks()
         self.webhook_endpoints = WebhookEndpoints(self.http)
         self.governance = AiGovernance(self.http)

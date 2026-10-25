@@ -43,6 +43,8 @@ interface RequestOptions {
    * knows how to derive.
    */
   idempotencyKey?: string;
+  /** `text` hands back the body as it came, for a route that returns a file. */
+  responseType?: "json" | "text";
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -121,7 +123,7 @@ export class HttpClient {
           method: options.method,
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
-            Accept: "application/json",
+            Accept: options.responseType === "text" ? "text/markdown, application/json" : "application/json",
             "User-Agent": USER_AGENT,
             // One id per logical request, kept across retries: it is the
             // thing to quote when something went wrong, and generating it
@@ -143,6 +145,7 @@ export class HttpClient {
       if (response.status === 204) return undefined as T;
 
       const text = await response.text();
+      if (options.responseType === "text" && response.ok) return text as T;
       let json: unknown;
       try {
         json = text ? JSON.parse(text) : {};

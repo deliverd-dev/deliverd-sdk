@@ -28,6 +28,7 @@ from . import Deliverd
 from .approvals import Approval, Approvals, DecisionSessions
 from .collections import Collection, Collections
 from .comments import Comments
+from .context import Knowledge, Playbooks
 from .duration import Duration
 from .flows import Flow, Flows
 from .gates import Gate, Gates
@@ -1004,6 +1005,87 @@ class AsyncTasks:
         return await asyncio.to_thread(partial(self._sync.update_governance_profile, task_id=task_id, **changes))
 
 
+class AsyncKnowledge:
+    """`deliverd.knowledge`, awaited."""
+
+    def __init__(self, sync: Knowledge) -> None:
+        self._sync = sync
+
+    async def agents_md(self, workspace_id: Optional[str] = None) -> str:
+        """An AGENTS.md of the confirmed knowledge and the playbooks in force, for a tool that reads files."""
+        return await asyncio.to_thread(partial(self._sync.agents_md, workspace_id=workspace_id))
+
+    async def edit(self, entry_id: str, kind: Optional[str] = None, title: Optional[str] = None, body: Optional[str] = None, tags: Optional[Sequence[str]] = None) -> KnowledgeEntryData:
+        """Change a proposal you made. A confirmed entry is changed by proposing a revision (``supersedes_id``)."""
+        return await asyncio.to_thread(partial(self._sync.edit, entry_id=entry_id, kind=kind, title=title, body=body, tags=tags))
+
+    async def export_json(self, status: Optional[str] = None, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+        """The same, as the API's JSON: ``format``, ``version``, ``organisation``, ``exportedAt``, ``entries``."""
+        return await asyncio.to_thread(partial(self._sync.export_json, status=status, workspace_id=workspace_id))
+
+    async def export_markdown(self, status: Optional[str] = None, workspace_id: Optional[str] = None) -> str:
+        """Everything you may see, as Markdown that imports back."""
+        return await asyncio.to_thread(partial(self._sync.export_markdown, status=status, workspace_id=workspace_id))
+
+    async def get(self, entry_id: str) -> KnowledgeDetail:
+        """One entry, with the versions before and after it."""
+        return await asyncio.to_thread(partial(self._sync.get, entry_id=entry_id))
+
+    async def given(self, task_id: str) -> List[ContextGiven]:
+        """What a task and its side tasks were given, newest first: the record behind "what did it know?"."""
+        return await asyncio.to_thread(partial(self._sync.given, task_id=task_id))
+
+    async def import_markdown(self, markdown: str, workspace_id: Optional[str] = None, source: Optional[str] = None) -> ImportedKnowledge:
+        """Bring in a Deliverd export or a notes file such as AGENTS.md. Each heading becomes a proposed entry."""
+        return await asyncio.to_thread(partial(self._sync.import_markdown, markdown=markdown, workspace_id=workspace_id, source=source))
+
+    async def promote_finding(self, task_id: str, finding_id: str, kind: Optional[str] = None, title: Optional[str] = None, body: Optional[str] = None, tags: Optional[Sequence[str]] = None) -> ProposedKnowledge:
+        """Propose a task's finding as knowledge, keeping where it came from."""
+        return await asyncio.to_thread(partial(self._sync.promote_finding, task_id=task_id, finding_id=finding_id, kind=kind, title=title, body=body, tags=tags))
+
+    async def propose(self, kind: str, title: str, body: str, tags: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, flow_id: Optional[str] = None, supersedes_id: Optional[str] = None, source_url: Optional[str] = None, source_label: Optional[str] = None, external_id: Optional[str] = None) -> ProposedKnowledge:
+        """Propose an entry. It is a proposal until a person confirms it; a secret is refused."""
+        return await asyncio.to_thread(partial(self._sync.propose, kind=kind, title=title, body=body, tags=tags, workspace_id=workspace_id, flow_id=flow_id, supersedes_id=supersedes_id, source_url=source_url, source_label=source_label, external_id=external_id))
+
+    async def search(self, q: Optional[str] = None, kind: Optional[str] = None, status: Optional[str] = None, workspace_id: Optional[str] = None, flow_id: Optional[str] = None, limit: Optional[int] = None) -> KnowledgeSearchResult:
+        """Ranked by relevance to ``q``; confirmed entries unless ``status`` says otherwise."""
+        return await asyncio.to_thread(partial(self._sync.search, q=q, kind=kind, status=status, workspace_id=workspace_id, flow_id=flow_id, limit=limit))
+
+
+class AsyncPlaybooks:
+    """`deliverd.playbooks`, awaited."""
+
+    def __init__(self, sync: Playbooks) -> None:
+        self._sync = sync
+
+    async def draft(self, title: str, purpose: str, steps: Sequence[Dict[str, Any]], inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None) -> PlaybookData:
+        """Draft a new playbook. Nobody runs a draft until a person puts it in force."""
+        return await asyncio.to_thread(partial(self._sync.draft, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note))
+
+    async def draft_version(self, playbook_id: str, title: str, purpose: str, steps: Sequence[Dict[str, Any]], inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None) -> PlaybookData:
+        """Draft the next version; the one in force keeps running until this one replaces it."""
+        return await asyncio.to_thread(partial(self._sync.draft_version, playbook_id=playbook_id, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note))
+
+    async def get(self, playbook_id: str) -> PlaybookDetail:
+        return await asyncio.to_thread(partial(self._sync.get, playbook_id=playbook_id))
+
+    async def list(self) -> List[PlaybookSummary]:
+        """One row per playbook: its newest version, and the version in force."""
+        return await asyncio.to_thread(partial(self._sync.list))
+
+    async def request_approval(self, playbook_id: str, approvers: Optional[Sequence[str]] = None, note: Optional[str] = None) -> PlaybookData:
+        """Put a draft to people as a Deliverd approval. Approved, it goes in force. Needs ``approvals:write`` and ``tasks:write``."""
+        return await asyncio.to_thread(partial(self._sync.request_approval, playbook_id=playbook_id, approvers=approvers, note=note))
+
+    async def start(self, playbook_id: str, inputs: Optional[Dict[str, str]] = None, title: Optional[str] = None, workspace_id: Optional[str] = None, flow_id: Optional[str] = None, external_id: Optional[str] = None, session_url: Optional[str] = None) -> StartedPlaybook:
+        """Run the version in force: an objective, and a side task per step."""
+        return await asyncio.to_thread(partial(self._sync.start, playbook_id=playbook_id, inputs=inputs, title=title, workspace_id=workspace_id, flow_id=flow_id, external_id=external_id, session_url=session_url))
+
+    async def update_draft(self, playbook_id: str, title: str, purpose: str, steps: Sequence[Dict[str, Any]], inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None) -> PlaybookData:
+        """Change a draft that has not been put to anybody."""
+        return await asyncio.to_thread(partial(self._sync.update_draft, playbook_id=playbook_id, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note))
+
+
 class AsyncWebhookEndpoints:
     """`deliverd.webhook_endpoints`, awaited."""
 
@@ -1086,6 +1168,8 @@ class AsyncDeliverd:
         self.schedules = AsyncSchedules(self._sync.schedules)
         self.flows = AsyncFlows(self._sync.flows)
         self.tasks = AsyncTasks(self._sync.tasks)
+        self.knowledge = AsyncKnowledge(self._sync.knowledge)
+        self.playbooks = AsyncPlaybooks(self._sync.playbooks)
         self.webhook_endpoints = AsyncWebhookEndpoints(self._sync.webhook_endpoints)
         self.governance = AsyncAiGovernance(self._sync.governance)
         # Pure functions: verification does no I/O, so it is not awaited.

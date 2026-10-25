@@ -6,6 +6,7 @@ import { Reviews, type ReviewWaitOptions } from "./reviews.js";
 import { Collections, type CollectWaitOptions } from "./collections.js";
 import { Flows } from "./flows.js";
 import { Tasks } from "./tasks.js";
+import { Knowledge, Playbooks } from "./context.js";
 import { AiGovernance } from "./governance.js";
 import { Webhooks } from "./webhooks.js";
 import { DecisionTokens } from "./decision-token.js";
@@ -33,6 +34,7 @@ export { Review, Reviews, type ReviewWaitOptions } from "./reviews.js";
 export { Collection, Collections, type CollectWaitOptions } from "./collections.js";
 export { Flow, Flows, type FlowPrimitives } from "./flows.js";
 export { Task, Tasks } from "./tasks.js";
+export { Knowledge, Playbooks } from "./context.js";
 export { AiGovernance, AiSystems, Incidents } from "./governance.js";
 export { WebhookEndpoints } from "./webhook-endpoints.js";
 export {
@@ -179,6 +181,10 @@ export class Deliverd {
   readonly collections: Collections;
   readonly flows: Flows;
   readonly tasks: Tasks;
+  /** What your agents know: proposed by agents, confirmed by people, exported to anywhere. */
+  readonly knowledge: Knowledge;
+  /** Jobs written down as steps, each with the rule that applies before it acts. */
+  readonly playbooks: Playbooks;
   /** Compliance Mode across the organisation: AI systems, incidents, authority, frameworks, the ICT register. */
   readonly governance: AiGovernance;
   readonly reports: Reports;
@@ -216,6 +222,8 @@ export class Deliverd {
      */
     this.flows = new Flows(this.http, this);
     this.tasks = new Tasks(this.http);
+    this.knowledge = new Knowledge(this.http);
+    this.playbooks = new Playbooks(this.http);
     this.governance = new AiGovernance(this.http);
     this.reports = new Reports(this.http);
     this.comments = new Comments(this.http);

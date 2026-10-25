@@ -18,6 +18,7 @@ from deliverd import Deliverd
 from deliverd.approvals import Approval, Approvals, DecisionSessions
 from deliverd.collections import Collection, Collections
 from deliverd.comments import Comments
+from deliverd.context import Knowledge, Playbooks
 from deliverd.flows import Flow, Flows
 from deliverd.gates import Gate, Gates
 from deliverd.governance import AiGovernance, AiSystems, Incidents
@@ -38,6 +39,8 @@ NAMESPACES = [
     ("schedules", Schedules),
     ("flows", Flows),
     ("tasks", Tasks),
+    ("knowledge", Knowledge),
+    ("playbooks", Playbooks),
     ("webhook_endpoints", WebhookEndpoints),
     ("governance", AiGovernance),
 ]
@@ -189,6 +192,7 @@ from . import Deliverd
 from .approvals import Approval, Approvals, DecisionSessions
 from .collections import Collection, Collections
 from .comments import Comments
+from .context import Knowledge, Playbooks
 from .duration import Duration
 from .flows import Flow, Flows
 from .gates import Gate, Gates

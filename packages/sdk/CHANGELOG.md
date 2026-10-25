@@ -2,6 +2,30 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
+## 0.28.0
+
+A minor, for additions. 0.27.0 went to npm on 25 October 2026 from f7e9136;
+this was opened as 0.27.1.
+
+### Added
+
+- **`deliverd.knowledge`**: the organisation's knowledge, shared by every
+  agent. `search()` ranks confirmed entries by relevance; `propose()` offers a
+  fact, convention, decision or known issue for a person to confirm (a secret
+  is refused, personal data is said back as `screening`); `get()`, `edit()` a
+  proposal, `promoteFinding()` from a task. `exportMarkdown()` and
+  `exportJson()` take it anywhere, `import()` brings a Deliverd export or an
+  AGENTS.md back, and `agentsMd()` writes an AGENTS.md for a tool that reads
+  files. Confirming, rejecting and retiring are a person's, in the app.
+- **`deliverd.playbooks`**: jobs written down as steps, each with the rule
+  that applies before it acts (`gate`, `approval`, `review`). `draft()`,
+  `draftVersion()`, `updateDraft()`, `requestApproval()`, and `start()`, which
+  runs the version in force as an objective with a side task per step. A
+  person, or an approval, puts a playbook in force; a key never does.
+- **`knowledge` and `playbook` on `TaskContext`**: the confirmed knowledge for
+  the task, and its playbook step with the call its rule needs. `knowledge.given(taskId)`
+  says what a run was given.
+
 ## 0.27.0
 
 A minor, for additions. 0.26.0 went to npm on 21 October 2026 from 80475ec;

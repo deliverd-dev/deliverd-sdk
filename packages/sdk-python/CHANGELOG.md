@@ -2,9 +2,25 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.19.2
+## 0.20.0
 
-A patch. 0.19.1 went to PyPI on 21 October 2026 from 9d480e9.
+A minor, for additions. 0.19.1 went to PyPI on 21 October 2026 from 9d480e9;
+this was opened as 0.19.2.
+
+### Added
+
+- **`deliverd.knowledge`**: the organisation's knowledge, shared by every
+  agent. `search()`, `get()`, `propose()` (a person confirms it; a secret is
+  refused), `edit()` a proposal, `promote_finding()`, `export_markdown()` and
+  `export_json()`, `import_markdown()` for a Deliverd export or an AGENTS.md,
+  `agents_md()`, and `given(task_id)` for what a run was given.
+- **`deliverd.playbooks`**: `list()`, `get()`, `draft()`, `draft_version()`,
+  `update_draft()`, `request_approval()` and `start()`, which runs the version
+  in force as an objective with a side task per step. A person, or an
+  approval, puts a playbook in force; a key never does.
+- **`knowledge` and `playbook` on `TaskContext`**: the confirmed knowledge for
+  the task, and its playbook step with the call its rule needs.
+- Both on `AsyncDeliverd` too.
 
 ### Added
 

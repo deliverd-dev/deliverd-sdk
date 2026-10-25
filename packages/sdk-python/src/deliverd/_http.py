@@ -135,7 +135,9 @@ class HttpClient:
         body: Any = None,
         query: Optional[Mapping[str, Any]] = None,
         idempotency_key: Optional[str] = None,
+        text: bool = False,
     ) -> Any:
+        """The JSON the API answered with; with ``text``, the body as it came, for a route that returns a file."""
         url = "{}/api/v1{}".format(self.base_url, path)
         if query:
             pairs = [(k, str(v)) for k, v in query.items() if v is not None]
@@ -160,7 +162,7 @@ class HttpClient:
         encoded = None if body is None else json.dumps(body).encode("utf-8")
         headers: Dict[str, str] = {
             "Authorization": "Bearer {}".format(self._api_key),
-            "Accept": "application/json",
+            "Accept": "text/markdown, application/json" if text else "application/json",
             "User-Agent": USER_AGENT,
             "deliverd-correlation-id": correlation_id,
         }
@@ -197,6 +199,8 @@ class HttpClient:
 
             if reply.status == 204:
                 return None
+            if text and 200 <= reply.status < 300:
+                return reply.body
 
             try:
                 payload = json.loads(reply.body) if reply.body else {}

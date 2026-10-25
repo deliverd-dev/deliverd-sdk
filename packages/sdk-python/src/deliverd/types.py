@@ -753,6 +753,32 @@ class TaskContextReport(Model):
 
 
 @dataclass
+class TaskContextKnowledge(Model):
+    """A confirmed knowledge entry, as a task's context gives it."""
+
+    id: str
+    #: ``fact`` | ``convention`` | ``decision`` | ``procedure`` | ``glossary`` | ``contact`` | ``known_issue``
+    kind: str
+    title: str
+    #: Cut at 600 characters; ``knowledge.get(id)`` has the rest.
+    body: str
+    confirmed_by: Optional[str]
+    url: str
+
+
+@dataclass
+class TaskContextPlaybook(Model):
+    """The playbook a task follows, and its step."""
+
+    id: str
+    title: str
+    version: int
+    #: ``key``, ``title``, ``rule``, ``action`` and the ``call`` its rule needs
+    #: before acting, as the API sends them; ``None`` on the objective itself.
+    step: Optional[Dict[str, Any]]
+
+
+@dataclass
 class TaskContext(Model):
     """What an agent reads instead of the history. The objective comes first."""
 
@@ -771,10 +797,16 @@ class TaskContext(Model):
     #: Reports published for this task, newest first, up to ten. Revise one with
     #: ``reports.update()`` rather than publishing a second on the same thing.
     reports: List[TaskContextReport]
+    #: Confirmed knowledge for this task, few and cut short: what its playbook
+    #: and step name first, then the most relevant. A person confirmed each one.
+    knowledge: List[TaskContextKnowledge]
+    #: The playbook this run follows, and this task's step in it; ``None`` when none.
+    playbook: Optional[TaskContextPlaybook]
     #: One paragraph to say back to yourself to re-anchor on the objective.
     reanchor: str
 
     _NESTED = {
+        "playbook": TaskContextPlaybook,
         "task": TaskContextTask,
         "decisions": TaskContextDecisions,
         "snapshot": TaskSnapshot,
@@ -784,6 +816,7 @@ class TaskContext(Model):
         "path": TaskPathEntry,
         "relevant_findings": TaskContextFinding,
         "reports": TaskContextReport,
+        "knowledge": TaskContextKnowledge,
     }
 
 
@@ -1793,3 +1826,149 @@ class ScreenData(Model):
 
     _NESTED = {"target": ScreenTargetData, "approval": ScreenApprovalRef}
     _NESTED_LISTS = {"findings": ScreenFindingData}
+
+
+# ── Context: knowledge and playbooks ────────────────────────────────────────
+
+
+@dataclass
+class KnowledgeEntryData(Model):
+    """One entry of the organisation's knowledge. Only ``confirmed`` is to be relied on."""
+
+    id: str
+    url: str
+    kind: str
+    kind_label: str
+    title: str
+    body: str
+    tags: List[str]
+    #: ``proposed`` | ``confirmed`` | ``rejected`` | ``retired`` | ``superseded``
+    status: str
+    workspace_id: Optional[str]
+    flow_id: Optional[str]
+    #: The confirmed entry this replaces once it is confirmed.
+    supersedes_id: Optional[str]
+    superseded_by_id: Optional[str]
+    #: Where it came from: ``kind`` and optionally ``id``, ``url``, ``label``.
+    source: Dict[str, Any]
+    owner: Optional[str]
+    review_due_on: Optional[str]
+    review_overdue: bool
+    last_reviewed_at: Optional[str]
+    confirmed_by: Optional[str]
+    confirmed_at: Optional[str]
+    decision_note: Optional[str]
+    retired_at: Optional[str]
+    retired_reason: Optional[str]
+    external_id: Optional[str]
+    proposed_by: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass
+class KnowledgeDetail(KnowledgeEntryData):
+    """One entry, with the versions before and after it."""
+
+    #: Earlier versions this replaced and later ones that replaced it, oldest first.
+    history: List[Dict[str, Any]]
+    #: A proposed revision waiting for a person, on a confirmed entry.
+    pending_revision: Optional[Dict[str, Any]]
+
+
+@dataclass
+class ProposedKnowledge(Model):
+    entry: KnowledgeEntryData
+    resumed: bool
+    #: Personal data seen in what you wrote, said back to you; ``None`` when none.
+    screening: Optional[str]
+
+    _NESTED = {"entry": KnowledgeEntryData}
+
+
+@dataclass
+class KnowledgeSearchResult(Model):
+    entries: List[KnowledgeEntryData]
+    #: True when the list was cut at the limit.
+    more: bool
+
+    _NESTED_LISTS = {"entries": KnowledgeEntryData}
+
+
+@dataclass
+class ImportedKnowledge(Model):
+    created: List[KnowledgeEntryData]
+    #: ``title`` and ``reason`` for each heading that was not brought in.
+    skipped: List[Dict[str, Any]]
+
+    _NESTED_LISTS = {"created": KnowledgeEntryData}
+
+
+@dataclass
+class ContextGiven(Model):
+    """What a task and its side tasks were given, at one moment."""
+
+    at: str
+    to: str
+    #: ``task_context`` | ``playbook_start``
+    via: str
+    playbook: Optional[Dict[str, Any]]
+    knowledge: List[Dict[str, Any]]
+
+
+@dataclass
+class PlaybookData(Model):
+    """One version of a playbook."""
+
+    id: str
+    url: str
+    #: Every version of one playbook shares it.
+    family_id: str
+    version: int
+    #: ``draft`` | ``awaiting_approval`` | ``not_approved`` | ``in_force`` | ``superseded`` | ``retired``
+    status: str
+    title: str
+    purpose: str
+    workspace_id: Optional[str]
+    #: ``name``, ``description``, ``required`` for each.
+    inputs: List[Dict[str, Any]]
+    #: ``key``, ``title``, ``instruction``, ``rule`` (``none`` | ``gate`` | ``approval`` | ``review``), ``action``, ``knowledgeIds``.
+    steps: List[Dict[str, Any]]
+    knowledge_ids: List[str]
+    note: Optional[str]
+    approval: Optional[Dict[str, Any]]
+    published_at: Optional[str]
+    published_by: Optional[str]
+    retired_at: Optional[str]
+    created_by: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass
+class PlaybookSummary(PlaybookData):
+    """A playbook's newest version, and which one is in force."""
+
+    in_force: Optional[Dict[str, Any]]
+
+
+@dataclass
+class PlaybookDetail(PlaybookData):
+    versions: List[Dict[str, Any]]
+    in_force_id: Optional[str]
+    knowledge: List[KnowledgeEntryData]
+
+    _NESTED_LISTS = {"knowledge": KnowledgeEntryData}
+
+
+@dataclass
+class StartedPlaybook(Model):
+    objective: TaskData
+    resumed: bool
+    playbook: Dict[str, Any]
+    #: ``key``, ``taskId``, ``title``, ``rule`` for each step, in order. Empty when resumed.
+    steps: List[Dict[str, Any]]
+    #: True when you named an older version and the one in force ran instead.
+    ran_older_version: bool
+
+    _NESTED = {"objective": TaskData}

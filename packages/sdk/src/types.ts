@@ -1500,8 +1500,36 @@ export interface TaskContext {
    * `reports.update()` rather than publishing a second on the same thing.
    */
   reports: TaskContextReport[];
+  /**
+   * Confirmed knowledge for this task, few and cut short: what its playbook
+   * and step name first, then the most relevant. A person confirmed each one;
+   * propose anything new with `knowledge.propose()`.
+   */
+  knowledge: TaskContextKnowledge[];
+  /** The playbook this run follows, and this task's step in it; null when none. */
+  playbook: TaskContextPlaybook | null;
   /** One paragraph to say back to yourself to re-anchor on the objective. */
   reanchor: string;
+}
+
+/** A confirmed knowledge entry, as a task's context gives it. */
+export interface TaskContextKnowledge {
+  id: string;
+  kind: KnowledgeKind;
+  title: string;
+  /** Cut at 600 characters; `knowledge.get(id)` has the rest. */
+  body: string;
+  confirmedBy: string | null;
+  url: string;
+}
+
+/** The playbook a task follows, and its step. */
+export interface TaskContextPlaybook {
+  id: string;
+  title: string;
+  version: number;
+  /** The step this task is, with the call its rule needs before acting; null on the objective itself. */
+  step: { key: string; title: string; rule: PlaybookStepRule; action: string | null; call: string | null } | null;
 }
 
 /** A report published for a task, as its context names it. */
@@ -2612,4 +2640,264 @@ export interface ScreenData {
   redactedText: string | null;
   /** The approval a person decides, for an `ask` verdict. */
   approval: ScreenApprovalRef | null;
+}
+
+// ── Context: knowledge and playbooks ────────────────────────────────────────
+
+export type KnowledgeKind = "fact" | "convention" | "decision" | "procedure" | "glossary" | "contact" | "known_issue";
+export type KnowledgeStatus = "proposed" | "confirmed" | "rejected" | "retired" | "superseded";
+/** `open` is proposed and confirmed together. */
+export type KnowledgeStatusFilter = KnowledgeStatus | "open" | "all";
+
+/** Where an entry came from. */
+export interface KnowledgeSource {
+  kind: "manual" | "finding" | "decision" | "import" | "url" | "agent";
+  id?: string;
+  url?: string;
+  label?: string;
+}
+
+/** One entry of the organisation's knowledge. Only `confirmed` is to be relied on. */
+export interface KnowledgeEntryData {
+  id: string;
+  url: string;
+  kind: KnowledgeKind;
+  kindLabel: string;
+  title: string;
+  body: string;
+  tags: string[];
+  status: KnowledgeStatus;
+  workspaceId: string | null;
+  flowId: string | null;
+  /** The confirmed entry this replaces once it is confirmed. */
+  supersedesId: string | null;
+  supersededById: string | null;
+  source: KnowledgeSource;
+  owner: string | null;
+  reviewDueOn: string | null;
+  reviewOverdue: boolean;
+  lastReviewedAt: string | null;
+  confirmedBy: string | null;
+  confirmedAt: string | null;
+  decisionNote: string | null;
+  retiredAt: string | null;
+  retiredReason: string | null;
+  externalId: string | null;
+  proposedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeDetail extends KnowledgeEntryData {
+  /** Earlier versions this replaced and later ones that replaced it, oldest first. */
+  history: { id: string; title: string; status: KnowledgeStatus; confirmedAt: string | null; url: string }[];
+  /** A proposed revision waiting for a person, on a confirmed entry. */
+  pendingRevision: { id: string; title: string; url: string } | null;
+}
+
+export interface ProposeKnowledgeInput {
+  kind: KnowledgeKind;
+  /** The fact or rule in one line. */
+  title: string;
+  /** The detail another agent needs to act on it. A secret is refused. */
+  body: string;
+  tags?: string[];
+  /** One workspace only; the whole organisation when omitted. */
+  workspaceId?: string;
+  flowId?: string;
+  /** The confirmed entry this would replace, once a person confirms it. */
+  supersedesId?: string;
+  sourceUrl?: string;
+  sourceLabel?: string;
+  /** Your own reference. An open entry with the same one comes back instead of a second. */
+  externalId?: string;
+}
+
+export interface ProposedKnowledge {
+  entry: KnowledgeEntryData;
+  resumed: boolean;
+  /** Personal data seen in what you wrote, said back to you; null when none. */
+  screening: string | null;
+}
+
+export interface EditKnowledgeInput {
+  kind?: KnowledgeKind;
+  title?: string;
+  body?: string;
+  tags?: string[];
+}
+
+export interface SearchKnowledgeInput {
+  /** Words, ranked by relevance. Omit for the newest. */
+  q?: string;
+  kind?: KnowledgeKind;
+  /** `confirmed` when omitted. */
+  status?: KnowledgeStatusFilter;
+  workspaceId?: string;
+  flowId?: string;
+  limit?: number;
+}
+
+export interface KnowledgeSearchResult {
+  entries: KnowledgeEntryData[];
+  /** True when the list was cut at the limit. */
+  more: boolean;
+}
+
+export interface PromoteFindingInput {
+  kind?: KnowledgeKind;
+  title?: string;
+  body?: string;
+  tags?: string[];
+}
+
+export interface ImportKnowledgeInput {
+  /** A Deliverd export, or a notes file such as AGENTS.md. Each heading becomes one proposed entry. */
+  markdown: string;
+  workspaceId?: string;
+  /** Where the file came from, e.g. the repository and path. */
+  source?: string;
+}
+
+export interface ImportedKnowledge {
+  created: KnowledgeEntryData[];
+  skipped: { title: string; reason: string }[];
+}
+
+export interface ExportKnowledgeInput {
+  /** `confirmed` when omitted. */
+  status?: KnowledgeStatusFilter;
+  workspaceId?: string;
+}
+
+/** A JSON export: portable entries, with their scope named rather than numbered. */
+export interface KnowledgeExport {
+  format: "deliverd-knowledge";
+  version: 1;
+  organisation: string;
+  exportedAt: string;
+  entries: {
+    id?: string;
+    kind: KnowledgeKind;
+    title: string;
+    body: string;
+    tags: string[];
+    status?: KnowledgeStatus;
+    /** The workspace's name, or Organisation. */
+    scope?: string | null;
+    owner?: string | null;
+    confirmedBy?: string | null;
+    confirmedOn?: string | null;
+    reviewDueOn?: string | null;
+    source: KnowledgeSource;
+  }[];
+}
+
+/** What a task and its side tasks were given, newest first. */
+export interface ContextGiven {
+  at: string;
+  to: string;
+  via: "task_context" | "playbook_start";
+  playbook: { id: string; title: string; version: number } | null;
+  knowledge: { id: string; title: string; status: KnowledgeStatus; confirmedBy: string | null; url: string }[];
+}
+
+export type PlaybookStatus = "draft" | "awaiting_approval" | "not_approved" | "in_force" | "superseded" | "retired";
+/** What applies before a step's action: nothing, `check_gate`, `request_approval` or `request_review`. */
+export type PlaybookStepRule = "none" | "gate" | "approval" | "review";
+
+export interface PlaybookStep {
+  key: string;
+  title: string;
+  instruction: string;
+  rule: PlaybookStepRule;
+  /** For a gate step: the action to check, such as `payments.send`. */
+  action?: string | null;
+  knowledgeIds: string[];
+}
+
+export interface PlaybookInput {
+  name: string;
+  description: string;
+  required: boolean;
+}
+
+export interface PlaybookData {
+  id: string;
+  url: string;
+  /** Every version of one playbook shares it. */
+  familyId: string;
+  version: number;
+  status: PlaybookStatus;
+  title: string;
+  purpose: string;
+  workspaceId: string | null;
+  inputs: PlaybookInput[];
+  steps: PlaybookStep[];
+  knowledgeIds: string[];
+  note: string | null;
+  approval: { id: string; url: string; status: string } | null;
+  publishedAt: string | null;
+  publishedBy: string | null;
+  retiredAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A playbook's newest version, and which one is in force. */
+export interface PlaybookSummary extends PlaybookData {
+  inForce: { id: string; version: number; url: string } | null;
+}
+
+export interface PlaybookDetail extends PlaybookData {
+  versions: { id: string; version: number; status: PlaybookStatus; url: string }[];
+  inForceId: string | null;
+  knowledge: KnowledgeEntryData[];
+}
+
+export interface DraftPlaybookInput {
+  /** The job, as people name it. */
+  title: string;
+  /** The outcome. Becomes the objective of every run. */
+  purpose: string;
+  steps: {
+    key?: string;
+    title: string;
+    instruction: string;
+    rule?: PlaybookStepRule;
+    action?: string;
+    knowledgeIds?: string[];
+  }[];
+  inputs?: { name: string; description?: string; required?: boolean }[];
+  knowledgeIds?: string[];
+  workspaceId?: string;
+  note?: string;
+}
+
+export interface StartPlaybookInput {
+  /** A name for this run; the playbook's title when omitted. */
+  title?: string;
+  inputs?: Record<string, string>;
+  workspaceId?: string;
+  flowId?: string;
+  /** An open run you started under it comes back instead of a second. */
+  externalId?: string;
+  sessionUrl?: string;
+}
+
+export interface StartedPlaybook {
+  objective: TaskData;
+  resumed: boolean;
+  playbook: { id: string; title: string; version: number };
+  /** One side task per step, in order. Empty when resumed. */
+  steps: { key: string; taskId: string; title: string; rule: PlaybookStepRule }[];
+  /** True when you named an older version and the one in force ran instead. */
+  ranOlderVersion: boolean;
+}
+
+export interface RequestPlaybookApprovalInput {
+  /** Emails, names or groups; the organisation's administrators when omitted. */
+  approvers?: string[];
+  note?: string;
 }

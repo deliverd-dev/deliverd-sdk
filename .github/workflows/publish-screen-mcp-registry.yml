@@ -1,0 +1,99 @@
+name: List Deliverd Screen in the MCP Registry
+
+# By hand, after the npm release it describes: the registry checks that the
+# npm package named in server.json exists at that version and carries a
+# matching `mcpName`, so listing first is refused. The steps after the
+# install are the ones in Deliverd's own publish-mcp.yml, where each was
+# learned the hard way (no dry-run flag exists; look servers up by name with
+# the slash encoded, never with ?search=).
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: packages/screen
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: mcp-registry
+      url: https://registry.modelcontextprotocol.io/v0.1/servers/io.github.deliverd-dev%2Fdeliverd-screen/versions
+    permissions:
+      contents: read
+      # The registry trusts this run's GitHub OIDC token for
+      # io.github.deliverd-dev/* because the repository belongs to
+      # deliverd-dev. No key or token is stored anywhere.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: server.json and package.json must agree
+        run: |
+          node -e '
+            const s = require("./server.json"), p = require("./package.json");
+            const errs = [];
+            if (s.name !== p.mcpName) errs.push(`name ${s.name}, mcpName ${p.mcpName}`);
+            if (s.version !== p.version) errs.push(`version ${s.version}, package.json ${p.version}`);
+            if (s.packages[0].version !== p.version) errs.push(`npm version ${s.packages[0].version}, package.json ${p.version}`);
+            if (errs.length) { console.error(errs.join("\n")); process.exit(1); }
+          '
+
+      - name: The npm release must already exist
+        run: |
+          V=$(node -p "require('./package.json').version")
+          npm view "@deliverd/screen@$V" mcpName | grep -qx "$(node -p "require('./package.json').mcpName")" \
+            || { echo "@deliverd/screen@$V is not on npm with this mcpName. Run publish-screen-npm.yml first."; exit 1; }
+
+      - name: Install mcp-publisher
+        run: |
+          curl -sSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          mcp-publisher --version
+          sudo mv mcp-publisher /usr/local/bin/
+
+      - name: Authenticate with this run's OIDC token
+        run: mcp-publisher login github-oidc
+
+      - run: mcp-publisher validate
+      - name: Ask the registry to validate it, which stores nothing
+        run: |
+          VERDICT=$(curl -sS --fail-with-body \
+            -X POST "https://registry.modelcontextprotocol.io/v0.1/validate" \
+            -H "Content-Type: application/json" --data-binary @server.json)
+          echo "$VERDICT"
+          node -e 'const v=JSON.parse(process.argv[1]); if(!v.valid){console.error("The registry refused server.json:"); console.error(JSON.stringify(v.issues,null,2)); process.exit(1)}' "$VERDICT"
+
+      - name: Is this version already published?
+        run: |
+          NAME=$(node -p "require('./server.json').name")
+          VERSION=$(node -p "require('./server.json').version")
+          ENC=$(node -p "encodeURIComponent(process.argv[1])" "$NAME")
+          FOUND=$(curl -sS "https://registry.modelcontextprotocol.io/v0.1/servers/$ENC/versions" \
+            | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).servers.map(e=>e.server??e).filter(s=>s.version===process.argv[1]).length}catch(e){0}" "$VERSION")
+          if [ "$FOUND" -ne 0 ]; then
+            echo "$NAME@$VERSION is already listed. Bump \`version\` in server.json — a version is spent once published."
+            exit 1
+          fi
+          echo "$NAME@$VERSION is not listed yet."
+
+      - run: mcp-publisher publish
+
+      - name: Confirm the listing exists
+        run: |
+          NAME=$(node -p "require('./server.json').name")
+          VERSION=$(node -p "require('./server.json').version")
+          ENC=$(node -p "encodeURIComponent(process.argv[1])" "$NAME")
+          REG=https://registry.modelcontextprotocol.io/v0.1/servers
+          READ='try{const d=JSON.parse(require("fs").readFileSync(0,"utf8"));d.servers.map(e=>({...(e.server??e),status:e._meta?.["io.modelcontextprotocol.registry/official"]?.status})).filter(s=>!process.argv[1]||s.version===process.argv[1]).map(s=>s.version+" "+(s.status??"?")).join(",")}catch(e){""}'
+          LISTED=$(curl -sS "$REG/$ENC/versions" | node -p "$READ" "$VERSION")
+          CONTROL=$(curl -sS "$REG/$(node -p 'encodeURIComponent("io.github.domdomegg/airtable-mcp-server")')/versions" | node -p "$READ" "")
+          echo "$NAME@$VERSION -> [$LISTED]; control -> [$CONTROL]"
+          if [ -z "$CONTROL" ]; then echo "The control lookup returned nothing, so the endpoint is broken and this proves nothing."; exit 1; fi
+          if [ -z "$LISTED" ]; then echo "Published, and the registry does not list it."; exit 1; fi
+          case "$LISTED" in *active*) ;; *) echo "Listed as [$LISTED] rather than active."; exit 1 ;; esac
+          {
+            echo "### Listed as \`$NAME\` — $LISTED"
+            echo
+            echo "<$REG/$ENC/versions>"
+          } >> "$GITHUB_STEP_SUMMARY"

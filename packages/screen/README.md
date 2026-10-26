@@ -96,6 +96,10 @@ npx @deliverd/screen --fail evals/*.jsonl        # exit 1 if anything is found
 npx @deliverd/screen --terms clients.txt doc.md  # your own words, one per line
 ```
 
+In GitHub Actions, `uses: deliverd-dev/deliverd-screen@v0` with `paths:` runs
+the same check; for pre-commit, the hook id is `deliverd-screen`. Both are in
+[deliverd-dev/deliverd-screen](https://github.com/deliverd-dev/deliverd-screen).
+
 ## MCP
 
 ```bash

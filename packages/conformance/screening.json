@@ -412,6 +412,98 @@
         }
       ],
       "redacted": "PPS [PPS_1] and [PPS_2], servers [IP_1] and 127.0.0.1 and 999.1.1.1"
+    },
+    {
+      "text": "Key:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA3Tz2mr7SZiAMfQyuvBjM4\nQyNTUxOQAAACBK\n-----END RSA PRIVATE KEY-----\nThanks",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA3Tz2mr7SZiAMfQyuvBjM4\nQyNTUxOQAAACBK\n-----END RSA PRIVATE KEY-----"
+        }
+      ],
+      "redacted": "Key:\n[SECRET_1]\nThanks"
+    },
+    {
+      "text": "Cut off:\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ\nThanks, Bob",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ"
+        }
+      ],
+      "redacted": "Cut off:\n[SECRET_1]\nThanks, Bob"
+    },
+    {
+      "text": "DATABASE_URL=postgres://admin:hunter2@db.internal:5432/prod",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "admin:hunter2"
+        }
+      ],
+      "redacted": "DATABASE_URL=postgres://[SECRET_1]@db.internal:5432/prod"
+    },
+    {
+      "text": "Write to mary@example.ie, not https://example.ie/about",
+      "findings": [
+        {
+          "kind": "email",
+          "value": "mary@example.ie"
+        }
+      ],
+      "redacted": "Write to [EMAIL_1], not https://example.ie/about"
+    },
+    {
+      "text": "export DB_PASSWORD=hunter2!\nOPENAI_API_KEY=\"sk-short-1\"\nAPI_KEY=your-api-key-here\nMAX_TOKENS=4096\nPASSWORD=${DB_PASS}",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "hunter2!"
+        },
+        {
+          "kind": "secret",
+          "value": "sk-short-1"
+        }
+      ],
+      "redacted": "export DB_PASSWORD=[SECRET_1]\nOPENAI_API_KEY=\"[SECRET_2]\"\nAPI_KEY=your-api-key-here\nMAX_TOKENS=4096\nPASSWORD=${DB_PASS}"
+    },
+    {
+      "text": "Call +1 (415) 555-0132 or 212-555-0199, not 123-456-7890",
+      "findings": [
+        {
+          "kind": "phone",
+          "value": "+1 (415) 555-0132"
+        },
+        {
+          "kind": "phone",
+          "value": "212-555-0199"
+        }
+      ],
+      "redacted": "Call [PHONE_1] or [PHONE_2], not 123-456-7890"
+    },
+    {
+      "text": "Host 2001:db8::1 and 2001:0db8:85a3:0000:0000:8a2e:0370:7334, not fe80::1, 10:30:00 or 00:1A:2B:3C:4D:5E",
+      "findings": [
+        {
+          "kind": "ip_address",
+          "value": "2001:db8::1"
+        },
+        {
+          "kind": "ip_address",
+          "value": "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        }
+      ],
+      "redacted": "Host [IP_1] and [IP_2], not fe80::1, 10:30:00 or 00:1A:2B:3C:4D:5E"
+    },
+    {
+      "text": "Server 10.0.0.12, not version 1.2.3.4, v2.0.0.1 or 1.2.3.4.5",
+      "findings": [
+        {
+          "kind": "ip_address",
+          "value": "10.0.0.12"
+        }
+      ],
+      "redacted": "Server [IP_1], not version 1.2.3.4, v2.0.0.1 or 1.2.3.4.5"
     }
   ],
   "decisions": [

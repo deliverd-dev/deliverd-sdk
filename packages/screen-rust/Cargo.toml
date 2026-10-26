@@ -1,6 +1,6 @@
 [package]
 name = "deliverd-screen"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.89"
 description = "A pre-send check for every prompt. Find and redact personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network."

@@ -140,11 +140,28 @@ def _pps_valid(raw: str) -> bool:
 
 
 def _ipv4_valid(raw: str) -> bool:
+    # "v1.2.3.4" and "version 1.2.3.4" are versions, and so is "1.2.3.4.5".
+    if re.search(r"[a-z]", raw, re.IGNORECASE):
+        return False
     parts = [int(p) for p in raw.split(".")]
     if len(parts) != 4 or any(p > 255 for p in parts):
         return False
     # Loopback and the unspecified address identify nobody.
     return parts[0] != 127 and parts[0] != 0
+
+
+def _ipv6_valid(raw: str) -> bool:
+    """Eight groups, or a "::" and at least three, so "10:30:00" and a MAC address are not addresses."""
+    if ":::" in raw:
+        return False
+    compressed = raw.count("::")
+    groups = len([g for g in raw.split(":") if g])
+    return groups == 8 if compressed == 0 else compressed == 1 and 3 <= groups <= 7
+
+
+def _env_secret_valid(value: str) -> bool:
+    """A value in a .env line that is a placeholder, not a credential."""
+    return not re.match(r"[<{%(]", value) and not re.search(r"your|example|placeholder|changeme|xxxx", value, re.IGNORECASE)
 
 
 def _card_valid(m: str) -> bool:
@@ -166,7 +183,11 @@ _WS = r"[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufef
 #: The same credential patterns the publish scanner blocks a report for.
 _SECRET_PATTERNS = [
     re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b", _A),
-    re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----", _A),
+    # The whole block, or the header and the lines of key under it when the end was cut off.
+    re.compile(
+        r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----(?:[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----|(?:\r?\n[A-Za-z0-9+/=]{16,})*)",
+        _A,
+    ),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,255}\b", _A),
     re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b", _A),
     re.compile(r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{20,}\b", _A),
@@ -186,6 +207,18 @@ _SPECIAL_PATTERN = re.compile(
 # (kind, pattern, validator, group)
 _DETECTORS = [
     *[("secret", p, None, 0) for p in _SECRET_PATTERNS],
+    # The user and password in a connection string: postgres://user:password@host.
+    ("secret", re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]{1,15}://([A-Za-z0-9._~%!$&'()*+,;=-]+:[A-Za-z0-9._~%!$&'()*+,;=:-]+)@", _A), None, 1),
+    # A credential in a .env line, quoted or not: DB_PASSWORD=..., OPENAI_API_KEY="...".
+    (
+        "secret",
+        re.compile(
+            r"""\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|SECRET_KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|AUTH_TOKEN)[ \t]*=[ \t]*["']?([!%&(-~]{6,})""",
+            _A,
+        ),
+        _env_secret_valid,
+        1,
+    ),
     ("iban", re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b", _A), _iban_valid, 0),
     ("payment_card", re.compile(r"\b[2-6]\d{3}(?:[ -]?\d{4}){2}[ -]?\d{1,7}\b", _A), _card_valid, 0),
     ("us_ssn", re.compile(r"\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b", _A), None, 0),
@@ -212,7 +245,15 @@ _DETECTORS = [
         _phone_valid,
         0,
     ),
-    ("ip_address", re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", _A), _ipv4_valid, 0),
+    # A North American number written the North American way: (415) 555-0132, 415-555-0132.
+    (
+        "phone",
+        re.compile(r"(?:\+1[ .-]?)?\([2-9]\d{2}\)[ .-]?[2-9]\d{2}[ .-]\d{4}\b|\b[2-9]\d{2}[.-][2-9]\d{2}[.-]\d{4}\b", _A),
+        None,
+        0,
+    ),
+    ("ip_address", re.compile(r"\b(?:(?:version|release|build|ver|v)[ \t:]*)?(?:\d{1,3}\.){3}\d{1,3}(?:\.\d+)*\b", _AI), _ipv4_valid, 0),
+    ("ip_address", re.compile(r"\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,7}\b", _A), _ipv6_valid, 0),
     ("special_category", _SPECIAL_PATTERN, None, 0),
 ]
 

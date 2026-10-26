@@ -159,10 +159,25 @@ function ppsValid(raw: string): boolean {
 }
 
 function ipv4Valid(raw: string): boolean {
+  // "v1.2.3.4" and "version 1.2.3.4" are versions, and so is "1.2.3.4.5".
+  if (/[a-z]/i.test(raw)) return false;
   const parts = raw.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => p > 255)) return false;
   // Loopback and the unspecified address identify nobody.
   return parts[0] !== 127 && parts[0] !== 0;
+}
+
+/** Eight groups, or a "::" and at least three, so "10:30:00" and a MAC address are not addresses. */
+function ipv6Valid(raw: string): boolean {
+  if (raw.includes(":::")) return false;
+  const compressed = raw.split("::").length - 1;
+  const groups = raw.split(":").filter(Boolean).length;
+  return compressed === 0 ? groups === 8 : compressed === 1 && groups >= 3 && groups <= 7;
+}
+
+/** A value in a .env line that is a placeholder, not a credential. */
+function envSecretValid(value: string): boolean {
+  return !/^[<{%(]/.test(value) && !/your|example|placeholder|changeme|xxxx/i.test(value);
 }
 
 /**
@@ -171,7 +186,8 @@ function ipv4Valid(raw: string): boolean {
  */
 const SECRET_PATTERNS: RegExp[] = [
   /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
-  /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----/g,
+  // The whole block, or the header and the lines of key under it when the end was cut off.
+  /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----(?:[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----|(?:\r?\n[A-Za-z0-9+\/=]{16,})*)/g,
   /\bgh[pousr]_[A-Za-z0-9]{36,255}\b/g,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
   /\b[sr]k_(?:live|test)_[A-Za-z0-9]{20,}\b/g,
@@ -194,6 +210,15 @@ const SPECIAL_PATTERN =
 
 const DETECTORS: Detector[] = [
   ...SECRET_PATTERNS.map((pattern) => ({ kind: "secret" as const, pattern })),
+  // The user and password in a connection string: postgres://user:password@host.
+  { kind: "secret", pattern: /\b[A-Za-z][A-Za-z0-9+.-]{1,15}:\/\/([A-Za-z0-9._~%!$&'()*+,;=-]+:[A-Za-z0-9._~%!$&'()*+,;=:-]+)@/g, group: 1 },
+  // A credential in a .env line, quoted or not: DB_PASSWORD=..., OPENAI_API_KEY="...".
+  {
+    kind: "secret",
+    pattern: /\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|SECRET_KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|AUTH_TOKEN)[ \t]*=[ \t]*["']?([!%&(-~]{6,})/g,
+    valid: envSecretValid,
+    group: 1,
+  },
   { kind: "iban", pattern: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b/g, valid: ibanValid },
   {
     kind: "payment_card",
@@ -225,7 +250,13 @@ const DETECTORS: Detector[] = [
       return d.length >= 9 && d.length <= 15;
     },
   },
-  { kind: "ip_address", pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g, valid: ipv4Valid },
+  {
+    kind: "phone",
+    // A North American number written the North American way: (415) 555-0132, 415-555-0132.
+    pattern: /(?:\+1[ .-]?)?\([2-9]\d{2}\)[ .-]?[2-9]\d{2}[ .-]\d{4}\b|\b[2-9]\d{2}[.-][2-9]\d{2}[.-]\d{4}\b/g,
+  },
+  { kind: "ip_address", pattern: /\b(?:(?:version|release|build|ver|v)[ \t:]*)?(?:\d{1,3}\.){3}\d{1,3}(?:\.\d+)*\b/gi, valid: ipv4Valid },
+  { kind: "ip_address", pattern: /\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,7}\b/g, valid: ipv6Valid },
   { kind: "special_category", pattern: SPECIAL_PATTERN },
 ];
 

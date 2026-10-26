@@ -21,6 +21,15 @@ this was opened as 0.28.1.
   for an app acting as itself, cached until shortly before it expires, for
   `purviewCheck` where there is no signed-in user.
 
+### Fixed
+
+- **`screen()` finds more and flags less**, with the same detectors as
+  Deliverd Screen: a private key is redacted whole rather than its first line;
+  the user and password in a connection string are a secret rather than part
+  of an email address; `.env` credentials are found quoted or not; North
+  American phone numbers and IPv6 addresses are found; and versions such as
+  `v1.2.3.4`, times and MAC addresses are no longer IP addresses.
+
 ## 0.28.0
 
 A minor, for additions. 0.27.0 went to npm on 25 October 2026 from f7e9136;

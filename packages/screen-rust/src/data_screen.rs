@@ -393,12 +393,38 @@ fn pps_valid(raw: &str) -> bool {
 }
 
 fn ipv4_valid(raw: &str) -> bool {
+    // "v1.2.3.4" and "version 1.2.3.4" are versions, and so is "1.2.3.4.5".
+    if raw.bytes().any(|b| b.is_ascii_alphabetic()) {
+        return false;
+    }
     let parts: Vec<u32> = raw.split('.').filter_map(|p| p.parse().ok()).collect();
     if parts.len() != 4 || parts.iter().any(|&p| p > 255) {
         return false;
     }
     // Loopback and the unspecified address identify nobody.
     parts[0] != 127 && parts[0] != 0
+}
+
+/// Eight groups, or a "::" and at least three, so "10:30:00" and a MAC address
+/// are not addresses.
+fn ipv6_valid(raw: &str) -> bool {
+    if raw.contains(":::") {
+        return false;
+    }
+    let compressed = raw.matches("::").count();
+    let groups = raw.split(':').filter(|g| !g.is_empty()).count();
+    if compressed == 0 {
+        groups == 8
+    } else {
+        compressed == 1 && (3..=7).contains(&groups)
+    }
+}
+
+/// A value in a .env line that is a placeholder, not a credential.
+fn env_secret_valid(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    !value.starts_with(['<', '{', '%', '('])
+        && !["your", "example", "placeholder", "changeme", "xxxx"].iter().any(|w| lower.contains(w))
 }
 
 fn is_word(b: u8) -> bool {
@@ -436,7 +462,11 @@ macro_rules! ws {
 /// either.
 const SECRET_PATTERNS: [(&str, bool); 11] = [
     (r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b", false),
-    (r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----", false),
+    // The whole block, or the header and the lines of key under it when the end was cut off.
+    (
+        r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----(?:(?s:.)*?-----END (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----|(?:\r?\n[A-Za-z0-9+/=]{16,})*)",
+        false,
+    ),
     (r"\bgh[pousr]_[A-Za-z0-9]{36,255}\b", false),
     (r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b", false),
     (r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{20,}\b", false),
@@ -467,6 +497,17 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
     let p = |kind, re: &str, ignore_case| Pattern { kind, re: bytes(re, ignore_case), valid: None, starts_ok: None };
     let mut all: Vec<Pattern> = SECRET_PATTERNS.iter().map(|&(re, i)| p(DataKind::Secret, re, i)).collect();
     all.extend([
+        // The user and password in a connection string: postgres://user:password@host.
+        p(DataKind::Secret, r"\b[A-Za-z][A-Za-z0-9+.-]{1,15}://([A-Za-z0-9._~%!$&'()*+,;=-]+:[A-Za-z0-9._~%!$&'()*+,;=:-]+)@", false),
+        // A credential in a .env line, quoted or not: DB_PASSWORD=..., OPENAI_API_KEY="...".
+        Pattern {
+            valid: Some(env_secret_valid),
+            ..p(
+                DataKind::Secret,
+                r#"\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|SECRET_KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|AUTH_TOKEN)[ \t]*=[ \t]*["']?([!%&(-~]{6,})"#,
+                false,
+            )
+        },
         Pattern { valid: Some(iban_valid), ..p(DataKind::Iban, r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b", false) },
         Pattern {
             valid: Some(|m| {
@@ -503,7 +544,13 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
                 false,
             )
         },
-        Pattern { valid: Some(ipv4_valid), ..p(DataKind::IpAddress, r"\b(?:\d{1,3}\.){3}\d{1,3}\b", false) },
+        // A North American number written the North American way: (415) 555-0132, 415-555-0132.
+        p(DataKind::Phone, r"(?:\+1[ .-]?)?\([2-9]\d{2}\)[ .-]?[2-9]\d{2}[ .-]\d{4}\b|\b[2-9]\d{2}[.-][2-9]\d{2}[.-]\d{4}\b", false),
+        Pattern {
+            valid: Some(ipv4_valid),
+            ..p(DataKind::IpAddress, r"\b(?:(?:version|release|build|ver|v)[ \t:]*)?(?:\d{1,3}\.){3}\d{1,3}(?:\.\d+)*\b", true)
+        },
+        Pattern { valid: Some(ipv6_valid), ..p(DataKind::IpAddress, r"\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,7}\b", false) },
         p(DataKind::SpecialCategory, SPECIAL_PATTERN, true),
     ]);
     all

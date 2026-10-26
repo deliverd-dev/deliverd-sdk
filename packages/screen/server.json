@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.deliverd-dev/deliverd-screen",
+  "title": "Deliverd Screen",
+  "description": "Find and redact personal data and secrets in text before it reaches a model. Local, no account.",
+  "version": "0.2.0",
+  "websiteUrl": "https://deliverd.dev/screen",
+  "repository": {
+    "url": "https://github.com/deliverd-dev/deliverd-sdk",
+    "source": "github",
+    "subfolder": "packages/screen"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@deliverd/screen",
+      "version": "0.2.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }]
+    }
+  ]
+}

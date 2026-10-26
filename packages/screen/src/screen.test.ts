@@ -272,3 +272,12 @@ describe("Microsoft Purview", () => {
     expect(calls[1]).toContain(`/users/${USER}/dataSecurityAndGovernance/processContent`);
   });
 });
+
+it("lists the MCP server in the registry under the name and version npm has", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const server = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
+  // The MCP Registry checks an npm package by its mcpName; a mismatch is refused at publish.
+  expect(server.name).toBe(pkg.mcpName);
+  expect(server.version).toBe(pkg.version);
+  expect(server.packages).toEqual([expect.objectContaining({ identifier: pkg.name, version: pkg.version })]);
+});

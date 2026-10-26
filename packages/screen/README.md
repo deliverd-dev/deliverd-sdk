@@ -33,8 +33,9 @@ checked.restore(answer); // the real values, back in the answer
 
 Email addresses, phone numbers, IBANs, payment card numbers (Luhn-checked),
 UK National Insurance numbers, Irish PPS numbers (check character), US Social
-Security numbers, IP addresses, dates of birth, API keys and tokens
-(AWS, GitHub, Slack, Stripe, Anthropic, OpenAI, Google, JWTs and more), words
+Security numbers, IP addresses (v4 and v6), dates of birth, API keys and tokens
+(AWS, GitHub, Slack, Stripe, Anthropic, OpenAI, Google, JWTs and more), private
+keys, passwords in connection strings and `.env` files, words
 that mark special-category data such as health or religion, and your own
 `terms`.
 

@@ -9,6 +9,16 @@ this was opened as 0.28.1.
 
 ### Added
 
+- **Approved prompts**: a playbook of `kind: "prompt"` holds an
+  organisation's agreed words for a piece of work, with `{input}`
+  placeholders, an owner, a review date and its limitations, versioned and
+  approved like any playbook. `deliverd.playbooks.use(id, { inputs })` hands
+  out the version in force, filled in, and records the use against the
+  version (`UsedPrompt`). `playbooks.draft({ ..., prompt: { text } })`
+  drafts one instead of `steps`, and `playbooks.list({ kind: "prompt" })`
+  lists them. `PlaybookData` gains `kind` and `prompt`. `list()` now takes
+  an options object before the signal.
+
 - **Microsoft Purview in `screen()`**: `purviewCheck({ token, userId, app })`
   asks your organisation's Purview (Microsoft Graph `processContent`) about a
   text before it goes to a model, and `screen(text, { purview })` holds its

@@ -40,6 +40,14 @@ interface Playbook {
   inForce?: { id: string; version: number; url: string } | null;
 }
 
+interface UsedPrompt {
+  prompt: { id: string; title: string; version: number; url: string };
+  text: string;
+  missingInputs: string[];
+  limitations: string | null;
+  ranOlderVersion: boolean;
+}
+
 interface Started {
   objective: { id: string; url: string; title: string };
   resumed: boolean;
@@ -271,6 +279,32 @@ export function contextCommands(program: Command): void {
           if (out.ranOlderVersion) console.log("  That was an older version; the one in force ran instead.");
           out.steps.forEach((s, i) => console.log(`  ${i + 1}. ${s.title.replace(/^\d+\.\s*/, "")}${s.rule === "none" ? "" : ` [${s.rule}]`} · ${s.taskId}`));
           console.log(`  ${out.objective.url}\n`);
+        });
+      })
+    );
+
+  playbooks
+    .command("use")
+    .description("Print an approved prompt's version in force, filled in, ready to paste. The use is recorded")
+    .argument("<id>")
+    .option("--input <name=value...>", "A value the prompt needs, repeatable")
+    .option("--json", "Print the result as JSON, for scripting")
+    .action(
+      run(async (id: string, options: { input?: string[]; json?: boolean }) => {
+        const config = requireConfig();
+        const inputs = Object.fromEntries(
+          (options.input ?? []).map((pair) => {
+            const at = pair.indexOf("=");
+            return at > 0 ? [pair.slice(0, at), pair.slice(at + 1)] : [pair, ""];
+          })
+        );
+        const out = await api<UsedPrompt>(config, "POST", `/playbooks/${enc(id)}/use`, { inputs });
+        emit(options.json, out, () => {
+          // The words alone on stdout, so they pipe straight to a clipboard; what is said about them goes to stderr.
+          console.error(`${out.prompt.title}, version ${out.prompt.version}${out.ranOlderVersion ? " (the version in force, not the one named)" : ""}`);
+          if (out.missingInputs.length) console.error(`Still to fill in: ${out.missingInputs.join(", ")}`);
+          console.log(out.text);
+          if (out.limitations) console.error(`Limitations: ${out.limitations}`);
         });
       })
     );

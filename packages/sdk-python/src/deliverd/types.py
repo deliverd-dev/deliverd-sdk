@@ -1957,6 +1957,12 @@ class PlaybookData(Model):
     created_by: str
     created_at: str
     updated_at: str
+    #: ``procedure`` (steps an agent runs) | ``prompt`` (approved words people and agents use).
+    kind: str
+    #: An approved prompt's own fields, None on a procedure: ``text``, ``limitations``, ``department``,
+    #: ``taskType``, ``language``, ``owner``, ``ownerUserId``, ``reviewDueOn``, ``reviewOverdue``,
+    #: ``reviewedAt``, ``reviewedBy``.
+    prompt: Optional[Dict[str, Any]]
 
 
 @dataclass
@@ -1973,6 +1979,21 @@ class PlaybookDetail(PlaybookData):
     knowledge: List[KnowledgeEntryData]
 
     _NESTED_LISTS = {"knowledge": KnowledgeEntryData}
+
+
+@dataclass
+class UsedPrompt(Model):
+    """An approved prompt's version in force, filled in. The use is recorded against the version."""
+
+    #: ``id``, ``title``, ``version``, ``url``.
+    prompt: Dict[str, Any]
+    #: The approved words with the inputs put in.
+    text: str
+    #: Required inputs not given; their placeholders are still in ``text``.
+    missing_inputs: List[str]
+    limitations: Optional[str]
+    #: True when you named an older version and the one in force was handed out instead.
+    ran_older_version: bool
 
 
 @dataclass

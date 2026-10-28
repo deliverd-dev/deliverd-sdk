@@ -4,5 +4,5 @@ requires-python = ">=3.9"
 
 [[package]]
 name = "deliverd"
-version = "0.19.2"
+version = "0.21.0"
 source = { editable = "." }

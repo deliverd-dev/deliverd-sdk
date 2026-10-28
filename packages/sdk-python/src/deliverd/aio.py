@@ -1058,20 +1058,20 @@ class AsyncPlaybooks:
     def __init__(self, sync: Playbooks) -> None:
         self._sync = sync
 
-    async def draft(self, title: str, purpose: str, steps: Sequence[Dict[str, Any]], inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None) -> PlaybookData:
+    async def draft(self, title: str, purpose: str, steps: Optional[Sequence[Dict[str, Any]]] = None, inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None, prompt: Optional[Dict[str, Any]] = None) -> PlaybookData:
         """Draft a new playbook. Nobody runs a draft until a person puts it in force."""
-        return await asyncio.to_thread(partial(self._sync.draft, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note))
+        return await asyncio.to_thread(partial(self._sync.draft, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note, prompt=prompt))
 
-    async def draft_version(self, playbook_id: str, title: str, purpose: str, steps: Sequence[Dict[str, Any]], inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None) -> PlaybookData:
+    async def draft_version(self, playbook_id: str, title: str, purpose: str, steps: Optional[Sequence[Dict[str, Any]]] = None, inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None, prompt: Optional[Dict[str, Any]] = None) -> PlaybookData:
         """Draft the next version; the one in force keeps running until this one replaces it."""
-        return await asyncio.to_thread(partial(self._sync.draft_version, playbook_id=playbook_id, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note))
+        return await asyncio.to_thread(partial(self._sync.draft_version, playbook_id=playbook_id, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note, prompt=prompt))
 
     async def get(self, playbook_id: str) -> PlaybookDetail:
         return await asyncio.to_thread(partial(self._sync.get, playbook_id=playbook_id))
 
-    async def list(self) -> List[PlaybookSummary]:
-        """One row per playbook: its newest version, and the version in force."""
-        return await asyncio.to_thread(partial(self._sync.list))
+    async def list(self, kind: Optional[str] = None) -> List[PlaybookSummary]:
+        """One row per playbook: its newest version, and the version in force. ``kind="prompt"`` for approved prompts only."""
+        return await asyncio.to_thread(partial(self._sync.list, kind=kind))
 
     async def request_approval(self, playbook_id: str, approvers: Optional[Sequence[str]] = None, note: Optional[str] = None) -> PlaybookData:
         """Put a draft to people as a Deliverd approval. Approved, it goes in force. Needs ``approvals:write`` and ``tasks:write``."""
@@ -1081,9 +1081,13 @@ class AsyncPlaybooks:
         """Run the version in force: an objective, and a side task per step."""
         return await asyncio.to_thread(partial(self._sync.start, playbook_id=playbook_id, inputs=inputs, title=title, workspace_id=workspace_id, flow_id=flow_id, external_id=external_id, session_url=session_url))
 
-    async def update_draft(self, playbook_id: str, title: str, purpose: str, steps: Sequence[Dict[str, Any]], inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None) -> PlaybookData:
+    async def update_draft(self, playbook_id: str, title: str, purpose: str, steps: Optional[Sequence[Dict[str, Any]]] = None, inputs: Optional[Sequence[Dict[str, Any]]] = None, knowledge_ids: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, note: Optional[str] = None, prompt: Optional[Dict[str, Any]] = None) -> PlaybookData:
         """Change a draft that has not been put to anybody."""
-        return await asyncio.to_thread(partial(self._sync.update_draft, playbook_id=playbook_id, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note))
+        return await asyncio.to_thread(partial(self._sync.update_draft, playbook_id=playbook_id, title=title, purpose=purpose, steps=steps, inputs=inputs, knowledge_ids=knowledge_ids, workspace_id=workspace_id, note=note, prompt=prompt))
+
+    async def use(self, playbook_id: str, inputs: Optional[Dict[str, str]] = None) -> UsedPrompt:
+        """Take an approved prompt: the version in force, filled in with ``inputs``. The use is recorded against the version."""
+        return await asyncio.to_thread(partial(self._sync.use, playbook_id=playbook_id, inputs=inputs))
 
 
 class AsyncWebhookEndpoints:

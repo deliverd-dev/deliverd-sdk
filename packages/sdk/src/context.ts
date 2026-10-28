@@ -20,6 +20,9 @@ import type {
   SearchKnowledgeInput,
   StartedPlaybook,
   StartPlaybookInput,
+  PlaybookKind,
+  UsedPrompt,
+  UsePromptInput,
 } from "./types.js";
 
 /**
@@ -35,6 +38,10 @@ import type {
  * objective with a side task per step. A person puts a playbook in force; an
  * agent's key can draft one and run one, never publish it, and never confirm
  * knowledge.
+ *
+ * An approved prompt is a playbook of kind `prompt`: the organisation's agreed
+ * words for a piece of work, approved and versioned the same way. `use()`
+ * hands out the version in force, filled in, and records the use.
  */
 
 const enc = encodeURIComponent;
@@ -124,9 +131,9 @@ export class Knowledge {
 export class Playbooks {
   constructor(private readonly http: HttpClient) {}
 
-  /** One row per playbook: its newest version, and the version in force. */
-  async list(signal?: AbortSignal): Promise<PlaybookSummary[]> {
-    const out = await this.http.request<{ playbooks: PlaybookSummary[] }>({ method: "GET", path: "/playbooks", signal });
+  /** One row per playbook: its newest version, and the version in force. `kind: "prompt"` for approved prompts only. */
+  async list(options: { kind?: PlaybookKind } = {}, signal?: AbortSignal): Promise<PlaybookSummary[]> {
+    const out = await this.http.request<{ playbooks: PlaybookSummary[] }>({ method: "GET", path: "/playbooks", query: { kind: options.kind }, signal });
     return out.playbooks;
   }
 
@@ -152,6 +159,11 @@ export class Playbooks {
   /** Put a draft to people as a Deliverd approval. Approved, it goes in force. Needs `approvals:write` and `tasks:write`. */
   requestApproval(id: string, input: RequestPlaybookApprovalInput = {}, signal?: AbortSignal): Promise<PlaybookData> {
     return this.http.request<PlaybookData>({ method: "POST", path: `/playbooks/${enc(id)}/approval`, body: input, signal });
+  }
+
+  /** Take an approved prompt: the version in force, filled in with `inputs`. The use is recorded against the version. */
+  use(id: string, input: UsePromptInput = {}, signal?: AbortSignal): Promise<UsedPrompt> {
+    return this.http.request<UsedPrompt>({ method: "POST", path: `/playbooks/${enc(id)}/use`, body: input, signal });
   }
 
   /** Run the version in force: an objective, and a side task per step. */

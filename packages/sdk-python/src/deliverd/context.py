@@ -29,6 +29,7 @@ from .types import (
     PlaybookSummary,
     ProposedKnowledge,
     StartedPlaybook,
+    UsedPrompt,
 )
 
 __all__ = ["Knowledge", "Playbooks"]
@@ -41,24 +42,26 @@ def _q(part: str) -> str:
 def _draft_body(
     title: str,
     purpose: str,
-    steps: Sequence[Dict[str, Any]],
+    steps: Optional[Sequence[Dict[str, Any]]],
     inputs: Optional[Sequence[Dict[str, Any]]],
     knowledge_ids: Optional[Sequence[str]],
     workspace_id: Optional[str],
     note: Optional[str],
+    prompt: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    # Steps and inputs are sent as given: their keys are the API's own (``knowledgeIds``).
+    # Steps, inputs and a prompt are sent as given: their keys are the API's own (``knowledgeIds``, ``ownerEmail``).
     return body_from(
         {
             "title": title,
             "purpose": purpose,
-            "steps": list(steps),
+            "steps": list(steps) if steps is not None else None,
             "inputs": list(inputs) if inputs is not None else None,
             "knowledge_ids": list(knowledge_ids) if knowledge_ids is not None else None,
             "workspace_id": workspace_id,
             "note": note,
+            "prompt": dict(prompt) if prompt is not None else None,
         },
-        passthrough=("steps", "inputs"),
+        passthrough=("steps", "inputs", "prompt"),
     )
 
 
@@ -179,9 +182,9 @@ class Playbooks:
     def __init__(self, http: HttpClient) -> None:
         self._http = http
 
-    def list(self) -> List[PlaybookSummary]:
-        """One row per playbook: its newest version, and the version in force."""
-        payload = self._http.request("GET", "/playbooks")
+    def list(self, kind: Optional[str] = None) -> List[PlaybookSummary]:
+        """One row per playbook: its newest version, and the version in force. ``kind="prompt"`` for approved prompts only."""
+        payload = self._http.request("GET", "/playbooks", query={"kind": kind})
         return [PlaybookSummary.from_wire(p) for p in payload.get("playbooks", [])]
 
     def get(self, playbook_id: str) -> PlaybookDetail:
@@ -191,19 +194,25 @@ class Playbooks:
         self,
         title: str,
         purpose: str,
-        steps: Sequence[Dict[str, Any]],
+        steps: Optional[Sequence[Dict[str, Any]]] = None,
         inputs: Optional[Sequence[Dict[str, Any]]] = None,
         knowledge_ids: Optional[Sequence[str]] = None,
         workspace_id: Optional[str] = None,
         note: Optional[str] = None,
+        prompt: Optional[Dict[str, Any]] = None,
     ) -> PlaybookData:
         """Draft a new playbook. Nobody runs a draft until a person puts it in force.
 
         Each step is a dict with the API's keys: ``title``, ``instruction``, and
         optionally ``key``, ``rule`` (``none`` | ``gate`` | ``approval`` | ``review``),
         ``action`` for a gate, and ``knowledgeIds``.
+
+        For an approved prompt, pass ``prompt`` instead of ``steps``: a dict with
+        ``text`` (each input as ``{input name}``) and optionally ``limitations``,
+        ``department``, ``taskType``, ``language``, ``ownerEmail``, ``reviewDueOn``
+        and ``checkOutput``.
         """
-        payload = _draft_body(title, purpose, steps, inputs, knowledge_ids, workspace_id, note)
+        payload = _draft_body(title, purpose, steps, inputs, knowledge_ids, workspace_id, note, prompt)
         return PlaybookData.from_wire(self._http.request("POST", "/playbooks", body=payload))
 
     def draft_version(
@@ -211,14 +220,15 @@ class Playbooks:
         playbook_id: str,
         title: str,
         purpose: str,
-        steps: Sequence[Dict[str, Any]],
+        steps: Optional[Sequence[Dict[str, Any]]] = None,
         inputs: Optional[Sequence[Dict[str, Any]]] = None,
         knowledge_ids: Optional[Sequence[str]] = None,
         workspace_id: Optional[str] = None,
         note: Optional[str] = None,
+        prompt: Optional[Dict[str, Any]] = None,
     ) -> PlaybookData:
         """Draft the next version; the one in force keeps running until this one replaces it."""
-        payload = _draft_body(title, purpose, steps, inputs, knowledge_ids, workspace_id, note)
+        payload = _draft_body(title, purpose, steps, inputs, knowledge_ids, workspace_id, note, prompt)
         return PlaybookData.from_wire(self._http.request("POST", "/playbooks/{}/versions".format(_q(playbook_id)), body=payload))
 
     def update_draft(
@@ -226,20 +236,26 @@ class Playbooks:
         playbook_id: str,
         title: str,
         purpose: str,
-        steps: Sequence[Dict[str, Any]],
+        steps: Optional[Sequence[Dict[str, Any]]] = None,
         inputs: Optional[Sequence[Dict[str, Any]]] = None,
         knowledge_ids: Optional[Sequence[str]] = None,
         workspace_id: Optional[str] = None,
         note: Optional[str] = None,
+        prompt: Optional[Dict[str, Any]] = None,
     ) -> PlaybookData:
         """Change a draft that has not been put to anybody."""
-        payload = _draft_body(title, purpose, steps, inputs, knowledge_ids, workspace_id, note)
+        payload = _draft_body(title, purpose, steps, inputs, knowledge_ids, workspace_id, note, prompt)
         return PlaybookData.from_wire(self._http.request("PATCH", "/playbooks/" + _q(playbook_id), body=payload))
 
     def request_approval(self, playbook_id: str, approvers: Optional[Sequence[str]] = None, note: Optional[str] = None) -> PlaybookData:
         """Put a draft to people as a Deliverd approval. Approved, it goes in force. Needs ``approvals:write`` and ``tasks:write``."""
         payload = body_from({"approvers": list(approvers) if approvers is not None else None, "note": note})
         return PlaybookData.from_wire(self._http.request("POST", "/playbooks/{}/approval".format(_q(playbook_id)), body=payload))
+
+    def use(self, playbook_id: str, inputs: Optional[Dict[str, str]] = None) -> UsedPrompt:
+        """Take an approved prompt: the version in force, filled in with ``inputs``. The use is recorded against the version."""
+        payload = body_from({"inputs": dict(inputs) if inputs is not None else None}, passthrough=("inputs",))
+        return UsedPrompt.from_wire(self._http.request("POST", "/playbooks/{}/use".format(_q(playbook_id)), body=payload))
 
     def start(
         self,

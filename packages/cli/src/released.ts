@@ -443,8 +443,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "unshare", "update", "verify", "versions", "who", "workspaces",
   ],
 
-  /* Opened because 0.18.0 is on npm (25 October 2026, from ae62d74). Same commands. */
-  "0.18.1": [
+  /* Opened as 0.18.1 because 0.18.0 is on npm (25 October 2026, from ae62d74). `playbooks use` for approved prompts, so a minor. */
+  "0.19.0": [
     "actions", "activate", "add", "agents", "agents-md", "analytics", "answer",
     "apply", "approvals", "approve-decision", "archive", "ask", "audit",
     "cancel", "check", "collect", "comments", "complete", "context", "copy",
@@ -454,7 +454,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "release", "rename", "reopen", "resolve", "retract", "reviews", "rm",
     "rollback", "schedules", "search", "send", "set", "setup", "share", "show",
     "side-task", "simulate", "start", "tasks", "templates", "unarchive",
-    "unshare", "update", "verify", "versions", "who", "workspaces",
+    "unshare", "update", "use", "verify", "versions", "who", "workspaces",
   ],
 };
 

@@ -2855,6 +2855,30 @@ export interface PlaybookData {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  /** `procedure`: steps an agent runs. `prompt`: approved words people and agents use. */
+  kind: PlaybookKind;
+  /** An approved prompt's own fields; null on a procedure. */
+  prompt: PromptFields | null;
+}
+
+export type PlaybookKind = "procedure" | "prompt";
+
+export interface PromptFields {
+  /** The approved words, with `{input}` placeholders. */
+  text: string;
+  /** What it is not for, and how to check what it produces. */
+  limitations: string | null;
+  department: string | null;
+  taskType: string | null;
+  language: string | null;
+  owner: string | null;
+  ownerUserId: string | null;
+  /** YYYY-MM-DD. */
+  reviewDueOn: string | null;
+  /** In force, and its review date has passed. */
+  reviewOverdue: boolean;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
 }
 
 /** A playbook's newest version, and which one is in force. */
@@ -2871,9 +2895,10 @@ export interface PlaybookDetail extends PlaybookData {
 export interface DraftPlaybookInput {
   /** The job, as people name it. */
   title: string;
-  /** The outcome. Becomes the objective of every run. */
+  /** The outcome. Becomes the objective of every run; for a prompt, the one line people see. */
   purpose: string;
-  steps: {
+  /** Required for a playbook; left out for a prompt, which has one step of its own. */
+  steps?: {
     key?: string;
     title: string;
     instruction: string;
@@ -2885,6 +2910,39 @@ export interface DraftPlaybookInput {
   knowledgeIds?: string[];
   workspaceId?: string;
   note?: string;
+  /** Send instead of `steps` to draft an approved prompt. */
+  prompt?: {
+    /** The words, with each input as `{input name}`. */
+    text: string;
+    limitations?: string;
+    department?: string;
+    /** Such as Analyze, Create or Edit. */
+    taskType?: string;
+    /** Such as en-GB. */
+    language?: string;
+    /** The member who owns it; whoever drafts it when omitted. */
+    ownerEmail?: string;
+    /** YYYY-MM-DD; six months on when omitted. */
+    reviewDueOn?: string;
+    /** Run as a playbook, a person reviews the output before it is used. */
+    checkOutput?: boolean;
+  };
+}
+
+export interface UsePromptInput {
+  /** The prompt's inputs, by name. A placeholder not given stays in the words. */
+  inputs?: Record<string, string>;
+}
+
+export interface UsedPrompt {
+  prompt: { id: string; title: string; version: number; url: string };
+  /** The approved words with the inputs put in. */
+  text: string;
+  /** Required inputs not given; their placeholders are still in `text`. */
+  missingInputs: string[];
+  limitations: string | null;
+  /** True when you named an older version and the one in force was handed out instead. */
+  ranOlderVersion: boolean;
 }
 
 export interface StartPlaybookInput {

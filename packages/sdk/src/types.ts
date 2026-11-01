@@ -810,6 +810,8 @@ export type WebhookEventName =
   | "side_task.completed"
   /** An AI risk indicator went red for a month: its figure, limits and owner. */
   | "risk_indicator.breached"
+  /** Opt-in: a person confirmed or retired knowledge, or a playbook or prompt went into force or was retired. For a sync. */
+  | "context.changed"
   /** Opt-in: one audit log entry, with its chain position and hashes. For a SIEM. */
   | "audit.event";
 

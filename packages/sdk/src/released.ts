@@ -24638,8 +24638,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.29.0 is on npm (28 October 2026, from d1ffe75). Same surface. */
-  "0.29.1": [
+  /* Opened as 0.29.1 because 0.29.0 is on npm (28 October 2026, from d1ffe75); a minor since it adds the context.changed event. */
+  "0.30.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -26062,6 +26062,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "event:collection.completed",
     "event:collection.requested",
     "event:comment.created",
+    "event:context.changed",
     "event:flow.completed",
     "event:gate.approved",
     "event:gate.cancelled",

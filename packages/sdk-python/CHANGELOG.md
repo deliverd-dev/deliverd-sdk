@@ -2,9 +2,18 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.21.1
+## 0.22.0
 
-A patch. 0.21.0 went to PyPI on 28 October 2026 from d1ffe75.
+A minor, for an addition. 0.21.0 went to PyPI on 28 October 2026 from
+d1ffe75; this was opened as 0.21.1.
+
+### Added
+
+- **`context.changed`** in `WEBHOOK_EVENTS`: an opt-in webhook event sent
+  when a person confirms or retires knowledge, or a playbook or approved
+  prompt goes into force or is retired. It carries what changed and where to
+  fetch the file (`agentsMdUrl`, `exportUrl`), for a sync that keeps another
+  tool in step.
 
 ## 0.21.0
 

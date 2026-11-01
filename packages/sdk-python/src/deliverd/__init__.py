@@ -196,7 +196,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.22.0"
+__version__ = "0.23.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -478,6 +478,7 @@ class Deliverd:
         callback_url: Optional[str] = None,
         input: Optional[Dict[str, Any]] = None,
         editable_fields: Optional[Sequence[str]] = None,
+        recommendation: Optional[Dict[str, Any]] = None,
         expires_in: Optional[Duration] = None,
         expires_at: Optional[str] = None,
         on_question: Optional[Any] = None,
@@ -519,6 +520,7 @@ class Deliverd:
             callback_url=callback_url,
             input=input,
             editable_fields=editable_fields,
+            recommendation=recommendation,
             idempotency_key=idempotency_key,
         )
         return approval.wait(**self._wait_args(on_question, on_poll, timeout, cancel)).to_decision()

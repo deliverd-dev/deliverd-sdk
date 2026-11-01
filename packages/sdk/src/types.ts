@@ -370,6 +370,8 @@ export interface ApprovalData {
   questions: ApprovalQuestion[];
   /** Which agent asked, as the request declared it. Null when it said nothing. Not verified. */
   agent: DeclaredAgent | null;
+  /** What your model or decision engine recommended, as sent. Null when you sent none. */
+  recommendation: ApprovalRecommendation | null;
   /** The model the request said the agent was running on. Not verified. */
   model: string | null;
   createdAt: string;
@@ -436,6 +438,35 @@ export interface CreateApprovalInput {
    * numbers and true/false. Omitted, it is approve or reject only.
    */
   editableFields?: string[];
+  /**
+   * What your model or decision engine recommends, shown to the approver as
+   * context, never as the decision. Where the organisation has blind review
+   * on, a high or critical risk request's recommendation is shown only after
+   * the approver records their own view.
+   */
+  recommendation?: ApprovalRecommendationInput;
+}
+
+/** A recommendation as you send it: a verdict, and as much of the rest as you have. */
+export interface ApprovalRecommendationInput {
+  verdict: "approve" | "reject";
+  /** The recommendation in a line. */
+  summary?: string;
+  /** How sure it is, from 0 to 1. */
+  confidence?: number;
+  /** Why, as your system explains it. */
+  rationale?: string;
+  /** Which model or engine made it. */
+  source?: string;
+}
+
+/** A recommendation as the API returns it. */
+export interface ApprovalRecommendation {
+  verdict: "approve" | "reject";
+  summary: string | null;
+  confidence: number | null;
+  rationale: string | null;
+  source: string | null;
 }
 
 /**

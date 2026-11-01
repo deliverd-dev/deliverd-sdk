@@ -2,6 +2,20 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
+## 0.31.0
+
+A minor, for an addition. 0.30.0 went to npm on 1 November 2026 from 91947bc;
+this was opened as 0.30.1.
+
+### Added
+
+- **`recommendation` on an approval request**: what your model or decision
+  engine recommends (`verdict` `approve` or `reject`, with `summary`,
+  `confidence`, `rationale` and `source`), shown to the approver as context.
+  Where the organisation has blind review on, a high or critical risk
+  request's recommendation is shown only after the approver records their own
+  view. `ApprovalData.recommendation` returns it.
+
 ## 0.30.0
 
 A minor, for an addition. 0.29.0 went to npm on 28 October 2026 from d1ffe75;

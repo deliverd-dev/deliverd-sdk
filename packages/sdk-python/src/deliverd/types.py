@@ -116,6 +116,10 @@ class ApprovalData(Model):
     note: Optional[str]
     expires_at: Optional[str]
     questions: List[ApprovalQuestion]
+    #: What your model or decision engine recommended, as sent:
+    #: ``{"verdict", "summary", "confidence", "rationale", "source"}``.
+    #: ``None`` when you sent none.
+    recommendation: Optional[Dict[str, Any]]
     #: Which agent asked, as the request declared it. ``None`` when it said
     #: nothing. The caller's own words; nothing checks them.
     agent: Optional["DeclaredAgent"]

@@ -289,6 +289,7 @@ class Approvals:
         callback_url: Optional[str] = None,
         input: Optional[Dict[str, Any]] = None,
         editable_fields: Optional[Sequence[str]] = None,
+        recommendation: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
     ) -> Approval:
         """Ask.
@@ -296,6 +297,13 @@ class Approvals:
         Returns as soon as the request is filed — the approvers are being told
         while this returns — so call :meth:`Approval.wait` next, or keep the id
         and poll later.
+
+        ``recommendation`` is what your model or decision engine recommends:
+        ``{"verdict": "approve" | "reject", "summary", "confidence" (0 to 1),
+        "rationale", "source"}``. It is shown to the approver as context,
+        never as the decision; where the organisation has blind review on, a
+        high or critical risk request's recommendation is shown only after the
+        approver records their own view.
         """
         body = body_from(
             {
@@ -315,6 +323,7 @@ class Approvals:
                 "callback_url": callback_url,
                 "input": input,
                 "editable_fields": list(editable_fields) if editable_fields is not None else None,
+                "recommendation": recommendation,
             },
             # Field names inside ``input`` are the caller's arguments, sent as written.
             passthrough=("metadata", "input"),

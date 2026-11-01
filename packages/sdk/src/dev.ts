@@ -127,6 +127,16 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
         metadata: (body.metadata as Record<string, unknown>) ?? {},
         input: (body.input as Record<string, unknown> | undefined) ?? null,
         editableFields: (body.editableFields as string[] | undefined) ?? [],
+        recommendation: body.recommendation
+          ? {
+              summary: null,
+              confidence: null,
+              rationale: null,
+              source: null,
+              ...(body.recommendation as Partial<NonNullable<ApprovalData["recommendation"]>>),
+              verdict: (body.recommendation as { verdict: "approve" | "reject" }).verdict,
+            }
+          : null,
         approvedInput: null,
         changes: [],
         concerns: [],

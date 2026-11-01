@@ -15,8 +15,8 @@ import { releaseOf, type ReleaseOptions } from "../release.js";
  *   deliverd governance evidence $TASK --report results.json --format promptfoo --control resilience_testing
  *   deliverd governance check $TASK         # exits 1 unless the gate is open
  *
- * Or, with Langfuse, LangSmith, Braintrust or Weave connected in Admin →
- * Integrations, read the experiment's scores from the tool itself, with a key
+ * Or, with Langfuse, LangSmith, Braintrust or Weave connected in Organisation →
+ * Integrations & webhooks, read the experiment's scores from the tool itself, with a key
  * the pipeline never holds:
  *
  *   deliverd governance evidence $TASK --langfuse credit-memo-v12 --control model_evaluation

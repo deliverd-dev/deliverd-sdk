@@ -167,7 +167,7 @@ EXPLANATIONS: Dict[str, Explanation] = {
         hint=(
             "Nothing is wrong with the credential -- it still authenticates, and "
             "what is gone is the identity it speaks as. Recreate the agent under "
-            "Admin > Agents, or issue a key bound to one that exists. Every call "
+            "Agents > Agents, or issue a key bound to one that exists. Every call "
             "this key makes fails the same way until then."
         ),
     ),

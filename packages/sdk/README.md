@@ -688,7 +688,7 @@ five minutes of tolerance — so anything you have written before will work too.
 ## Webhook endpoints
 
 Add, change and remove the endpoints themselves from code, rather than under
-Admin → Webhooks. The secret comes back from `create()` **once** — no other
+Organisation → Integrations & webhooks → Webhooks. The secret comes back from `create()` **once** — no other
 call returns it — so store it where your receiver reads it.
 
 ```ts
@@ -768,7 +768,7 @@ const session = await deliverd.approvals.createSession(approval.id, {
 redirect(session.url!); // returned once
 
 // Or a frame in your own page. The origin must be on the organisation's
-// embedding allow-list (Admin → Security → Embedding), or http://localhost.
+// embedding allow-list (Organisation → Security → Embedding), or http://localhost.
 const embedded = await deliverd.approvals.createSession(approval.id, {
   approver: "sarah@acme.com",
   mode: "embedded",

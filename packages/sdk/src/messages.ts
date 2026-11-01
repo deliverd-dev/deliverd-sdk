@@ -116,7 +116,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
    */
   agent_not_found: {
     message: "The agent identity this key acts as is not there any more.",
-    hint: "Nothing is wrong with the credential — it still authenticates, and what is gone is the identity it speaks as. Recreate the agent under Admin → Agents, or issue a key bound to one that exists. Every call this key makes fails the same way until then.",
+    hint: "Nothing is wrong with the credential — it still authenticates, and what is gone is the identity it speaks as. Recreate the agent under Agents → Agents, or issue a key bound to one that exists. Every call this key makes fails the same way until then.",
   },
   upload_not_found: {
     hint: "A publish consumes the bundle it reads, so this is what a *second* publish with the same `uploadId` gets — which means the first one may well have worked. Look at the report before uploading again, or you will publish it twice.",

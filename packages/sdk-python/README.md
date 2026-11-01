@@ -326,7 +326,7 @@ posting that everything is fine.
 ## Webhook endpoints
 
 Add, change and remove the endpoints themselves from code rather than under
-Admin → Webhooks. The secret comes back from `create()` **once** — no other
+Organisation → Integrations & webhooks → Webhooks. The secret comes back from `create()` **once** — no other
 call returns it — so store it where your receiver reads it.
 
 ```python

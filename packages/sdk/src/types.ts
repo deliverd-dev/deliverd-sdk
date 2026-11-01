@@ -1748,7 +1748,7 @@ export interface SubmitEvidenceInput {
   /**
    * Read the results from the organisation's connected Langfuse, LangSmith,
    * Braintrust or Weave, with its key, which you never hold. Instead of `results` or `report`.
-   * Connected by an owner or an administrator in Admin → Integrations.
+   * Connected by an owner or an administrator in Organisation → Integrations & webhooks.
    */
   pull?: EvidencePull;
   /** The release the results tested, with results, a report or a pull. Results of another release than the system runs now do not count. */

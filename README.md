@@ -16,7 +16,7 @@ packages that do the asking:
 | CLI | `npx deliverd` | [`packages/cli`](packages/cli) |
 
 All four are MIT. The TypeScript and Python SDKs have no runtime dependency,
-the CLI has two, and the Rust SDK uses reqwest, serde and tokio rather than
+the CLI has three, and the Rust SDK uses reqwest, serde and tokio rather than
 writing its own HTTP client. The Deliverd service every package here talks to
 is a separate, proprietary product.
 

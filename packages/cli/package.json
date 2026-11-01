@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "commander": "^14.0.2",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@types/node": "^20",

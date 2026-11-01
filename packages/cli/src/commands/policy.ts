@@ -1,9 +1,17 @@
-import { readFileSync } from "node:fs";
+import { appendFileSync } from "node:fs";
 import type { Command } from "commander";
 import { api } from "../api.js";
 import { requireConfig } from "../config.js";
 import { collect, listing } from "../paging.js";
 import { day, emit, run } from "../ui.js";
+import {
+  markdownReport,
+  readPolicies,
+  replayHeadline,
+  type PolicyFile,
+  type Replay,
+  type TestRun,
+} from "../policy-files.js";
 
 /**
  * Gate policy as code.
@@ -44,6 +52,36 @@ interface Version {
   id: string;
   version: number;
   active: boolean;
+  unchanged?: boolean;
+}
+
+interface Source {
+  repository: string;
+  commit?: string;
+  path?: string;
+}
+
+/**
+ * The repository a push comes from, which marks the version "Managed in Git"
+ * in the app. `--git` reads it from the CI environment (GitHub Actions sets
+ * `GITHUB_REPOSITORY` and `GITHUB_SHA`); `--source-repo` names it outright.
+ */
+function sourceFor(
+  options: { git?: boolean; sourceRepo?: string; sourceCommit?: string },
+  path: string
+): Source | undefined {
+  const repository = options.sourceRepo ?? (options.git ? process.env.GITHUB_REPOSITORY : undefined);
+  if (!repository) {
+    if (options.git) throw new Error("--git needs GITHUB_REPOSITORY in the environment, or --source-repo.");
+    return undefined;
+  }
+  const commit = options.sourceCommit ?? (options.git ? process.env.GITHUB_SHA : undefined);
+  return { repository, ...(commit ? { commit } : {}), path };
+}
+
+/** Append to a file when one was named: `$GITHUB_STEP_SUMMARY`, or a comment body for a later step. */
+function writeMarkdown(path: string | undefined, sections: Parameters<typeof markdownReport>[0]): void {
+  if (path) appendFileSync(path, `${markdownReport(sections)}\n`);
 }
 
 interface Simulation {
@@ -57,39 +95,6 @@ interface Simulation {
   policyVersionId: string | null;
   input: Record<string, unknown>;
   governed: boolean;
-}
-
-interface PolicyFile {
-  name: string;
-  description?: string;
-  note?: string;
-  rules: Record<string, unknown>[];
-}
-
-/**
- * Read the file, and say which one when it is wrong.
- *
- * `JSON.parse` on a missing or malformed file throws a message naming neither
- * the path nor what was expected, which in CI is a red build and no hint.
- */
-function readPolicy(path: string): PolicyFile {
-  let raw: string;
-  try {
-    raw = readFileSync(path, "utf8");
-  } catch {
-    throw new Error(`Could not read ${path}. Point --file at your policy file.`);
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new Error(`${path} is not valid JSON: ${(err as Error).message}`);
-  }
-  const file = parsed as PolicyFile;
-  if (!file || typeof file.name !== "string" || !Array.isArray(file.rules)) {
-    throw new Error(`${path} needs a \`name\` and a \`rules\` array at the top level.`);
-  }
-  return file;
 }
 
 /** One line per rule, in the order the evaluator will consider them. */
@@ -110,67 +115,176 @@ export function policyCommands(program: Command): void {
 
   policy
     .command("push")
-    .description("Store a policy file as a new version. Add --activate to put it in force")
-    .option("--file <path>", "The policy file", "deliverd.policy.json")
+    .description("Store a policy file (or a directory of them) as new versions. Add --activate to put them in force")
+    .option("--file <path>", "A policy file (JSON or YAML), or a directory of them", "deliverd.policy.json")
     .option(
       "--activate",
       "Put this version in force immediately, superseding the one that was"
     )
+    .option("--git", "Mark the versions as managed in Git, reading the repository and commit from CI")
+    .option("--source-repo <repo>", "The repository the files are kept in (owner/name). Implies managed in Git")
+    .option("--source-commit <sha>", "The commit the files were read at")
+    .option("--skip-unchanged", "Store nothing for a policy whose version in force already has exactly these rules")
     .option("--json", "Print the result as JSON, for scripting")
     .action(
-      run(async (options: { file: string; activate?: boolean; json?: boolean }) => {
-        const config = requireConfig();
-        const file = readPolicy(options.file);
+      run(
+        async (options: {
+          file: string;
+          activate?: boolean;
+          git?: boolean;
+          sourceRepo?: string;
+          sourceCommit?: string;
+          skipUnchanged?: boolean;
+          json?: boolean;
+        }) => {
+          const config = requireConfig();
+          const files = readPolicies(options.file);
 
-        /*
-         * Find the policy before writing anything. Creating it blind would
-         * fail on the second run of a pipeline that is meant to be repeatable,
-         * and the failure — "a policy called X already exists" — is correct
-         * and useless: what the caller wanted was the next version of it.
-         *
-         * `collect` rather than `listing`, and rather than one page: the walk
-         * to the end is the whole point here, so it is named. Reading page one
-         * and concluding the policy is new would, past the fiftieth policy,
-         * create a second one under a name the organisation already had and
-         * report that the push succeeded.
-         */
-        const items = await collect<Policy>(config, "/policies", "policies");
-        const existing = items.find((p) => p.name === file.name);
+          /*
+           * Find the policy before writing anything. Creating it blind would
+           * fail on the second run of a pipeline that is meant to be repeatable,
+           * and the failure — "a policy called X already exists" — is correct
+           * and useless: what the caller wanted was the next version of it.
+           *
+           * `collect` rather than `listing`, and rather than one page: the walk
+           * to the end is the whole point here, so it is named. Reading page one
+           * and concluding the policy is new would, past the fiftieth policy,
+           * create a second one under a name the organisation already had and
+           * report that the push succeeded.
+           */
+          const items = await collect<Policy>(config, "/policies", "policies");
+          const pushed: { file: PolicyFile; version: Version }[] = [];
 
-        let version: Version;
-        if (existing) {
-          version = await api<Version>(config, "POST", `/policies/${existing.id}/versions`, {
-            rules: file.rules,
-            note: file.note,
-            activate: options.activate ?? false,
-          });
-        } else {
-          const created = await api<{ id: string; name: string; version: Version | null }>(
-            config,
-            "POST",
-            "/policies",
-            {
-              name: file.name,
-              description: file.description,
-              rules: file.rules,
-              note: file.note,
-              activate: options.activate ?? false,
+          for (const file of files) {
+            const existing = items.find((p) => p.name === file.name);
+            const source = sourceFor(options, file.path);
+            let version: Version;
+            if (existing) {
+              version = await api<Version>(config, "POST", `/policies/${existing.id}/versions`, {
+                rules: file.rules,
+                note: file.note,
+                activate: options.activate ?? false,
+                source,
+                skipUnchanged: options.skipUnchanged ?? false,
+              });
+            } else {
+              const created = await api<{ id: string; name: string; version: Version | null }>(
+                config,
+                "POST",
+                "/policies",
+                {
+                  name: file.name,
+                  description: file.description,
+                  rules: file.rules,
+                  note: file.note,
+                  activate: options.activate ?? false,
+                  source,
+                }
+              );
+              if (!created.version) throw new Error(`${file.path} stored no rules.`);
+              version = created.version;
             }
-          );
-          if (!created.version) throw new Error(`${options.file} stored no rules.`);
-          version = created.version;
-        }
+            pushed.push({ file, version });
+          }
 
-        emit(options.json, version, () => {
-          console.log(`${file.name}  version ${version.version}`);
-          for (const line of describe(file.rules)) console.log(line);
-          console.log(
-            version.active
-              ? `\nVersion ${version.version} is now in force. ${file.rules.length} rules.`
-              : `\nStored as a draft. \`deliverd policy simulate\` tries the rules in force; ` +
-                  `\`deliverd policy activate --version ${version.version}\` puts these ones there.`
-          );
+          emit(options.json, files.length === 1 && pushed[0] ? pushed[0].version : pushed.map((p) => ({ name: p.file.name, ...p.version })), () => {
+            for (const { file, version } of pushed) {
+              if (version.unchanged) {
+                console.log(`${file.name}  unchanged: version ${version.version} in force already says this.`);
+                continue;
+              }
+              console.log(`${file.name}  version ${version.version}`);
+              for (const line of describe(file.rules)) console.log(line);
+              console.log(
+                version.active
+                  ? `Version ${version.version} is now in force. ${file.rules.length} rules.\n`
+                  : `Stored as a draft. \`deliverd policy replay\` shows what it would change; ` +
+                      `\`deliverd policy activate --version ${version.version}\` puts it in force.\n`
+              );
+            }
+          });
+        }
+      )
+    );
+
+  policy
+    .command("test")
+    .description("Run the test cases in a policy file (or a directory of them) against its rules. Writes nothing")
+    .option("--file <path>", "A policy file (JSON or YAML), or a directory of them", "deliverd.policy.json")
+    .option("--markdown <path>", "Also append a Markdown summary to this file, e.g. $GITHUB_STEP_SUMMARY")
+    .option("--json", "Print the result as JSON, for scripting")
+    .action(
+      run(async (options: { file: string; markdown?: string; json?: boolean }) => {
+        const config = requireConfig();
+        const files = readPolicies(options.file);
+        const runs: { file: PolicyFile; test: TestRun }[] = [];
+        for (const file of files) {
+          const test = await api<TestRun>(config, "POST", "/policies/test", {
+            name: file.name,
+            rules: file.rules,
+            tests: file.tests,
+          });
+          runs.push({ file, test });
+        }
+        writeMarkdown(options.markdown, runs);
+        const failed = runs.reduce((n, r) => n + r.test.failed, 0);
+        emit(options.json, runs.map((r) => ({ file: r.file.path, ...r.test })), () => {
+          for (const { file, test } of runs) {
+            if (test.results.length === 0) {
+              console.log(`${file.name}  no test cases in ${file.path}`);
+              continue;
+            }
+            console.log(`${file.name}  ${test.passed} passed, ${test.failed} failed`);
+            for (const r of test.results) console.log(`  ${r.passed ? "ok  " : "FAIL"}  ${r.name}${r.problem ? `: ${r.problem}` : ""}`);
+            for (const n of test.notes) console.log(`  ${n}`);
+          }
         });
+        if (failed > 0) process.exit(1);
+      })
+    );
+
+  policy
+    .command("replay")
+    .description("What a policy file would have done to the decisions already made, beside the rules in force. Writes nothing")
+    .option("--file <path>", "A policy file (JSON or YAML), or a directory of them", "deliverd.policy.json")
+    .option("--days <n>", "How far back, up to 90", "30")
+    .option(
+      "--fail-on <what>",
+      "Exit 1 when: rejected_allowed (a request a person rejected would now be allowed), loosened, changed, or never",
+      "rejected_allowed"
+    )
+    .option("--markdown <path>", "Also append a Markdown summary to this file, e.g. $GITHUB_STEP_SUMMARY")
+    .option("--json", "Print the result as JSON, for scripting")
+    .action(
+      run(async (options: { file: string; days: string; failOn: string; markdown?: string; json?: boolean }) => {
+        const config = requireConfig();
+        const files = readPolicies(options.file);
+        const runs: { file: PolicyFile; replay: Replay }[] = [];
+        for (const file of files) {
+          const replay = await api<Replay>(config, "POST", "/policies/replay", {
+            name: file.name,
+            rules: file.rules,
+            days: Number(options.days),
+            failOn: options.failOn,
+          });
+          runs.push({ file, replay });
+        }
+        writeMarkdown(options.markdown, runs);
+        emit(options.json, runs.map((r) => ({ file: r.file.path, ...r.replay })), () => {
+          for (const { file, replay } of runs) {
+            console.log(`${file.name}  ${replayHeadline(replay)}`);
+            for (const t of replay.transitions) console.log(`  ${t.count}  ${t.from} → ${t.to}`);
+            if (replay.rejectedNowAllowed > 0) {
+              console.log(`  ${replay.rejectedNowAllowed} that a person rejected would now be allowed without asking.`);
+            }
+            for (const e of replay.examples.slice(0, 5)) {
+              console.log(`  e.g. ${e.actionId} ${day(e.createdAt)}: ${e.from} → ${e.to}${e.outcome ? ` (${e.outcome} at the time)` : ""}`);
+            }
+            if (replay.fail && replay.failReason) console.log(`  FAIL  ${replay.failReason}`);
+            for (const n of replay.notes) console.log(`  ${n}`);
+          }
+        });
+        if (runs.some((r) => r.replay.fail)) process.exit(1);
       })
     );
 

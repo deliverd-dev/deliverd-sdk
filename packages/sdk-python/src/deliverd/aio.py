@@ -1096,9 +1096,9 @@ class AsyncWebhookEndpoints:
     def __init__(self, sync: WebhookEndpoints) -> None:
         self._sync = sync
 
-    async def create(self, url: str, events: Optional[Sequence[str]] = None, description: Optional[str] = None, format: Optional[str] = None, idempotency_key: Optional[str] = None) -> CreatedWebhookEndpoint:
+    async def create(self, url: str, events: Optional[Sequence[str]] = None, description: Optional[str] = None, format: Optional[str] = None, idempotency_key: Optional[str] = None, run_as: Optional[str] = None) -> CreatedWebhookEndpoint:
         """Add an endpoint. The result carries ``secret`` — the only time it is returned."""
-        return await asyncio.to_thread(partial(self._sync.create, url=url, events=events, description=description, format=format, idempotency_key=idempotency_key))
+        return await asyncio.to_thread(partial(self._sync.create, url=url, events=events, description=description, format=format, idempotency_key=idempotency_key, run_as=run_as))
 
     async def delete(self, endpoint_id: str) -> None:
         """Remove it, and its delivery log. ``update(id, enabled=False)`` pauses it instead."""

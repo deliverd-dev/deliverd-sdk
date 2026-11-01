@@ -860,7 +860,11 @@ export interface WebhookEvent {
  * webhook, or a Discord embed with a link button for a channel webhook. The
  * signature headers are sent with all four.
  */
-export type WebhookEndpointFormat = "json" | "slack" | "teams" | "discord";
+/**
+ * `workspace_studio` fires a Google Workspace Studio starter. The Deliverd
+ * add-on makes those, with `runAs`; you will see them in a list.
+ */
+export type WebhookEndpointFormat = "json" | "slack" | "teams" | "discord" | "workspace_studio";
 
 /** An organisation's webhook endpoint, as `deliverd.webhookEndpoints` reads it. Never its secret. */
 export interface WebhookEndpoint {
@@ -909,6 +913,8 @@ export interface CreateWebhookEndpointInput {
   description?: string | null;
   /** Default `"json"`. */
   format?: WebhookEndpointFormat;
+  /** `workspace_studio` only: the Google address of the person whose flow the starter belongs to. */
+  runAs?: string;
 }
 
 /** Only what you send changes; send at least one. The secret cannot be changed. */

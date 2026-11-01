@@ -2,9 +2,19 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.31.1
+## 0.32.0
 
-A patch. 0.31.0 went to npm on 1 November 2026 from fff21f5.
+A minor, for an addition. 0.31.0 went to npm on 1 November 2026 from fff21f5;
+this was opened as 0.31.1.
+
+### Added
+
+- **`workspace_studio` webhook endpoint format, with `runAs`**: an endpoint
+  that starts a Google Workspace Studio flow. `url` must be the trigger's own
+  `https://workspacestudio.googleapis.com/v1/triggers/{id}:fire` address and
+  `runAs` the flow owner's email; Deliverd fires it as that person through the
+  organisation's Google service account. The Deliverd add-on for Workspace
+  Studio registers these itself, so most callers never create one by hand.
 
 ## 0.31.0
 

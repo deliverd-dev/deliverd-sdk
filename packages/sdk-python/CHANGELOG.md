@@ -2,9 +2,18 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.23.1
+## 0.24.0
 
-A patch. 0.23.0 went to PyPI on 1 November 2026 from fff21f5.
+A minor, for an addition. 0.23.0 went to PyPI on 1 November 2026 from fff21f5;
+this was opened as 0.23.1.
+
+### Added
+
+- **`workspace_studio` webhook endpoint format**, and `run_as` on
+  `webhook_endpoints.create`: an endpoint that starts a Google Workspace
+  Studio flow, fired as the flow's owner (`run_as`). The URL must be the
+  trigger's own `https://workspacestudio.googleapis.com/v1/triggers/{id}:fire`
+  address. The Deliverd add-on for Workspace Studio registers these itself.
 
 ## 0.23.0
 

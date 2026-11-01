@@ -64,12 +64,15 @@ class WebhookEndpoints:
         description: Optional[str] = None,
         format: Optional[str] = None,
         idempotency_key: Optional[str] = None,
+        run_as: Optional[str] = None,
     ) -> CreatedWebhookEndpoint:
         """Add an endpoint. The result carries ``secret`` — the only time it is returned.
 
         ``url`` must be HTTPS on a public host. Leave ``events`` out, or pass an
         empty list, for every event except the opt-in ones. ``format`` is
-        ``json`` (the default), ``slack``, ``teams`` or ``discord``. A retried call replays
+        ``json`` (the default), ``slack``, ``teams`` or ``discord``; ``workspace_studio``
+        (with ``run_as``, the flow owner's Google address) is what the Workspace
+        Studio add-on registers. A retried call replays
         this same response, secret included, rather than adding a second one.
         """
         return CreatedWebhookEndpoint.from_wire(
@@ -82,6 +85,7 @@ class WebhookEndpoints:
                         "events": list(events) if events is not None else None,
                         "description": description,
                         "format": format,
+                        "runAs": run_as,
                     }
                 ),
                 idempotency_key=idempotency_key,

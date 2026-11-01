@@ -27571,7 +27571,7 @@ export const RELEASED: Record<string, readonly string[]> = {
   ],
 
   /* Opened because 0.31.0 is on npm (1 November 2026, from fff21f5). Same surface. */
-  "0.31.1": [
+  "0.32.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -27891,6 +27891,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "CreateWebhookEndpointInput.description",
     "CreateWebhookEndpointInput.events",
     "CreateWebhookEndpointInput.format",
+    "CreateWebhookEndpointInput.runAs",
     "CreateWebhookEndpointInput.url",
     "CreatedWebhookEndpoint.createdAt",
     "CreatedWebhookEndpoint.description",

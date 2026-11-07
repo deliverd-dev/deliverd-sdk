@@ -2,9 +2,28 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.32.1
+## 0.33.0
 
-A patch. 0.32.0 went to npm on 1 November 2026 from 31bd1eb.
+A minor, for an addition. 0.32.0 went to npm on 1 November 2026 from 31bd1eb;
+this was opened as 0.32.1.
+
+### Added
+
+- **`@deliverd/sdk/verify`: check a decision where the action happens.**
+  `requireDecision({ deliverd, action, input })` is Express/Connect middleware
+  (`.fastify` for a Fastify preHandler) and `checkDecision(request, options)`
+  does the same for fetch-style handlers. Either refuses with `403` unless the
+  request carries a decision token (`Deliverd-Decision` header, or
+  `Authorization: Deliverd <token>`) that Deliverd signed for exactly this
+  action and input.
+- **The agent that asked, and replay protection.** Tokens now name the
+  Deliverd agent that asked (`agent`) and carry their own id (`jti`). Pass
+  `agent` in the expectation to refuse a token another agent earned, and a
+  `ReplayGuard` (`memoryReplayGuard()` for one process, or your own over Redis)
+  to refuse the same token twice. `claimOnce` applies a guard to a result you
+  verified yourself. Both claims are optional: tokens issued before them still
+  verify, and a guard refuses one with no id rather than letting it through
+  unguarded. New failure reasons: `wrong_agent`, `replayed`.
 
 ## 0.32.0
 

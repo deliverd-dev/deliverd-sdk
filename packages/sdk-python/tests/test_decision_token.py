@@ -69,6 +69,26 @@ class DecisionTokenTests(unittest.TestCase):
             elsewhere.verify(good["token"], now=good["now"], **_expected(good)).reason, "wrong_issuer"
         )
 
+    def test_agent_and_replay(self):
+        from deliverd import DecisionTokenResult, MemoryReplayGuard, claim_once, token_from_headers
+
+        good = TABLE["cases"][0]
+        key = TABLE["testKey"]["publicKeyRaw"]
+        args = dict(public_key=key, issuer=TABLE["issuer"], now=good["now"], **_expected(good))
+        # A token from before agents were named fails an agent check, and cannot be guarded.
+        self.assertEqual(verify_decision_token(good["token"], agent="a1", **args).reason, "wrong_agent")
+        self.assertEqual(verify_decision_token(good["token"], replay=MemoryReplayGuard(), **args).reason, "replayed")
+
+        guard = MemoryReplayGuard()
+        fresh = DecisionTokenResult(True, None, {"jti": "j1", "exp": 4102444800})
+        self.assertTrue(claim_once(fresh, guard).ok)
+        self.assertEqual(claim_once(fresh, guard).reason, "replayed")
+        self.assertTrue(claim_once(fresh, None).ok)
+
+        self.assertEqual(token_from_headers({"deliverd-decision": " t1 "}), "t1")
+        self.assertEqual(token_from_headers({"Authorization": "Deliverd t2"}), "t2")
+        self.assertIsNone(token_from_headers({"Authorization": "Bearer t3"}))
+
 
 if __name__ == "__main__":
     unittest.main()

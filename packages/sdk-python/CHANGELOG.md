@@ -2,9 +2,24 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.24.1
+## 0.25.0
 
-A patch. 0.24.0 went to PyPI on 1 November 2026 from 31bd1eb.
+A minor, for an addition. 0.24.0 went to PyPI on 1 November 2026 from 31bd1eb;
+this was opened as 0.24.1.
+
+### Added
+
+- **`require_decision(client.decision_tokens, request.headers, action=…, input=…)`**:
+  the check a route makes before it acts, reading the token from the
+  `Deliverd-Decision` header or `Authorization: Deliverd <token>`
+  (`token_from_headers`). Works with FastAPI, Flask and Django headers.
+- **The agent that asked, and replay protection.** Tokens now name the
+  Deliverd agent that asked and carry their own id. `agent=` refuses a token
+  another agent earned; `replay=MemoryReplayGuard()` (or your own
+  `ReplayGuard` over Redis) refuses the same token twice, and `claim_once`
+  applies a guard to a result you verified yourself. Tokens issued before
+  these claims still verify; a guard refuses one with no id. New reasons:
+  `wrong_agent`, `replayed`.
 
 ## 0.24.0
 

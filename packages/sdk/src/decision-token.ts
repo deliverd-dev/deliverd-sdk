@@ -48,6 +48,10 @@ export interface DecisionTokenClaims {
   artifact: string | null;
   iat: number;
   exp: number;
+  /** The Deliverd agent that asked. Absent on tokens issued before it was added. */
+  agent?: string | null;
+  /** This token's id, for a replay guard. Absent on tokens issued before it was added. */
+  jti?: string;
 }
 
 export interface DecisionTokenExpectation {
@@ -59,6 +63,35 @@ export interface DecisionTokenExpectation {
   destination?: { type: string; id: string } | null;
   /** The SHA-256 of what you are sending, when the gate named an artifact. */
   artifactSha256?: string | null;
+  /**
+   * The Deliverd agent id you expect to have asked. When set, a token another
+   * agent earned is refused, and so is one that names no agent.
+   */
+  agent?: string;
+}
+
+/**
+ * Refuses a token seen before, so one yes cannot be replayed at your service
+ * without a call to Deliverd. `claim` returns false when the id was already
+ * claimed; keep each id until `expiresAt` (unix seconds). Back it with Redis
+ * (`SET jti 1 NX EXAT exp`) when you run more than one instance.
+ */
+export interface ReplayGuard {
+  claim(jti: string, expiresAt: number): boolean | Promise<boolean>;
+}
+
+/** A replay guard for one process. Ids are dropped once their token has expired. */
+export function memoryReplayGuard(): ReplayGuard {
+  const seen = new Map<string, number>();
+  return {
+    claim(jti, expiresAt) {
+      const now = Math.floor(Date.now() / 1000);
+      if (seen.size > 10_000) for (const [k, exp] of seen) if (exp < now) seen.delete(k);
+      if (seen.has(jti)) return false;
+      seen.set(jti, expiresAt);
+      return true;
+    },
+  };
 }
 
 export type DecisionTokenFailure =
@@ -70,7 +103,9 @@ export type DecisionTokenFailure =
   | "wrong_action"
   | "input_mismatch"
   | "destination_mismatch"
-  | "artifact_mismatch";
+  | "artifact_mismatch"
+  | "wrong_agent"
+  | "replayed";
 
 export type DecisionTokenResult =
   | { ok: true; claims: DecisionTokenClaims }
@@ -139,7 +174,19 @@ export function verifyDecisionToken(
     if (!d || !sameDestination(d, claims.dest)) return { ok: false, reason: "destination_mismatch" };
   }
   if (claims.artifact && expected.artifactSha256 !== claims.artifact) return { ok: false, reason: "artifact_mismatch" };
+  if (expected.agent !== undefined && claims.agent !== expected.agent) return { ok: false, reason: "wrong_agent" };
   return { ok: true, claims };
+}
+
+/**
+ * Spend a verified token's id with a replay guard. A token with no id (issued
+ * before ids were added) cannot be guarded and is refused, so turning a guard
+ * on never quietly lets an unguardable token through.
+ */
+export async function claimOnce(result: DecisionTokenResult, guard: ReplayGuard | undefined): Promise<DecisionTokenResult> {
+  if (!result.ok || !guard) return result;
+  if (!result.claims.jti) return { ok: false, reason: "replayed" };
+  return (await guard.claim(result.claims.jti, result.claims.exp)) ? result : { ok: false, reason: "replayed" };
 }
 
 /**
@@ -159,11 +206,12 @@ export class DecisionTokens {
   async verify(
     token: string | null | undefined,
     expected: DecisionTokenExpectation,
-    options: { now?: Date; skewSeconds?: number } = {}
+    options: { now?: Date; skewSeconds?: number; replay?: ReplayGuard } = {}
   ): Promise<DecisionTokenResult> {
     if (!token) return { ok: false, reason: "missing" };
     const publicKey = await this.publicKey();
-    return verifyDecisionToken(token, expected, { publicKey, issuer: new URL(this.baseUrl).origin, ...options });
+    const { replay, ...clock } = options;
+    return claimOnce(verifyDecisionToken(token, expected, { publicKey, issuer: new URL(this.baseUrl).origin, ...clock }), replay);
   }
 
   private publicKey(): Promise<KeyObject> {

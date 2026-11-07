@@ -50,7 +50,8 @@ EVIDENCE_KEY_PATH = "/.well-known/deliverd-evidence-key"
 class DecisionTokenResult:
     ok: bool
     #: Why it failed: missing, malformed, bad_signature, wrong_issuer, expired,
-    #: wrong_action, input_mismatch, destination_mismatch or artifact_mismatch.
+    #: wrong_action, input_mismatch, destination_mismatch, artifact_mismatch,
+    #: wrong_agent or replayed.
     reason: Optional[str] = None
     claims: Optional[Dict[str, Any]] = None
 
@@ -185,6 +186,8 @@ def verify_decision_token(
     artifact_sha256: Optional[str] = None,
     now: Optional[float] = None,
     skew_seconds: int = 30,
+    agent: Optional[str] = None,
+    replay: Optional["ReplayGuard"] = None,
 ) -> DecisionTokenResult:
     """Verify with a key you already hold (raw bytes, base64url or PEM).
 
@@ -224,7 +227,104 @@ def verify_decision_token(
             return DecisionTokenResult(False, "destination_mismatch")
     if claims.get("artifact") and artifact_sha256 != claims.get("artifact"):
         return DecisionTokenResult(False, "artifact_mismatch")
-    return DecisionTokenResult(True, None, claims)
+    if agent is not None and claims.get("agent") != agent:
+        return DecisionTokenResult(False, "wrong_agent")
+    return claim_once(DecisionTokenResult(True, None, claims), replay)
+
+
+class ReplayGuard:
+    """Refuses a token seen before, so one yes cannot be replayed at your
+    service. ``claim`` returns False when the id was already claimed; keep
+    each id until ``expires_at`` (unix seconds). Subclass it over Redis
+    (``SET jti 1 NX EXAT exp``) when you run more than one process."""
+
+    def claim(self, jti: str, expires_at: int) -> bool:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+class MemoryReplayGuard(ReplayGuard):
+    """A replay guard for one process. Ids are dropped once their token has expired."""
+
+    def __init__(self) -> None:
+        self._seen: Dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def claim(self, jti: str, expires_at: int) -> bool:
+        now = int(time.time())
+        with self._lock:
+            if len(self._seen) > 10000:
+                self._seen = {k: v for k, v in self._seen.items() if v >= now}
+            if jti in self._seen:
+                return False
+            self._seen[jti] = int(expires_at)
+            return True
+
+
+def claim_once(result: DecisionTokenResult, guard: Optional[ReplayGuard]) -> DecisionTokenResult:
+    """Spend a verified token's id with a replay guard. A token with no id
+    (issued before ids were added) cannot be guarded and is refused."""
+    if not result.ok or guard is None:
+        return result
+    jti = (result.claims or {}).get("jti")
+    if not jti or not guard.claim(str(jti), int((result.claims or {}).get("exp", 0))):
+        return DecisionTokenResult(False, "replayed")
+    return result
+
+
+DECISION_HEADER = "deliverd-decision"
+
+
+def token_from_headers(headers: Any) -> Optional[str]:
+    """The token from ``Deliverd-Decision``, or ``Authorization: Deliverd <token>``.
+    ``headers`` is any mapping with ``get`` (Starlette, Flask, Django ``request.headers``)."""
+    get = getattr(headers, "get", None)
+    if get is None:
+        return None
+    direct = get(DECISION_HEADER) or get("Deliverd-Decision")
+    if direct:
+        return str(direct).strip()
+    auth = get("authorization") or get("Authorization") or ""
+    parts = str(auth).split()
+    if len(parts) == 2 and parts[0].lower() == "deliverd":
+        return parts[1]
+    return None
+
+
+def require_decision(
+    tokens: "DecisionTokens",
+    headers: Any,
+    *,
+    action: str,
+    input: Any,
+    destination: Optional[Dict[str, Any]] = None,
+    artifact_sha256: Optional[str] = None,
+    agent: Optional[str] = None,
+    replay: Optional[ReplayGuard] = None,
+) -> DecisionTokenResult:
+    """The check a route makes before it acts, from the request's headers.
+
+    FastAPI::
+
+        guard = MemoryReplayGuard()
+
+        @app.post("/refunds")
+        def refund(body: Refund, request: Request):
+            check = require_decision(client.decision_tokens, request.headers,
+                                     action="finance.refund", input=body.model_dump(), replay=guard)
+            if not check.ok:
+                raise HTTPException(403, check.reason)
+
+    Flask and Django read the same way with ``request.headers``.
+    """
+    return tokens.verify(
+        token_from_headers(headers),
+        action=action,
+        input=input,
+        destination=destination,
+        artifact_sha256=artifact_sha256,
+        agent=agent,
+        replay=replay,
+    )
 
 
 class DecisionTokens:
@@ -249,6 +349,8 @@ class DecisionTokens:
         destination: Optional[Dict[str, Any]] = None,
         artifact_sha256: Optional[str] = None,
         now: Optional[float] = None,
+        agent: Optional[str] = None,
+        replay: Optional[ReplayGuard] = None,
     ) -> DecisionTokenResult:
         if not token:
             return DecisionTokenResult(False, "missing")
@@ -261,6 +363,8 @@ class DecisionTokens:
             destination=destination,
             artifact_sha256=artifact_sha256,
             now=now,
+            agent=agent,
+            replay=replay,
         )
 
     def _public_key(self) -> bytes:

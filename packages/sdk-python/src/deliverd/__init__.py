@@ -181,6 +181,11 @@ from .types import (
 from .decision_token import (
     DecisionTokenResult,
     DecisionTokens,
+    MemoryReplayGuard,
+    ReplayGuard,
+    claim_once,
+    require_decision,
+    token_from_headers,
     canonical_json,
     decision_input_hash,
     verify_decision_token,
@@ -196,7 +201,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.24.1"
+__version__ = "0.25.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -211,6 +216,11 @@ __all__ = [
     "deliverd",
     "DecisionTokens",
     "DecisionTokenResult",
+    "MemoryReplayGuard",
+    "ReplayGuard",
+    "claim_once",
+    "require_decision",
+    "token_from_headers",
     "verify_decision_token",
     "decision_input_hash",
     "canonical_json",

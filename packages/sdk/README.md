@@ -260,6 +260,30 @@ same with no network at all.
 A token does not count uses. Record the execution against the gate to spend
 it, and the server refuses a second.
 
+Or drop the check in front of a route with `@deliverd/sdk/verify` (0.33.0):
+
+```ts
+import { requireDecision, memoryReplayGuard } from "@deliverd/sdk/verify";
+
+app.post(
+  "/refunds",
+  express.json(),
+  requireDecision({
+    deliverd: "https://deliverd.dev",
+    action: "finance.refund",
+    input: (req) => req.body,
+    agent: "<the Deliverd agent id that may ask>", // optional: refuse another agent's yes
+    replay: memoryReplayGuard(), // optional: refuse the same token twice
+  }),
+  refundHandler
+);
+```
+
+`.fastify` is the same check as a Fastify preHandler, and
+`checkDecision(request, options)` returns `null` or a `403` Response for
+fetch-style handlers. Envoy, AWS Lambda and Azure API Management versions are
+in `integrations/decision-verify` in the Deliverd repository.
+
 ## Flows
 
 A job that takes more than one of them is one job, and a firm asking about it

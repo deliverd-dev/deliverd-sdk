@@ -29044,7 +29044,7 @@ export const RELEASED: Record<string, readonly string[]> = {
   ],
 
   /* Opened because 0.32.0 is on npm (1 November 2026, from 31bd1eb). Same surface. */
-  "0.32.1": [
+  "0.33.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -30064,6 +30064,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "RegisterAiSystemInput.purpose",
     "RegisterAiSystemInput.risk",
     "RegisterAiSystemInput.technicalOwner",
+    "ReplayGuard",
     "ReportAnalytics.byDay",
     "ReportAnalytics.byVersion",
     "ReportAnalytics.externalViewers",
@@ -30461,6 +30462,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:runMuseToolCalls",
     "adapters:runWithDeliverdApprovals",
     "canonicalJson",
+    "claimOnce",
     "constructCallback",
     "constructEvent",
     "decisionInputHash",
@@ -30504,6 +30506,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "event:side_task.completed",
     "event:task.blocked",
     "event:task.completed",
+    "memoryReplayGuard",
     "purviewCheck",
     "redact",
     "restore",

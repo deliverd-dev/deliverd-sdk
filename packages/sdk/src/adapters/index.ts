@@ -30,5 +30,7 @@ export type {
   MuseToolMessage,
   MuseToolRunner,
 } from "./muse-spark.js";
+export { deliverdAllow, describeStep, uiSdkApprovalRoute, UI_SDK_DEFAULT_TIMEOUT } from "./ui-sdk.js";
+export type { DeliverdAllowOptions, UiSdkApprovalAnswer, UiSdkApprovalRouteOptions, UiSdkStep } from "./ui-sdk.js";
 export { defaultDescription, DEFAULT_TOOL_EXPIRY } from "./shared.js";
 export type { Approver, CallDescription, CallOutcome, ToolApprovalOptions } from "./shared.js";

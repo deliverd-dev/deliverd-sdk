@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import * as adapters from "./adapters/index.js";
 import {
   approveInGraph,
+  deliverdAllow,
   deliverdCanUseTool,
   deliverdToolApproval,
   generateWithDeliverdApprovals,
@@ -14,6 +15,7 @@ import {
   runMuseFunctionCalls,
   runMuseToolCalls,
   runWithDeliverdApprovals,
+  uiSdkApprovalRoute,
   type Approver,
 } from "./adapters/index.js";
 import { DeliverdTimeoutError } from "./errors.js";
@@ -492,7 +494,7 @@ describe("the README", () => {
     const imported = [...readme.matchAll(/import \{([^}]+)\} from "@deliverd\/sdk\/adapters"/g)].flatMap(([, names]) =>
       names!.split(",").map((name) => name.trim())
     );
-    // All five frameworks, so a sweep that stopped matching cannot pass by checking nothing.
+    // Every framework, so a sweep that stopped matching cannot pass by checking nothing.
     expect(new Set(imported)).toEqual(
       new Set([
         "deliverdCanUseTool",
@@ -502,8 +504,116 @@ describe("the README", () => {
         "resumeFromCallback",
         "generateWithDeliverdApprovals",
         "runMuseFunctionCalls",
+        "deliverdAllow",
+        "uiSdkApprovalRoute",
       ])
     );
     for (const name of imported) expect(adapters, `README imports ${name}`).toHaveProperty(name);
+  });
+});
+
+describe("Vercel's UI SDK agent bridge", () => {
+  const confirmStep = {
+    ref: "c4",
+    component: "button",
+    label: "Delete project",
+    action: "press",
+    args: ["Delete forever"],
+    confirm: "Deletes the project and all its files",
+  };
+
+  /** The browser half wired straight to the server half, as a real route would be. */
+  function wired(answer: Decision | Error, route: Partial<Parameters<typeof uiSdkApprovalRoute>[0]> = {}) {
+    const { deliverd, asked } = approver(answer);
+    const handler = uiSdkApprovalRoute({ deliverd, ...route });
+    const sent: Request[] = [];
+    const fetch = (async (url: string, init: RequestInit) => {
+      const request = new Request(new URL(url, "https://app.example.test"), init);
+      sent.push(request.clone());
+      return handler(request);
+    }) as typeof globalThis.fetch;
+    return { deliverd, asked, fetch, sent };
+  }
+
+  it("allows a step with no confirm mark without asking anyone", async () => {
+    const { asked, fetch } = wired(decision("approved"));
+    const allow = deliverdAllow({ endpoint: "/api/ui-approval", fetch });
+    expect(await allow({ ref: "c1", component: "select", label: "Region", action: "setValue", args: ["eu"] })).toBe(true);
+    expect(asked).toHaveLength(0);
+  });
+
+  it("asks a person about a marked step, in the app's own words, and runs it on a yes", async () => {
+    const { asked, fetch } = wired(decision("approved"), { approvers: ["ops"] });
+    const answers: unknown[] = [];
+    const allow = deliverdAllow({ endpoint: "/api/ui-approval", fetch, onAnswer: (a) => answers.push(a) });
+    expect(await allow(confirmStep)).toBe(true);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.title).toBe("Deletes the project and all its files");
+    expect(asked[0]!.description).toMatch(/press "Delete project" \(Delete forever\)/);
+    expect(asked[0]!.approvers).toEqual(["ops"]);
+    expect(asked[0]!.risk).toBe("high");
+    expect(asked[0]!.externalId).toMatch(/^ui-sdk:[0-9a-f]{64}$/);
+    expect(asked[0]!.timeout).toBe("4m");
+    expect(asked[0]!.expiresIn).toBe("4m");
+    expect(asked[0]!.metadata).toMatchObject({ source: "ui-sdk" });
+    expect(answers).toEqual([{ allowed: true, decidedBy: "Dana" }]);
+  });
+
+  it("refuses on a no and hands the page the person's reason", async () => {
+    const { fetch } = wired(decision("rejected", { note: "Not on a Friday" }));
+    const answers: { allowed: boolean; reason?: string }[] = [];
+    const allow = deliverdAllow({ endpoint: "/api/ui-approval", fetch, onAnswer: (a) => answers.push(a) });
+    expect(await allow(confirmStep)).toBe(false);
+    expect(answers[0]!.reason).toMatch(/Not on a Friday/);
+  });
+
+  it("treats a wait that ran out as a no", async () => {
+    const { fetch } = wired(new DeliverdTimeoutError("waited"));
+    expect(await deliverdAllow({ endpoint: "/api/ui-approval", fetch })(confirmStep)).toBe(false);
+  });
+
+  it("never asks twice under one id: each ask is its own request", async () => {
+    const { asked, fetch } = wired(decision("approved"));
+    const allow = deliverdAllow({ endpoint: "/api/ui-approval", fetch });
+    await allow(confirmStep);
+    await allow(confirmStep);
+    expect(asked[0]!.externalId).not.toBe(asked[1]!.externalId);
+  });
+
+  it("refuses when the route fails or cannot be reached", async () => {
+    const down = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof globalThis.fetch;
+    const broken = (async () => new Response("oops", { status: 500 })) as typeof globalThis.fetch;
+    expect(await deliverdAllow({ endpoint: "/x", fetch: down })(confirmStep)).toBe(false);
+    expect(await deliverdAllow({ endpoint: "/x", fetch: broken })(confirmStep)).toBe(false);
+  });
+
+  it("sends only the step's documented fields", async () => {
+    const { fetch, sent } = wired(decision("approved"));
+    await deliverdAllow({ endpoint: "/x", fetch })({ ...confirmStep, secretThing: "no" } as typeof confirmStep);
+    const body = (await sent[0]!.json()) as { step: Record<string, unknown> };
+    expect(Object.keys(body.step).sort()).toEqual(["action", "args", "component", "confirm", "label", "ref"]);
+  });
+
+  it("the route refuses unmarked steps, unreadable bodies and other methods", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const route = uiSdkApprovalRoute({ deliverd });
+    const post = (body: string) => route(new Request("https://app.example.test/x", { method: "POST", body }));
+    const unmarked = await post(JSON.stringify({ step: { ref: "c1", component: "button", action: "press" }, nonce: "n" }));
+    expect(unmarked.status).toBe(403);
+    expect(await unmarked.json()).toMatchObject({ allowed: false });
+    expect((await post("not json")).status).toBe(400);
+    expect((await post(JSON.stringify({ step: { ref: 1 }, nonce: "n" }))).status).toBe(400);
+    expect((await post("x".repeat(20_000))).status).toBe(413);
+    expect((await route(new Request("https://app.example.test/x"))).status).toBe(405);
+    expect(asked).toHaveLength(0);
+  });
+
+  it("the route's `when` can send unmarked steps to a person too", async () => {
+    const { asked, fetch } = wired(decision("approved"), { when: (step) => step.label === "Plan" });
+    const allow = deliverdAllow({ endpoint: "/x", fetch, when: (step) => step.label === "Plan" });
+    expect(await allow({ ref: "c2", component: "select", label: "Plan", action: "setValue", args: ["Enterprise"] })).toBe(true);
+    expect(asked[0]!.title).toBe('Let the agent set "Plan"');
   });
 });

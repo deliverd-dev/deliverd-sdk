@@ -866,6 +866,27 @@ Only approved calls run; a declined one's result tells the model a person said
 no, and why. `runMuseToolCalls(message, runTool, { deliverd })` does the same
 for Chat Completions' `tool_calls`.
 
+**Vercel UI SDK** (`@ui-sdk/*`) — when an agent drives your interface, the
+controls you mark `data-agent-confirm` wait for a person. The browser asks your
+route; your route, which holds the agent key, asks Deliverd:
+
+```ts
+// in the browser
+import { deliverdAllow } from "@deliverd/sdk/adapters";
+
+const agent = createAgent({ allow: deliverdAllow({ endpoint: "/api/deliverd/ui-approval" }), timeout: 15 * 60_000 });
+
+// app/api/deliverd/ui-approval/route.ts
+import { uiSdkApprovalRoute } from "@deliverd/sdk/adapters";
+
+export const POST = uiSdkApprovalRoute({ deliverd, approvers: ["ops"], timeout: "13m" });
+```
+
+The approver reads the mark's own sentence ("Deletes the project and all its
+files"). A no, a wait that runs out, or a route that fails all leave the
+control untouched. The route waits four minutes by default; raise its
+`timeout`, the bridge's `timeout` and your function's limit together.
+
 **LangGraph** — pause the graph rather than a process, and resume it from the callback:
 
 ```ts

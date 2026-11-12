@@ -2,9 +2,21 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.33.1
+## 0.34.0
 
-A patch. 0.33.0 went to npm on 7 November 2026 from fd1c513.
+A minor, for an addition. 0.33.0 went to npm on 7 November 2026 from fd1c513;
+this was opened as 0.33.1.
+
+### Added
+
+- **Vercel's UI SDK: a person approves what an agent does in your interface.**
+  `deliverdAllow({ endpoint })` is the `allow` hook for UI SDK's agent bridge
+  (`createAgent` from `@ui-sdk/*/agent`). Steps on a `data-agent-confirm`
+  control are sent to your own route, and `uiSdkApprovalRoute({ deliverd })`,
+  a fetch-style `POST` handler, asks Deliverd and waits, so the agent key
+  stays on the server. The approver reads the mark's sentence; a no, a wait
+  that runs out (four minutes by default) or a failed route leaves the
+  control untouched. `describeStep` is the default wording.
 
 ## 0.33.0
 

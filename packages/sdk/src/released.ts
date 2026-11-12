@@ -30519,8 +30519,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.33.0 is on npm (7 November 2026, from fd1c513). Same surface. */
-  "0.33.1": [
+  /* Opened as 0.33.1 because 0.33.0 is on npm (7 November 2026, from fd1c513); renamed a minor for the UI SDK adapter. */
+  "0.34.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -31910,6 +31910,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:ClaudePermissionResult",
     "adapters:ClaudeToolApprovalOptions",
     "adapters:DEFAULT_TOOL_EXPIRY",
+    "adapters:DeliverdAllowOptions",
     "adapters:DeliverdInterruptValue",
     "adapters:GraphApprovalRecord",
     "adapters:GraphApprover",
@@ -31925,10 +31926,16 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:OpenAiApprovalItem",
     "adapters:OpenAiInterruptedResult",
     "adapters:ToolApprovalOptions",
+    "adapters:UI_SDK_DEFAULT_TIMEOUT",
+    "adapters:UiSdkApprovalAnswer",
+    "adapters:UiSdkApprovalRouteOptions",
+    "adapters:UiSdkStep",
     "adapters:approveInGraph",
     "adapters:defaultDescription",
+    "adapters:deliverdAllow",
     "adapters:deliverdCanUseTool",
     "adapters:deliverdToolApproval",
+    "adapters:describeStep",
     "adapters:generateWithDeliverdApprovals",
     "adapters:pendingMastraApproval",
     "adapters:resolveInterruptions",
@@ -31937,6 +31944,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:runMuseFunctionCalls",
     "adapters:runMuseToolCalls",
     "adapters:runWithDeliverdApprovals",
+    "adapters:uiSdkApprovalRoute",
     "canonicalJson",
     "claimOnce",
     "constructCallback",

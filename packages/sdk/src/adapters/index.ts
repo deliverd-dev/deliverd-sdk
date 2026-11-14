@@ -13,6 +13,19 @@ export type {
   ClaudePermissionResult,
   ClaudeToolApprovalOptions,
 } from "./claude-agent-sdk.js";
+export {
+  answerManagedAgentConfirmations,
+  followManagedAgentSession,
+  watchManagedAgentSessions,
+} from "./claude-managed-agents.js";
+export type {
+  ManagedAgentsApprovalOptions,
+  ManagedAgentsClient,
+  ManagedAgentsEvent,
+  ManagedAgentsResolution,
+  ManagedAgentsStreamEvent,
+  ManagedAgentsToolConfirmation,
+} from "./claude-managed-agents.js";
 export { deliverdToolApproval } from "./ai-sdk.js";
 export type { AiSdkApprovalCall, AiSdkApprovalStatus } from "./ai-sdk.js";
 export { resolveInterruptions, runWithDeliverdApprovals } from "./openai-agents.js";

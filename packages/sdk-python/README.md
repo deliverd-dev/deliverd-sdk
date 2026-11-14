@@ -53,10 +53,11 @@ build.
   `confirm()`, `review()`, `collect()`, `publish()`), flows, tasks, reports,
   comments, schedules, Compliance Mode evidence and webhook verification.
 - **Inside the agent frameworks you already use.** `deliverd.adapters` answers
-  the tool approvals of Microsoft Agent Framework, Microsoft Foundry, Pydantic
-  AI, CrewAI, Meta's Muse Spark, Amazon Bedrock Agents, Strands Agents (Bedrock
-  AgentCore) and Google ADK (Vertex AI Agent Engine) with a person's decision,
-  without any of them becoming a dependency. All eight are below.
+  the tool approvals of Claude Managed Agents (hosted or self-hosted),
+  Microsoft Agent Framework, Microsoft Foundry, Pydantic AI, CrewAI, Meta's
+  Muse Spark, Amazon Bedrock Agents, Strands Agents (Bedrock AgentCore) and
+  Google ADK (Vertex AI Agent Engine) with a person's decision, without any of
+  them becoming a dependency. All nine are below.
 
 ---
 
@@ -764,6 +765,31 @@ hook" with the reason, so the agent reads the person's words, or the policy's.
 `deliverd_tool_hooks` returns the same pair unregistered, for `@before_tool_call`
 and `@after_tool_call` methods on a `@CrewBase` class when they should apply to
 one crew only.
+
+## Claude Managed Agents
+
+Hosted by Anthropic or self-hosted on your own servers, the API is the same.
+Give the agent's toolset `permission_policy: {type: always_ask}` (MCP toolsets
+ask by default) and each held call pauses the session with `requires_action`.
+This answers it with a person's decision, as `user.tool_confirmation` events:
+
+```python
+from anthropic import Anthropic
+from deliverd import Deliverd
+from deliverd.adapters.managed_agents import watch_sessions
+
+# Self-hosted: ANTHROPIC_BASE_URL is your server, ANTHROPIC_API_KEY its API key.
+watch_sessions(Anthropic(), Deliverd(), approvers=["platform-team"])
+```
+
+A self-hosted server sends no webhooks, so `watch_sessions` polls for idle
+sessions; `follow_session(client, session_id, deliverd)` follows one session's
+stream, and `answer_tool_confirmations` does one pass for a loop you own (with
+`answer_tool_confirmations_async`). Only calls the server marked
+`evaluated_permission == "ask"` are answered. A no reaches the model as the
+`deny_message`; a call approved only with changes is declined with the approved
+values; an undecided call is left waiting for the next pass, keyed
+`managed-agents:<event id>`.
 
 ## Muse Spark
 

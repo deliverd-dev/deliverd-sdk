@@ -32003,8 +32003,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.34.0 is on npm (12 November 2026, from deliverd-sdk 02d0f5a). Same surface. */
-  "0.34.1": [
+  /* Opened as 0.34.1 because 0.34.0 is on npm (12 November 2026, from deliverd-sdk 02d0f5a); a minor once it added the Claude Managed Agents adapter. */
+  "0.35.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -33399,6 +33399,12 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:GraphApprovalRecord",
     "adapters:GraphApprover",
     "adapters:GraphDecision",
+    "adapters:ManagedAgentsApprovalOptions",
+    "adapters:ManagedAgentsClient",
+    "adapters:ManagedAgentsEvent",
+    "adapters:ManagedAgentsResolution",
+    "adapters:ManagedAgentsStreamEvent",
+    "adapters:ManagedAgentsToolConfirmation",
     "adapters:MastraApprovingAgent",
     "adapters:MastraOutput",
     "adapters:MuseFunctionCall",
@@ -33414,12 +33420,14 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:UiSdkApprovalAnswer",
     "adapters:UiSdkApprovalRouteOptions",
     "adapters:UiSdkStep",
+    "adapters:answerManagedAgentConfirmations",
     "adapters:approveInGraph",
     "adapters:defaultDescription",
     "adapters:deliverdAllow",
     "adapters:deliverdCanUseTool",
     "adapters:deliverdToolApproval",
     "adapters:describeStep",
+    "adapters:followManagedAgentSession",
     "adapters:generateWithDeliverdApprovals",
     "adapters:pendingMastraApproval",
     "adapters:resolveInterruptions",
@@ -33429,6 +33437,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:runMuseToolCalls",
     "adapters:runWithDeliverdApprovals",
     "adapters:uiSdkApprovalRoute",
+    "adapters:watchManagedAgentSessions",
     "canonicalJson",
     "claimOnce",
     "constructCallback",

@@ -2,9 +2,26 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.34.1
+## 0.35.0
 
-A patch. 0.34.0 went to npm on 12 November 2026 from deliverd-sdk 02d0f5a.
+A minor, for an addition. 0.34.0 went to npm on 12 November 2026 from
+deliverd-sdk 02d0f5a; this was opened as 0.34.1.
+
+### Added
+
+- **Claude Managed Agents, hosted or self-hosted: a person answers the tool
+  calls a permission policy holds.** A toolset with `permission_policy:
+  always_ask` (MCP toolsets ask by default) pauses the session on
+  `requires_action`; `answerManagedAgentConfirmations(client, sessionId,
+  { deliverd })` asks a person about each held call and sends the answers as
+  `user.tool_confirmation` events, with the person's reason as the
+  `deny_message` on a no. `followManagedAgentSession` follows one session's
+  stream; `watchManagedAgentSessions` polls for idle sessions, for a
+  self-hosted server, which sends no webhooks. A call approved only with
+  changes is declined with the approved values, an undecided call is left
+  waiting for the next pass, and each call is one request keyed
+  `managed-agents:<event id>`. Pass `new Anthropic()` from `@anthropic-ai/sdk`;
+  nothing is imported from it.
 
 ## 0.34.0
 

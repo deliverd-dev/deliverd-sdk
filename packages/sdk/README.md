@@ -826,6 +826,22 @@ import { deliverdCanUseTool } from "@deliverd/sdk/adapters";
 query({ prompt, options: { canUseTool: deliverdCanUseTool({ deliverd, when: (tool) => tool === "Bash" }) } });
 ```
 
+**Claude Managed Agents** (hosted, or self-hosted on your own servers) — give the
+toolset `permission_policy: always_ask` (MCP toolsets ask by default), then
+answer the sessions that pause for confirmation:
+
+```ts
+import { watchManagedAgentSessions } from "@deliverd/sdk/adapters";
+
+// Self-hosted: ANTHROPIC_BASE_URL is your server, ANTHROPIC_API_KEY its API key.
+await watchManagedAgentSessions(new Anthropic(), { deliverd, approvers: ["platform-team"] });
+```
+
+Each held call is asked about once and answered with `user.tool_confirmation`;
+a no carries the person's reason as the `deny_message`. A self-hosted server
+sends no webhooks, so the watcher polls; `followManagedAgentSession(client,
+sessionId, { deliverd })` follows one session's stream instead.
+
 **Vercel AI SDK**
 
 ```ts

@@ -506,6 +506,7 @@ describe("the README", () => {
         "runMuseFunctionCalls",
         "deliverdAllow",
         "uiSdkApprovalRoute",
+        "watchManagedAgentSessions",
       ])
     );
     for (const name of imported) expect(adapters, `README imports ${name}`).toHaveProperty(name);

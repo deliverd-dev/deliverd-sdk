@@ -1,6 +1,6 @@
 {
   "name": "@deliverd/sdk",
-  "version": "0.35.1",
+  "version": "0.36.0",
   "description": "Add human approval to any AI agent. Ask a person, wait for the answer, act on it. Start free at deliverd.dev.",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,14 @@
     "./verify": {
       "types": "./dist/verify.d.ts",
       "default": "./dist/verify.js"
+    },
+    "./elements": {
+      "types": "./dist/elements.d.ts",
+      "default": "./dist/elements.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
     }
   },
   "files": [
@@ -34,8 +42,18 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/react": "^19",
+    "react": "^19",
     "typescript": "^5",
     "vitest": "^4.1.11"
   },

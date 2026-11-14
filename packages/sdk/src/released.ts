@@ -33496,8 +33496,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.35.0 is on npm (14 November 2026, from deliverd-sdk 5bbd276). Same surface. */
-  "0.35.1": [
+  /* Opened as 0.35.1 because 0.35.0 is on npm (14 November 2026, from deliverd-sdk 5bbd276); a minor once it added @deliverd/sdk/elements and @deliverd/sdk/react. */
+  "0.36.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -34938,6 +34938,15 @@ export const RELEASED: Record<string, readonly string[]> = {
     "decisionInputHash",
     "deliverd",
     "durationMs",
+    "elements:DecisionEvent",
+    "elements:DeliverdElements",
+    "elements:ELEMENTS_ORIGIN",
+    "elements:ELEMENTS_PATH",
+    "elements:LoadElementsOptions",
+    "elements:MountDecisionOptions",
+    "elements:MountedDecision",
+    "elements:loadElements",
+    "elements:mountWhenLoaded",
     "entraAppToken",
     "event:access.requested",
     "event:approval.answered",
@@ -34978,6 +34987,9 @@ export const RELEASED: Record<string, readonly string[]> = {
     "event:task.completed",
     "memoryReplayGuard",
     "purviewCheck",
+    "react:DecisionEvent",
+    "react:DeliverdDecision",
+    "react:DeliverdDecisionProps",
     "redact",
     "restore",
     "screenText",

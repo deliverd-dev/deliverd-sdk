@@ -808,6 +808,24 @@ done.status;   // "complete"
 done.decision; // "approved"
 ```
 
+In React, mount it with one component from `@deliverd/sdk/react` (React 18 or
+later; `react` is an optional peer dependency):
+
+```tsx
+import { DeliverdDecision } from "@deliverd/sdk/react";
+
+<DeliverdDecision
+  clientSecret={clientSecret} // embedded.clientSecret, handed down from your server
+  onDecided={(event) => confirmOnServer(event.sessionId)}
+/>;
+
+// No account yet? The demo request: sample data, nothing recorded.
+<DeliverdDecision demo onDecided={(event) => console.log(event.decision)} />;
+```
+
+Elsewhere, `loadElements()` from `@deliverd/sdk/elements` loads the script once
+and resolves to the same `mountDecision`.
+
 `deliverd.approvals.list({ approver: "sarah@acme.com", status: "pending" })` is
 her inbox, to show in your own UI. `deliverd.decisionSessions.expire(id)` ends a
 session early.

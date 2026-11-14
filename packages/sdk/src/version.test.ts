@@ -26,6 +26,8 @@ const pkg = JSON.parse(readFileSync(join(DIR, "package.json"), "utf8")) as { ver
 const types = readFileSync(join(__dirname, "types.ts"), "utf8");
 const index = readFileSync(join(__dirname, "index.ts"), "utf8");
 const adapters = readFileSync(join(__dirname, "adapters", "index.ts"), "utf8");
+/** Entries imported from their own path, `@deliverd/sdk/<name>`, each item prefixed `<name>:`. */
+const ENTRIES = ["elements", "react"].map((name) => [name, readFileSync(join(__dirname, `${name}.ts`), "utf8")] as const);
 
 /**
  * Everything a caller can reach, computed rather than listed.
@@ -40,7 +42,9 @@ const adapters = readFileSync(join(__dirname, "adapters", "index.ts"), "utf8");
  * - a webhook event name, which a receiver branches on;
  * - an export from `@deliverd/sdk/adapters`, prefixed `adapters:` because it
  *   is imported from a different path and a name can mean something else
- *   there.
+ *   there;
+ * - an export from `@deliverd/sdk/elements` or `@deliverd/sdk/react`, prefixed
+ *   the same way, `elements:` and `react:`.
  */
 function surface(): string[] {
   const items = new Set<string>();
@@ -72,6 +76,19 @@ function surface(): string[] {
     }
   }
   expect([...items].some((item) => item.startsWith("adapters:")), "The adapters entry exports nothing the guard can see.").toBe(true);
+
+  for (const [entry, source] of ENTRIES) {
+    for (const [, name] of source.matchAll(/^export (?:async )?(?:const|function|interface|type|class) (\w+)/gm)) {
+      items.add(`${entry}:${name}`);
+    }
+    for (const [, group] of source.matchAll(/^export (?:type )?\{([^}]+)\}/gm)) {
+      for (const part of group!.split(",")) {
+        const name = part.trim().replace(/^type /, "");
+        if (name && !name.includes(" as ")) items.add(`${entry}:${name}`);
+      }
+    }
+    expect([...items].some((item) => item.startsWith(`${entry}:`)), `The ${entry} entry exports nothing the guard can see.`).toBe(true);
+  }
 
   const from = types.indexOf("export type WebhookEventName");
   const to = types.indexOf("export interface WebhookEvent");

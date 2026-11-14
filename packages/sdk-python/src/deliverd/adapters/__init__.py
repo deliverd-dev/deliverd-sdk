@@ -4,6 +4,9 @@ tool call from their inbox, Slack or Teams, and the agent carries on.
 - :mod:`deliverd.adapters.managed_agents` — Claude Managed Agents, hosted or
   self-hosted: the tool calls a permission policy holds for confirmation,
   answered with ``user.tool_confirmation``.
+- :mod:`deliverd.adapters.antigravity` — Google Antigravity's SDK: a
+  pre-tool-call decide hook, or an ``ask_user`` policy handler, that holds a
+  call until a person decides.
 - :mod:`deliverd.adapters.agent_framework` — Microsoft Agent Framework's
   ``function_approval_request``, for ``@tool(approval_mode="always_require")``
   and MCP tools.

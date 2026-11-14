@@ -54,10 +54,10 @@ build.
   comments, schedules, Compliance Mode evidence and webhook verification.
 - **Inside the agent frameworks you already use.** `deliverd.adapters` answers
   the tool approvals of Claude Managed Agents (hosted or self-hosted),
-  Microsoft Agent Framework, Microsoft Foundry, Pydantic AI, CrewAI, Meta's
-  Muse Spark, Amazon Bedrock Agents, Strands Agents (Bedrock AgentCore) and
-  Google ADK (Vertex AI Agent Engine) with a person's decision, without any of
-  them becoming a dependency. All nine are below.
+  Google Antigravity, Microsoft Agent Framework, Microsoft Foundry, Pydantic
+  AI, CrewAI, Meta's Muse Spark, Amazon Bedrock Agents, Strands Agents (Bedrock
+  AgentCore) and Google ADK (Vertex AI Agent Engine) with a person's decision,
+  without any of them becoming a dependency. All ten are below.
 
 ---
 
@@ -790,6 +790,31 @@ stream, and `answer_tool_confirmations` does one pass for a loop you own (with
 `deny_message`; a call approved only with changes is declined with the approved
 values; an undecided call is left waiting for the next pass, keyed
 `managed-agents:<event id>`.
+
+## Google Antigravity
+
+An agent built with the Antigravity SDK (`pip install google-antigravity`)
+runs each tool call through its hooks. `deliverd_hook` is a pre-tool-call hook
+that asks a named person about the calls you pick:
+
+```python
+from google.antigravity import Agent, LocalAgentConfig
+from google.antigravity.hooks import policy
+from deliverd.aio import AsyncDeliverd
+from deliverd.adapters.antigravity import deliverd_hook
+
+config = LocalAgentConfig(
+    policies=[policy.allow_all()],  # the default refuses run_command outright
+    hooks=[deliverd_hook(AsyncDeliverd(), approvers=["platform-leads"],
+                         when=lambda tool, args: tool == "run_command")],
+)
+```
+
+An approved call runs unchanged; anything else is stopped with the reason as
+the hook's message, so the agent reads the person's words. `approval_handler`
+is the same question as a `policy.ask_user(tool, handler=…)` handler, which
+answers yes or no only. Each call is keyed `antigravity:<call id>`; a wait that
+runs out stops the call and leaves the request open. From 0.27.0.
 
 ## Muse Spark
 

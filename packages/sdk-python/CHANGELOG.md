@@ -2,9 +2,24 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.26.1
+## 0.27.0
 
-A patch. 0.26.0 went to PyPI on 14 November 2026 from deliverd-sdk 5bbd276.
+A minor, for an addition. 0.26.0 went to PyPI on 14 November 2026 from
+deliverd-sdk 5bbd276; this was opened as 0.26.1.
+
+### Added
+
+- **`deliverd.adapters.antigravity`: Google Antigravity agents.**
+  `deliverd_hook(deliverd, approvers=…, when=…)` is an Antigravity SDK
+  `PreToolCallDecideHook` for `LocalAgentConfig(hooks=[…])`: the calls `when`
+  picks wait for a named person, an approved call runs unchanged, and anything
+  else is stopped with the reason as the hook's message, so the agent reads the
+  person's words. `approval_handler(deliverd, …)` is the same question as an
+  `ask_user` handler for `policy.ask_user(tool, handler=…)` (yes or no only).
+  `actions=` lets a gate decide first; each call is one request keyed
+  `antigravity:<call id>`; a wait that runs out stops the call and leaves the
+  request open; any error asking stops it. Nothing is imported from
+  `google.antigravity` until the hook is built.
 
 ## 0.26.0
 

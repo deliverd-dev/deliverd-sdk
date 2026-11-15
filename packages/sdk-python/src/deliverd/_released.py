@@ -60,6 +60,7 @@ PUBLISHED_TO_PYPI = (
     "0.26.0",
     "0.27.0",
     "0.28.0",
+    "0.28.1",
 )
 """In release order. The last entry is what ``pip install deliverd`` gets."""
 

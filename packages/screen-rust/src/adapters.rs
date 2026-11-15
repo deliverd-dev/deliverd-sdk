@@ -156,6 +156,12 @@ pub fn presidio_kind(entity_type: &str) -> Option<DataKind> {
         "IP_ADDRESS" => DataKind::IpAddress,
         "US_SSN" => DataKind::UsSsn,
         "UK_NINO" => DataKind::UkNationalInsurance,
+        "US_ITIN" => DataKind::UsItin,
+        "US_PASSPORT" => DataKind::Passport,
+        "US_BANK_NUMBER" => DataKind::BankAccount,
+        "ES_NIF" | "ES_NIE" => DataKind::EsDni,
+        "IT_FISCAL_CODE" => DataKind::ItFiscalCode,
+        "PL_PESEL" => DataKind::PlPesel,
         _ => return None,
     })
 }

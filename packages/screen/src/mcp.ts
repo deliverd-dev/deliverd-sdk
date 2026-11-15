@@ -8,14 +8,18 @@
  * no network, no account. The one exception is yours to turn on: with the
  * `DELIVERD_PURVIEW_*` variables set (see `purview-env.ts`), each text is
  * also checked against your organisation's Microsoft Purview DLP policies,
- * and goes to Microsoft for that, nowhere else. The tool returns the verdict, the counts and the
+ * and goes to Microsoft for that, nowhere else. With `DELIVERD_SCREEN_NAMES=1`
+ * (and `@huggingface/transformers` installed), people's names are found too,
+ * by a model that runs on this machine. The tool returns the verdict, the counts and the
  * redacted text, never the values it replaced, so the originals do not enter
  * the agent's context through it.
  */
 
 import { createInterface } from "node:readline";
 import { describeCounts, SCREEN_CLASSIFICATIONS, type ScreenClassification } from "./data-screen.js";
+import { names } from "./adapters.js";
 import { screen } from "./index.js";
+import type { SpanDetector } from "./data-screen.js";
 import type { PurviewCheck } from "./purview.js";
 import { purviewFromEnv } from "./purview-env.js";
 import { VERSION } from "./version.js";
@@ -45,7 +49,7 @@ interface Request {
   params?: Record<string, unknown>;
 }
 
-export async function handle(req: Request, purview: PurviewCheck | null = null): Promise<object | null> {
+export async function handle(req: Request, purview: PurviewCheck | null = null, detectors: readonly SpanDetector[] = []): Promise<object | null> {
   const reply = (result: object) => ({ jsonrpc: "2.0", id: req.id ?? null, result });
   const fail = (code: number, message: string) => ({ jsonrpc: "2.0", id: req.id ?? null, error: { code, message } });
   if (req.id === undefined) return null; // A notification: nothing to answer.
@@ -74,6 +78,7 @@ export async function handle(req: Request, purview: PurviewCheck | null = null):
         model: "the destination",
         terms,
         allow: { personalData: args.personalData === true, classification },
+        detectors,
         ...(purview ? { purview } : {}),
       });
       const summary = {
@@ -94,6 +99,7 @@ export async function handle(req: Request, purview: PurviewCheck | null = null):
 
 export function serve(input: NodeJS.ReadableStream = process.stdin, output: NodeJS.WritableStream = process.stdout): Promise<void> {
   const purview = purviewFromEnv();
+  const detectors = /^(1|true|yes)$/i.test(process.env.DELIVERD_SCREEN_NAMES?.trim() ?? "") ? [names()] : [];
   const lines = createInterface({ input, crlfDelay: Infinity });
   const pending: Promise<void>[] = [];
   lines.on("line", (line) => {
@@ -106,7 +112,7 @@ export function serve(input: NodeJS.ReadableStream = process.stdin, output: Node
       return;
     }
     pending.push(
-      handle(req, purview).then((res) => {
+      handle(req, purview, detectors).then((res) => {
         if (res) output.write(JSON.stringify(res) + "\n");
       })
     );

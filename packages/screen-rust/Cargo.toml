@@ -1,6 +1,6 @@
 [package]
 name = "deliverd-screen"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.89"
 description = "A pre-send check for every prompt. Find and redact personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network."
@@ -27,12 +27,17 @@ required-features = ["cli"]
 # default features off for the library alone, whose one dependency is regex.
 default = ["cli"]
 cli = ["dep:serde_json"]
+# Microsoft Purview over HTTPS: an Entra token and Graph's processContent,
+# with ureq and rustls. Without it you can still hold Purview's answer beside
+# the screen (`Screen::purview`) and make the call with a client of your own.
+purview = ["dep:ureq", "dep:serde_json"]
 
 # One dependency for the library: the patterns. The `regex` crate matches in
 # time linear in the text, so no prompt, however hostile, makes a screen slow.
 [dependencies]
 regex = "1"
 serde_json = { version = "1", optional = true }
+ureq = { version = "3", default-features = false, features = ["rustls", "json"], optional = true }
 
 [dev-dependencies]
 serde_json = "1"

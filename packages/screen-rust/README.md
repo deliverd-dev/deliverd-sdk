@@ -4,7 +4,8 @@
 and your own confidential terms before text goes to an AI model.
 
 - **Local.** No account, no key, no network call. The text never leaves your
-  process.
+  process, unless you turn on the optional Microsoft Purview check, which
+  sends it to your own Microsoft tenant and nowhere else.
 - **Reversible.** Values become placeholders such as `[EMAIL_1]` (the same
   value gets the same placeholder throughout), and `restore()` puts them back
   in the model's answer.
@@ -29,7 +30,11 @@ let answer = checked.restore(&answer); // the real values, back in the answer
 
 Email addresses, phone numbers, IBANs, payment card numbers (Luhn-checked),
 UK National Insurance numbers, Irish PPS numbers (check character), US Social
-Security numbers, IP addresses (v4 and v6), dates of birth, API keys and tokens
+Security numbers and ITINs, Canadian Social Insurance numbers (Luhn), French
+NIRs, Spanish DNI and NIE numbers, Italian fiscal codes, Dutch BSNs, Polish
+PESEL numbers and German tax IDs (each with its check digit), passport and VAT
+numbers, bank details (US routing numbers with their checksum, UK sort codes,
+account numbers), IP addresses (v4 and v6), dates of birth, API keys and tokens
 (AWS, GitHub, Slack, Stripe, Anthropic, OpenAI, Google, JWTs and more), private
 keys, passwords in connection strings and `.env` files, words
 that mark special-category data such as health or religion, and your own
@@ -98,7 +103,7 @@ deliverd-screen --terms clients.txt doc.md  # your own words, one per line
 ```
 
 For the library alone, without the CLI and its JSON dependency:
-`deliverd-screen = { version = "0.1", default-features = false }`.
+`deliverd-screen = { version = "0.2", default-features = false }`.
 
 ## MCP
 
@@ -109,6 +114,36 @@ claude mcp add deliverd-screen -- deliverd-screen mcp
 This gives an agent in Claude Code, Cursor or Codex one tool, `screen_text`.
 It returns the verdict and the redacted text, and never the values it
 replaced, so they don't enter the agent's context through the tool.
+
+## Microsoft Purview
+
+If your organisation writes its data loss prevention rules in Microsoft
+Purview, the same rules can apply here. Give the screen a Purview check and
+the stricter answer wins: a Purview block denies, and a warn is an ask.
+
+```toml
+deliverd-screen = { version = "0.2", features = ["purview"] }
+```
+
+```rust
+use deliverd_screen::{purview::{OnUnavailable, PurviewClient}, Screen};
+
+let purview = PurviewClient::new(tenant_id, client_id, client_secret, user_object_id)?
+    .app_name("Claims assistant")
+    .on_unavailable(OnUnavailable::Ask);
+let checked = Screen::new().purview(|text| purview.check(text)).check(prompt);
+checked.purview; // Purview's answer, beside the screen's own
+```
+
+The `purview` feature adds the HTTP client (ureq with rustls). Without it,
+`Screen::purview` still takes any closure that returns a `PurviewOutcome`, so
+you can make the call with your own client. The text goes to Microsoft Graph
+(`processContent`) in your own tenant, and nowhere else. The Entra app needs
+`Content.Process.All`, and the DLP rule must be created with
+`New-DlpComplianceRule`. Built with the feature, `deliverd-screen mcp` reads
+`DELIVERD_PURVIEW_TENANT_ID`, `DELIVERD_PURVIEW_CLIENT_ID`,
+`DELIVERD_PURVIEW_CLIENT_SECRET` and `DELIVERD_PURVIEW_USER_ID` (and
+optionally `DELIVERD_PURVIEW_ON_UNAVAILABLE`).
 
 ## A net, not a certificate
 

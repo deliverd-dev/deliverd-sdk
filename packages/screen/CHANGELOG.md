@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0
+
+- **More national and bank identifiers, each with its check digit.** US
+  ITINs; Canadian Social Insurance numbers (Luhn-checked, in groups of three or
+  after "SIN"); French social security numbers (NIR, with their key); Spanish
+  DNI and NIE numbers and Italian fiscal codes (check letters); Dutch BSNs
+  (eleven test), Polish PESEL numbers and German tax IDs (Steuer-ID, ISO 7064)
+  after the word for them, because nine or eleven bare digits are too often
+  something else; passport numbers and VAT numbers after the word; and bank
+  details after the word: US routing numbers (ABA checksum), UK sort codes and
+  account numbers. New kinds: `us_itin`, `ca_sin`, `fr_nir`, `es_dni`,
+  `it_fiscal_code`, `nl_bsn`, `pl_pesel`, `de_tax_id`, `passport`,
+  `vat_number` and `bank_account`, in the shared test cases for all three
+  languages. Presidio's `US_ITIN`, `US_PASSPORT`, `US_BANK_NUMBER`, `ES_NIF`,
+  `ES_NIE`, `IT_FISCAL_CODE` and `PL_PESEL` map to them.
+- **Names, with a model on your machine, if you want it.** `names()` in
+  `@deliverd/screen/adapters` runs a small named-entity model with
+  transformers.js in this process (install `@huggingface/transformers`
+  yourself). It is downloaded once from Hugging Face, then nothing leaves the
+  machine. `--names` on the command line, and `DELIVERD_SCREEN_NAMES=1` for
+  the MCP server.
+- **A local screening proxy.** `deliverd-screen proxy --upstream
+  https://api.openai.com` listens on localhost; point a tool's base URL at it
+  and every request is screened before it leaves: allowed as it is, redacted
+  (with the values put back in the answer, streamed answers included), or
+  refused with a 403 that says why. OpenAI, Anthropic, OpenRouter and local
+  model servers alike. Also `startProxy()` and `proxyHandler()` from
+  `@deliverd/screen/proxy`.
+- **What you already pasted into ChatGPT or Claude.** `deliverd-screen
+  history export.zip` reads the data export either assistant gives you and
+  reports how many email addresses, card numbers, keys and the rest went into
+  your messages, and in which conversations, without printing a value.
+  `--assistant` reads the answers too; `--json` for the report as data.
+
 ## 0.2.0
 
 - **More secrets and numbers found.** A private key is now redacted whole,

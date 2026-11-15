@@ -38,6 +38,17 @@ DATA_KINDS: Dict[str, Dict[str, object]] = {
     "uk_national_insurance": {"label": "UK National Insurance number", "category": "personal", "placeholder": "NINO", "redactable": True},
     "ie_pps": {"label": "Irish PPS number", "category": "personal", "placeholder": "PPS", "redactable": True},
     "us_ssn": {"label": "US Social Security number", "category": "personal", "placeholder": "SSN", "redactable": True},
+    "us_itin": {"label": "US ITIN", "category": "personal", "placeholder": "ITIN", "redactable": True},
+    "ca_sin": {"label": "Canadian Social Insurance number", "category": "personal", "placeholder": "SIN", "redactable": True},
+    "fr_nir": {"label": "French social security number", "category": "personal", "placeholder": "NIR", "redactable": True},
+    "es_dni": {"label": "Spanish DNI or NIE", "category": "personal", "placeholder": "DNI", "redactable": True},
+    "it_fiscal_code": {"label": "Italian fiscal code", "category": "personal", "placeholder": "CF", "redactable": True},
+    "nl_bsn": {"label": "Dutch BSN", "category": "personal", "placeholder": "BSN", "redactable": True},
+    "pl_pesel": {"label": "Polish PESEL number", "category": "personal", "placeholder": "PESEL", "redactable": True},
+    "de_tax_id": {"label": "German tax ID", "category": "personal", "placeholder": "STEUERID", "redactable": True},
+    "passport": {"label": "Passport number", "category": "personal", "placeholder": "PASSPORT", "redactable": True},
+    "vat_number": {"label": "VAT number", "category": "financial", "placeholder": "VAT", "redactable": True},
+    "bank_account": {"label": "Bank account number", "category": "financial", "placeholder": "ACCOUNT", "redactable": True},
     "ip_address": {"label": "IP address", "category": "personal", "placeholder": "IP", "redactable": True},
     "date_of_birth": {"label": "Date of birth", "category": "personal", "placeholder": "DOB", "redactable": True},
     # Never found by a pattern here: only by a model detector the caller plugs in (``spans``).
@@ -159,6 +170,96 @@ def _ipv6_valid(raw: str) -> bool:
     return groups == 8 if compressed == 0 else compressed == 1 and 3 <= groups <= 7
 
 
+def _itin_valid(raw: str) -> bool:
+    """An ITIN: 9XX-XX-XXXX with a middle group the IRS issues (50-65, 70-88, 90-92, 94-99)."""
+    g = int(raw[4:6])
+    return 50 <= g <= 65 or 70 <= g <= 88 or 90 <= g <= 92 or 94 <= g <= 99
+
+
+def _sin_valid(raw: str) -> bool:
+    """A Canadian SIN: nine digits, Luhn-checked; none is issued starting with 0 or 8."""
+    d = _digits(raw)
+    return len(d) == 9 and d[0] not in "08" and _luhn(d)
+
+
+def _aba_valid(raw: str) -> bool:
+    """An ABA routing number: weights 3, 7, 1 repeating, a multiple of 10."""
+    d = _digits(raw)
+    if len(d) != 9 or set(d) == {"0"}:
+        return False
+    return sum((ord(c) - 48) * (3, 7, 1)[i % 3] for i, c in enumerate(d)) % 10 == 0
+
+
+def _nir_valid(raw: str) -> bool:
+    """A French NIR: thirteen digits (2A and 2B for Corsica) and a key, 97 minus the number mod 97."""
+    s = raw.replace(" ", "").upper()
+    if len(s) != 15:
+        return False
+    body = s[:13].replace("2A", "19", 1).replace("2B", "18", 1)
+    if not re.fullmatch(r"\d{13}", body, _A):
+        return False
+    return 97 - int(body) % 97 == int(s[13:])
+
+
+def _dni_valid(raw: str) -> bool:
+    """A Spanish DNI (eight digits) or NIE (X, Y or Z and seven), and its check letter."""
+    s = raw.replace("-", "", 1).upper()
+    n = int({"X": "0", "Y": "1", "Z": "2"}.get(s[0], s[0]) + s[1:-1])
+    return "TRWAGMYFPDXBNJZSQVHLCKE"[n % 23] == s[-1]
+
+
+_CF_ODD = (1, 0, 5, 7, 9, 13, 15, 17, 19, 21, 2, 4, 18, 20, 11, 3, 6, 8, 12, 14, 16, 10, 22, 25, 24, 23)
+
+
+def _fiscal_code_valid(raw: str) -> bool:
+    """An Italian codice fiscale and its check letter."""
+    s = raw.upper()
+    total = 0
+    for i, ch in enumerate(s[:15]):
+        v = ord(ch) - 65 if ch >= "A" else ord(ch) - 48
+        total += _CF_ODD[v] if i % 2 == 0 else v
+    return chr(65 + total % 26) == s[15]
+
+
+def _bsn_valid(raw: str) -> bool:
+    """A Dutch BSN: the eleven test, weights 9 to 2 and -1 on the last digit."""
+    d = _digits(raw)
+    if len(d) != 9 or set(d) == {"0"}:
+        return False
+    return (sum((ord(d[i]) - 48) * (9 - i) for i in range(8)) - (ord(d[8]) - 48)) % 11 == 0
+
+
+def _pesel_valid(raw: str) -> bool:
+    """A Polish PESEL: weights 1, 3, 7, 9 repeating, and a check digit."""
+    if not re.fullmatch(r"\d{11}", raw, _A):
+        return False
+    total = sum((ord(raw[i]) - 48) * (1, 3, 7, 9)[i % 4] for i in range(10))
+    return (10 - total % 10) % 10 == ord(raw[10]) - 48
+
+
+def _steuer_id_valid(raw: str) -> bool:
+    """A German Steuer-ID: eleven digits, not starting with 0, ISO 7064 MOD 11,10."""
+    d = _digits(raw)
+    if len(d) != 11 or d[0] == "0":
+        return False
+    product = 10
+    for ch in d[:10]:
+        total = (ord(ch) - 48 + product) % 10 or 10
+        product = (2 * total) % 11
+    check = 11 - product
+    return (0 if check == 10 else check) == ord(d[10]) - 48
+
+
+def _passport_valid(raw: str) -> bool:
+    """A passport number after the word: some digits in it, so "passport holder" is not one."""
+    return len(_digits(raw)) >= 4
+
+
+def _vat_valid(raw: str) -> bool:
+    """A VAT number after the word: written in capitals, as issued, with digits in it."""
+    return raw == raw.upper() and len(_digits(raw)) >= 6
+
+
 def _env_secret_valid(value: str) -> bool:
     """A value in a .env line that is a placeholder, not a credential."""
     return not re.match(r"[<{%(]", value) and not re.search(r"your|example|placeholder|changeme|xxxx", value, re.IGNORECASE)
@@ -229,6 +330,44 @@ _DETECTORS = [
         0,
     ),
     ("ie_pps", re.compile(r"\b\d{7}[A-W][A-IW]?\b", _A), _pps_valid, 0),
+    ("us_itin", re.compile(r"\b9\d{2}-\d{2}-\d{4}\b", _A), _itin_valid, 0),
+    # Written in groups of three, or as nine digits after the words.
+    ("ca_sin", re.compile(r"\b\d{3}[ -]\d{3}[ -]\d{3}\b", _A), _sin_valid, 0),
+    ("ca_sin", re.compile(r"\b(?:SIN|social insurance (?:number|no\.?))[ \t:#]*(\d{9})\b", _AI), _sin_valid, 1),
+    ("fr_nir", re.compile(r"\b[12] ?\d{2} ?\d{2} ?(?:\d{2}|2[AB]) ?\d{3} ?\d{3} ?\d{2}\b", _A), _nir_valid, 0),
+    ("es_dni", re.compile(r"\b(?:\d{8}|[XYZ]\d{7})-?[A-Z]\b", _A), _dni_valid, 0),
+    ("it_fiscal_code", re.compile(r"\b[A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z]\b", _A), _fiscal_code_valid, 0),
+    # Nine or eleven bare digits are too often something else: these need the word before them.
+    (
+        "nl_bsn",
+        re.compile(r"\b(?:BSN|burgerservicenummer)(?:-?nummer)?[ \t:#.]*(\d{9}|\d{4}\.\d{2}\.\d{3}|\d{3}[ .]\d{3}[ .]\d{3})\b", _AI),
+        _bsn_valid,
+        1,
+    ),
+    ("pl_pesel", re.compile(r"\bPESEL[ \t:#.]*(\d{11})\b", _AI), _pesel_valid, 1),
+    (
+        "de_tax_id",
+        re.compile(
+            r"\b(?:steuer-?id(?:entifikationsnummer)?|steuerliche identifikationsnummer|idnr\.?|tax id)[ \t:#.]*(\d{2} ?\d{3} ?\d{3} ?\d{3})\b",
+            _AI,
+        ),
+        _steuer_id_valid,
+        1,
+    ),
+    ("passport", re.compile(r"\bpassport(?: (?:no\.?|number|#))?[ \t:#]*([A-Z0-9]{6,9})\b", _AI), _passport_valid, 1),
+    (
+        "vat_number",
+        re.compile(
+            r"\b(?:VAT|BTW|TVA|IVA|USt-?IdNr\.?)(?: (?:no\.?|number|reg(?:istration)?(?: no\.?| number)?|id))?[ \t:#.]*((?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|GB|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|XI) ?[0-9A-Z]{8,12})\b",
+            _AI,
+        ),
+        _vat_valid,
+        1,
+    ),
+    # Bank details after the words: a US routing number, a UK sort code, an account number.
+    ("bank_account", re.compile(r"\b(?:routing|ABA|RTN)(?: (?:no\.?|number|#))?[ \t:#]*(\d{9})\b", _AI), _aba_valid, 1),
+    ("bank_account", re.compile(r"\bsort code[ \t:#]*(\d{2}[- ]?\d{2}[- ]?\d{2})\b", _AI), None, 1),
+    ("bank_account", re.compile(r"\b(?:account|acct|a/c)(?: (?:no\.?|number|#))?[ \t:#]*(\d{8,17})\b", _AI), None, 1),
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b", _A), None, 0),
     (
         "date_of_birth",
@@ -268,6 +407,17 @@ _PRIORITY = {
             "us_ssn",
             "uk_national_insurance",
             "ie_pps",
+            "us_itin",
+            "ca_sin",
+            "fr_nir",
+            "es_dni",
+            "it_fiscal_code",
+            "nl_bsn",
+            "pl_pesel",
+            "de_tax_id",
+            "passport",
+            "vat_number",
+            "bank_account",
             "email",
             "date_of_birth",
             "phone",
@@ -458,6 +608,10 @@ def _rank(c: str) -> int:
     return SCREEN_CLASSIFICATIONS.index(c)
 
 
+#: Labels that start with a proper name, so they keep their capitals in a sentence.
+_KEEP_CASE = {"ca_sin", "fr_nir", "it_fiscal_code", "nl_bsn", "pl_pesel", "de_tax_id"}
+
+
 def describe_counts(counts: Mapping[str, int]) -> str:
     """``2 email addresses and 1 IBAN``."""
     parts = []
@@ -483,7 +637,9 @@ def describe_counts(counts: Mapping[str, int]) -> str:
             parts.append("{} date{} of birth".format(n, s))
         elif k == "ie_pps":
             parts.append("{} Irish PPS number{}".format(n, s))
-        elif re.match(r"^[A-Z]{2,}", label):
+        elif k == "es_dni":
+            parts.append("{} Spanish {}".format(n, "DNI or NIE" if n == 1 else "DNIs or NIEs"))
+        elif k in _KEEP_CASE or re.match(r"^[A-Z]{2,}", label):
             parts.append("{} {}{}".format(n, label, s))
         else:
             parts.append("{} {}{}".format(n, label.lower(), s))

@@ -107,6 +107,17 @@ pub enum DataKind {
     UkNationalInsurance,
     IePps,
     UsSsn,
+    UsItin,
+    CaSin,
+    FrNir,
+    EsDni,
+    ItFiscalCode,
+    NlBsn,
+    PlPesel,
+    DeTaxId,
+    Passport,
+    VatNumber,
+    BankAccount,
     IpAddress,
     DateOfBirth,
     /// Never found by a pattern here: only by a detector you plug in.
@@ -117,7 +128,7 @@ pub enum DataKind {
 }
 
 impl DataKind {
-    pub const ALL: [DataKind; 13] = [
+    pub const ALL: [DataKind; 24] = [
         Self::Email,
         Self::Phone,
         Self::Iban,
@@ -125,6 +136,17 @@ impl DataKind {
         Self::UkNationalInsurance,
         Self::IePps,
         Self::UsSsn,
+        Self::UsItin,
+        Self::CaSin,
+        Self::FrNir,
+        Self::EsDni,
+        Self::ItFiscalCode,
+        Self::NlBsn,
+        Self::PlPesel,
+        Self::DeTaxId,
+        Self::Passport,
+        Self::VatNumber,
+        Self::BankAccount,
         Self::IpAddress,
         Self::DateOfBirth,
         Self::PersonName,
@@ -143,6 +165,17 @@ impl DataKind {
             Self::UkNationalInsurance => "uk_national_insurance",
             Self::IePps => "ie_pps",
             Self::UsSsn => "us_ssn",
+            Self::UsItin => "us_itin",
+            Self::CaSin => "ca_sin",
+            Self::FrNir => "fr_nir",
+            Self::EsDni => "es_dni",
+            Self::ItFiscalCode => "it_fiscal_code",
+            Self::NlBsn => "nl_bsn",
+            Self::PlPesel => "pl_pesel",
+            Self::DeTaxId => "de_tax_id",
+            Self::Passport => "passport",
+            Self::VatNumber => "vat_number",
+            Self::BankAccount => "bank_account",
             Self::IpAddress => "ip_address",
             Self::DateOfBirth => "date_of_birth",
             Self::PersonName => "person_name",
@@ -165,6 +198,17 @@ impl DataKind {
             Self::UkNationalInsurance => "UK National Insurance number",
             Self::IePps => "Irish PPS number",
             Self::UsSsn => "US Social Security number",
+            Self::UsItin => "US ITIN",
+            Self::CaSin => "Canadian Social Insurance number",
+            Self::FrNir => "French social security number",
+            Self::EsDni => "Spanish DNI or NIE",
+            Self::ItFiscalCode => "Italian fiscal code",
+            Self::NlBsn => "Dutch BSN",
+            Self::PlPesel => "Polish PESEL number",
+            Self::DeTaxId => "German tax ID",
+            Self::Passport => "Passport number",
+            Self::VatNumber => "VAT number",
+            Self::BankAccount => "Bank account number",
             Self::IpAddress => "IP address",
             Self::DateOfBirth => "Date of birth",
             Self::PersonName => "Person's name",
@@ -176,7 +220,7 @@ impl DataKind {
 
     pub fn category(self) -> Category {
         match self {
-            Self::Iban | Self::PaymentCard => Category::Financial,
+            Self::Iban | Self::PaymentCard | Self::VatNumber | Self::BankAccount => Category::Financial,
             Self::SpecialCategory => Category::Special,
             Self::Secret => Category::Secret,
             Self::Term => Category::Confidential,
@@ -194,6 +238,17 @@ impl DataKind {
             Self::UkNationalInsurance => "NINO",
             Self::IePps => "PPS",
             Self::UsSsn => "SSN",
+            Self::UsItin => "ITIN",
+            Self::CaSin => "SIN",
+            Self::FrNir => "NIR",
+            Self::EsDni => "DNI",
+            Self::ItFiscalCode => "CF",
+            Self::NlBsn => "BSN",
+            Self::PlPesel => "PESEL",
+            Self::DeTaxId => "STEUERID",
+            Self::Passport => "PASSPORT",
+            Self::VatNumber => "VAT",
+            Self::BankAccount => "ACCOUNT",
             Self::IpAddress => "IP",
             Self::DateOfBirth => "DOB",
             Self::PersonName => "NAME",
@@ -219,13 +274,24 @@ impl DataKind {
             Self::UsSsn => 3,
             Self::UkNationalInsurance => 4,
             Self::IePps => 5,
-            Self::Email => 6,
-            Self::DateOfBirth => 7,
-            Self::Phone => 8,
-            Self::IpAddress => 9,
-            Self::Term => 10,
-            Self::PersonName => 11,
-            Self::SpecialCategory => 12,
+            Self::UsItin => 6,
+            Self::CaSin => 7,
+            Self::FrNir => 8,
+            Self::EsDni => 9,
+            Self::ItFiscalCode => 10,
+            Self::NlBsn => 11,
+            Self::PlPesel => 12,
+            Self::DeTaxId => 13,
+            Self::Passport => 14,
+            Self::VatNumber => 15,
+            Self::BankAccount => 16,
+            Self::Email => 17,
+            Self::DateOfBirth => 18,
+            Self::Phone => 19,
+            Self::IpAddress => 20,
+            Self::Term => 21,
+            Self::PersonName => 22,
+            Self::SpecialCategory => 23,
         }
     }
 }
@@ -421,6 +487,131 @@ fn ipv6_valid(raw: &str) -> bool {
 }
 
 /// A value in a .env line that is a placeholder, not a credential.
+/// An ITIN: 9XX-XX-XXXX with a middle group the IRS issues (50-65, 70-88, 90-92, 94-99).
+fn itin_valid(raw: &str) -> bool {
+    let g: u32 = raw[4..6].parse().unwrap_or(0);
+    matches!(g, 50..=65 | 70..=88 | 90..=92 | 94..=99)
+}
+
+/// A Canadian SIN: nine digits, Luhn-checked; none is issued starting with 0 or 8.
+fn sin_valid(raw: &str) -> bool {
+    let d = digits_of(raw);
+    d.len() == 9 && !d.starts_with('0') && !d.starts_with('8') && luhn(&d)
+}
+
+fn digit_values(d: &str) -> Vec<u32> {
+    d.bytes().map(|b| u32::from(b - b'0')).collect()
+}
+
+/// An ABA routing number: weights 3, 7, 1 repeating, a multiple of 10.
+fn aba_valid(raw: &str) -> bool {
+    let d = digits_of(raw);
+    if d.len() != 9 || d.bytes().all(|b| b == b'0') {
+        return false;
+    }
+    digit_values(&d).iter().enumerate().map(|(i, v)| v * [3, 7, 1][i % 3]).sum::<u32>() % 10 == 0
+}
+
+/// A French NIR: thirteen digits (2A and 2B for Corsica) and a key, 97 minus the number mod 97.
+fn nir_valid(raw: &str) -> bool {
+    let s = raw.replace(' ', "").to_ascii_uppercase();
+    if s.len() != 15 {
+        return false;
+    }
+    let body = s[..13].replacen("2A", "19", 1).replacen("2B", "18", 1);
+    if body.len() != 13 || !body.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let m = body.bytes().fold(0u64, |acc, b| (acc * 10 + u64::from(b - b'0')) % 97);
+    s[13..].parse::<u64>().is_ok_and(|key| 97 - m == key)
+}
+
+/// A Spanish DNI (eight digits) or NIE (X, Y or Z and seven), and its check letter.
+fn dni_valid(raw: &str) -> bool {
+    let s = raw.replacen('-', "", 1).to_ascii_uppercase();
+    let (body, letter) = s.split_at(s.len() - 1);
+    let body = match body.as_bytes().first() {
+        Some(b'X') => format!("0{}", &body[1..]),
+        Some(b'Y') => format!("1{}", &body[1..]),
+        Some(b'Z') => format!("2{}", &body[1..]),
+        _ => body.to_string(),
+    };
+    let Ok(n) = body.parse::<u64>() else { return false };
+    let i = usize::try_from(n % 23).unwrap_or(0);
+    &"TRWAGMYFPDXBNJZSQVHLCKE"[i..=i] == letter
+}
+
+const CF_ODD: [u32; 26] =
+    [1, 0, 5, 7, 9, 13, 15, 17, 19, 21, 2, 4, 18, 20, 11, 3, 6, 8, 12, 14, 16, 10, 22, 25, 24, 23];
+
+/// An Italian codice fiscale and its check letter.
+fn fiscal_code_valid(raw: &str) -> bool {
+    let s = raw.to_ascii_uppercase().into_bytes();
+    let sum: u32 = s[..15]
+        .iter()
+        .enumerate()
+        .map(|(i, &c)| {
+            let v = u32::from(if c >= b'A' { c - b'A' } else { c - b'0' });
+            if i % 2 == 0 {
+                CF_ODD[v as usize]
+            } else {
+                v
+            }
+        })
+        .sum();
+    u32::from(s[15] - b'A') == sum % 26
+}
+
+/// A Dutch BSN: the eleven test, weights 9 to 2 and -1 on the last digit.
+fn bsn_valid(raw: &str) -> bool {
+    let d = digits_of(raw);
+    if d.len() != 9 || d.bytes().all(|b| b == b'0') {
+        return false;
+    }
+    let v = digit_values(&d);
+    let sum: i64 = (0..8).map(|i| i64::from(v[i]) * (9 - i as i64)).sum::<i64>() - i64::from(v[8]);
+    sum % 11 == 0
+}
+
+/// A Polish PESEL: weights 1, 3, 7, 9 repeating, and a check digit.
+fn pesel_valid(raw: &str) -> bool {
+    if raw.len() != 11 || !raw.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let v = digit_values(raw);
+    let sum: u32 = (0..10).map(|i| v[i] * [1, 3, 7, 9][i % 4]).sum();
+    (10 - sum % 10) % 10 == v[10]
+}
+
+/// A German Steuer-ID: eleven digits, not starting with 0, ISO 7064 MOD 11,10.
+fn steuer_id_valid(raw: &str) -> bool {
+    let d = digits_of(raw);
+    if d.len() != 11 || d.starts_with('0') {
+        return false;
+    }
+    let v = digit_values(&d);
+    let mut product = 10;
+    for &x in &v[..10] {
+        let mut sum = (x + product) % 10;
+        if sum == 0 {
+            sum = 10;
+        }
+        product = (2 * sum) % 11;
+    }
+    let check = 11 - product;
+    (if check == 10 { 0 } else { check }) == v[10]
+}
+
+/// A passport number after the word: some digits in it, so "passport holder" is not one.
+fn passport_valid(raw: &str) -> bool {
+    digits_of(raw).len() >= 4
+}
+
+/// A VAT number after the word: written in capitals, as issued, with digits in it.
+fn vat_valid(raw: &str) -> bool {
+    raw == raw.to_ascii_uppercase() && digits_of(raw).len() >= 6
+}
+
 fn env_secret_valid(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
     !value.starts_with(['<', '{', '%', '('])
@@ -522,6 +713,40 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
             ..p(DataKind::UkNationalInsurance, r"\b[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z] ?\d{2} ?\d{2} ?\d{2} ?[A-D]\b", false)
         },
         Pattern { valid: Some(pps_valid), ..p(DataKind::IePps, r"\b\d{7}[A-W][A-IW]?\b", false) },
+        Pattern { valid: Some(itin_valid), ..p(DataKind::UsItin, r"\b9\d{2}-\d{2}-\d{4}\b", false) },
+        // Written in groups of three, or as nine digits after the words.
+        Pattern { valid: Some(sin_valid), ..p(DataKind::CaSin, r"\b\d{3}[ -]\d{3}[ -]\d{3}\b", false) },
+        Pattern { valid: Some(sin_valid), ..p(DataKind::CaSin, r"\b(?:SIN|social insurance (?:number|no\.?))[ \t:#]*(\d{9})\b", true) },
+        Pattern { valid: Some(nir_valid), ..p(DataKind::FrNir, r"\b[12] ?\d{2} ?\d{2} ?(?:\d{2}|2[AB]) ?\d{3} ?\d{3} ?\d{2}\b", false) },
+        Pattern { valid: Some(dni_valid), ..p(DataKind::EsDni, r"\b(?:\d{8}|[XYZ]\d{7})-?[A-Z]\b", false) },
+        Pattern { valid: Some(fiscal_code_valid), ..p(DataKind::ItFiscalCode, r"\b[A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z]\b", false) },
+        // Nine or eleven bare digits are too often something else: these need the word before them.
+        Pattern {
+            valid: Some(bsn_valid),
+            ..p(DataKind::NlBsn, r"\b(?:BSN|burgerservicenummer)(?:-?nummer)?[ \t:#.]*(\d{9}|\d{4}\.\d{2}\.\d{3}|\d{3}[ .]\d{3}[ .]\d{3})\b", true)
+        },
+        Pattern { valid: Some(pesel_valid), ..p(DataKind::PlPesel, r"\bPESEL[ \t:#.]*(\d{11})\b", true) },
+        Pattern {
+            valid: Some(steuer_id_valid),
+            ..p(
+                DataKind::DeTaxId,
+                r"\b(?:steuer-?id(?:entifikationsnummer)?|steuerliche identifikationsnummer|idnr\.?|tax id)[ \t:#.]*(\d{2} ?\d{3} ?\d{3} ?\d{3})\b",
+                true,
+            )
+        },
+        Pattern { valid: Some(passport_valid), ..p(DataKind::Passport, r"\bpassport(?: (?:no\.?|number|#))?[ \t:#]*([A-Z0-9]{6,9})\b", true) },
+        Pattern {
+            valid: Some(vat_valid),
+            ..p(
+                DataKind::VatNumber,
+                r"\b(?:VAT|BTW|TVA|IVA|USt-?IdNr\.?)(?: (?:no\.?|number|reg(?:istration)?(?: no\.?| number)?|id))?[ \t:#.]*((?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|GB|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|XI) ?[0-9A-Z]{8,12})\b",
+                true,
+            )
+        },
+        // Bank details after the words: a US routing number, a UK sort code, an account number.
+        Pattern { valid: Some(aba_valid), ..p(DataKind::BankAccount, r"\b(?:routing|ABA|RTN)(?: (?:no\.?|number|#))?[ \t:#]*(\d{9})\b", true) },
+        p(DataKind::BankAccount, r"\bsort code[ \t:#]*(\d{2}[- ]?\d{2}[- ]?\d{2})\b", true),
+        p(DataKind::BankAccount, r"\b(?:account|acct|a/c)(?: (?:no\.?|number|#))?[ \t:#]*(\d{8,17})\b", true),
         p(DataKind::Email, r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b", false),
         // The value is group 1; the words before it are only context.
         p(
@@ -890,6 +1115,17 @@ pub fn describe_counts(counts: &Counts) -> String {
             DataKind::UkNationalInsurance => plural(n, "UK National Insurance number", "UK National Insurance numbers"),
             DataKind::IePps => plural(n, "Irish PPS number", "Irish PPS numbers"),
             DataKind::UsSsn => plural(n, "US Social Security number", "US Social Security numbers"),
+            DataKind::UsItin => plural(n, "US ITIN", "US ITINs"),
+            DataKind::CaSin => plural(n, "Canadian Social Insurance number", "Canadian Social Insurance numbers"),
+            DataKind::FrNir => plural(n, "French social security number", "French social security numbers"),
+            DataKind::EsDni => plural(n, "Spanish DNI or NIE", "Spanish DNIs or NIEs"),
+            DataKind::ItFiscalCode => plural(n, "Italian fiscal code", "Italian fiscal codes"),
+            DataKind::NlBsn => plural(n, "Dutch BSN", "Dutch BSNs"),
+            DataKind::PlPesel => plural(n, "Polish PESEL number", "Polish PESEL numbers"),
+            DataKind::DeTaxId => plural(n, "German tax ID", "German tax IDs"),
+            DataKind::Passport => plural(n, "passport number", "passport numbers"),
+            DataKind::VatNumber => plural(n, "VAT number", "VAT numbers"),
+            DataKind::BankAccount => plural(n, "bank account number", "bank account numbers"),
             DataKind::IpAddress => plural(n, "IP address", "IP addresses"),
             DataKind::DateOfBirth => plural(n, "date of birth", "dates of birth"),
             DataKind::PersonName => plural(n, "person's name", "people's names"),

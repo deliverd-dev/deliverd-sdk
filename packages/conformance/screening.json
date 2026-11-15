@@ -504,6 +504,136 @@
         }
       ],
       "redacted": "Server [IP_1], not version 1.2.3.4, v2.0.0.1 or 1.2.3.4.5"
+    },
+    {
+      "text": "ITIN 912-70-1234 is not an SSN, and 912-40-1234 is not an ITIN",
+      "findings": [
+        {
+          "kind": "us_itin",
+          "value": "912-70-1234"
+        }
+      ],
+      "redacted": "ITIN [ITIN_1] is not an SSN, and 912-40-1234 is not an ITIN"
+    },
+    {
+      "text": "SIN 130 692 502, or SIN: 130692502, but not 130 692 503",
+      "findings": [
+        {
+          "kind": "ca_sin",
+          "value": "130 692 502"
+        },
+        {
+          "kind": "ca_sin",
+          "value": "130692502"
+        }
+      ],
+      "redacted": "SIN [SIN_1], or SIN: [SIN_2], but not 130 692 503"
+    },
+    {
+      "text": "NIR 1 85 05 78 006 084 91",
+      "findings": [
+        {
+          "kind": "fr_nir",
+          "value": "1 85 05 78 006 084 91"
+        }
+      ],
+      "redacted": "NIR [NIR_1]"
+    },
+    {
+      "text": "DNI 12345678Z, NIE X1234567L, not 12345678A",
+      "findings": [
+        {
+          "kind": "es_dni",
+          "value": "12345678Z"
+        },
+        {
+          "kind": "es_dni",
+          "value": "X1234567L"
+        }
+      ],
+      "redacted": "DNI [DNI_1], NIE [DNI_2], not 12345678A"
+    },
+    {
+      "text": "Codice fiscale RSSMRA85T10A562S, not RSSMRA85T10A562T",
+      "findings": [
+        {
+          "kind": "it_fiscal_code",
+          "value": "RSSMRA85T10A562S"
+        }
+      ],
+      "redacted": "Codice fiscale [CF_1], not RSSMRA85T10A562T"
+    },
+    {
+      "text": "BSN: 111222333 and burgerservicenummer 1112.22.333, not BSN 111222334 or a bare 111222333",
+      "findings": [
+        {
+          "kind": "nl_bsn",
+          "value": "111222333"
+        },
+        {
+          "kind": "nl_bsn",
+          "value": "1112.22.333"
+        }
+      ],
+      "redacted": "BSN: [BSN_1] and burgerservicenummer [BSN_2], not BSN 111222334 or a bare 111222333"
+    },
+    {
+      "text": "PESEL 44051401359, not PESEL 44051401358 or a bare 44051401359",
+      "findings": [
+        {
+          "kind": "pl_pesel",
+          "value": "44051401359"
+        }
+      ],
+      "redacted": "PESEL [PESEL_1], not PESEL 44051401358 or a bare 44051401359"
+    },
+    {
+      "text": "Steuer-ID 86 609 651 412, not tax id 86609651413 or a bare 86609651412",
+      "findings": [
+        {
+          "kind": "de_tax_id",
+          "value": "86 609 651 412"
+        }
+      ],
+      "redacted": "Steuer-ID [STEUERID_1], not tax id 86609651413 or a bare 86609651412"
+    },
+    {
+      "text": "Passport number: 123456789, but the passport holder is away",
+      "findings": [
+        {
+          "kind": "passport",
+          "value": "123456789"
+        }
+      ],
+      "redacted": "Passport number: [PASSPORT_1], but the passport holder is away"
+    },
+    {
+      "text": "VAT no. IE6388047V; vat number ie123 is not one",
+      "findings": [
+        {
+          "kind": "vat_number",
+          "value": "IE6388047V"
+        }
+      ],
+      "redacted": "VAT no. [VAT_1]; vat number ie123 is not one"
+    },
+    {
+      "text": "Routing number 011000015, account 12345678, sort code 12-34-56; routing 123456789 is not one",
+      "findings": [
+        {
+          "kind": "bank_account",
+          "value": "011000015"
+        },
+        {
+          "kind": "bank_account",
+          "value": "12345678"
+        },
+        {
+          "kind": "bank_account",
+          "value": "12-34-56"
+        }
+      ],
+      "redacted": "Routing number [ACCOUNT_1], account [ACCOUNT_2], sort code [ACCOUNT_3]; routing 123456789 is not one"
     }
   ],
   "decisions": [
@@ -746,6 +876,86 @@
     {
       "counts": {},
       "text": "nothing"
+    },
+    {
+      "counts": {
+        "us_itin": 2
+      },
+      "text": "2 US ITINs"
+    },
+    {
+      "counts": {
+        "ca_sin": 1
+      },
+      "text": "1 Canadian Social Insurance number"
+    },
+    {
+      "counts": {
+        "fr_nir": 2
+      },
+      "text": "2 French social security numbers"
+    },
+    {
+      "counts": {
+        "es_dni": 1
+      },
+      "text": "1 Spanish DNI or NIE"
+    },
+    {
+      "counts": {
+        "es_dni": 2
+      },
+      "text": "2 Spanish DNIs or NIEs"
+    },
+    {
+      "counts": {
+        "it_fiscal_code": 2
+      },
+      "text": "2 Italian fiscal codes"
+    },
+    {
+      "counts": {
+        "nl_bsn": 2
+      },
+      "text": "2 Dutch BSNs"
+    },
+    {
+      "counts": {
+        "pl_pesel": 1
+      },
+      "text": "1 Polish PESEL number"
+    },
+    {
+      "counts": {
+        "de_tax_id": 2
+      },
+      "text": "2 German tax IDs"
+    },
+    {
+      "counts": {
+        "passport": 2
+      },
+      "text": "2 passport numbers"
+    },
+    {
+      "counts": {
+        "vat_number": 1
+      },
+      "text": "1 VAT number"
+    },
+    {
+      "counts": {
+        "bank_account": 3
+      },
+      "text": "3 bank account numbers"
+    },
+    {
+      "counts": {
+        "ca_sin": 2,
+        "us_itin": 1,
+        "bank_account": 1
+      },
+      "text": "1 US ITIN, 2 Canadian Social Insurance numbers and 1 bank account number"
     }
   ]
 }

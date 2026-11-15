@@ -13,7 +13,8 @@
 //! ```
 //!
 //! Everything runs here. Nothing is sent anywhere: there is no account, no key
-//! and no network call. The detectors are the ones Deliverd's servers and SDKs
+//! and no network call, unless you add [`Screen::purview`], which asks your
+//! own Microsoft Purview about the text. The detectors are the ones Deliverd's servers and SDKs
 //! run, held to the same shared test cases as the TypeScript and Python
 //! packages.
 //!
@@ -34,6 +35,7 @@
 
 pub mod adapters;
 mod data_screen;
+pub mod purview;
 
 use std::collections::BTreeMap;
 
@@ -71,6 +73,8 @@ pub struct Screened {
     /// Placeholder to original value, for a redact. Yours alone: never sent
     /// anywhere.
     pub replacements: BTreeMap<String, String>,
+    /// Microsoft Purview's answer, when [`Screen::purview`] was set.
+    pub purview: Option<purview::PurviewOutcome>,
 }
 
 impl Screened {
@@ -80,6 +84,9 @@ impl Screened {
         restore(answer, &self.replacements)
     }
 }
+
+/// A check that asks Microsoft Purview about a text.
+type PurviewFn<'a> = Box<dyn Fn(&str) -> purview::PurviewOutcome + 'a>;
 
 /// The check, set up once and run on every prompt.
 ///
@@ -101,6 +108,7 @@ pub struct Screen<'a> {
     policy: Policy,
     terms: Vec<Term>,
     detectors: Vec<Box<dyn Detector + 'a>>,
+    purview: Option<PurviewFn<'a>>,
 }
 
 impl Default for Screen<'_> {
@@ -121,6 +129,7 @@ impl<'a> Screen<'a> {
             policy: Policy::default(),
             terms: vec![],
             detectors: vec![],
+            purview: None,
         }
     }
 
@@ -163,6 +172,17 @@ impl<'a> Screen<'a> {
         self
     }
 
+    /// Your organisation's Microsoft Purview, asked about each text too; the
+    /// stricter answer wins. A Purview block denies; a warn is an ask, which
+    /// nobody here can answer. With the `purview` feature, pass a
+    /// [`purview::PurviewClient`]'s check:
+    /// `.purview(move |t| client.check(t))`. Without it, any function that asks
+    /// Purview its own way and returns its answer.
+    pub fn purview(mut self, check: impl Fn(&str) -> purview::PurviewOutcome + 'a) -> Self {
+        self.purview = Some(Box::new(check));
+        self
+    }
+
     /// Find what is in a text, whatever it is going to: the findings and their
     /// counts, no verdict. `spans` are what another detector already found.
     pub fn detect(&self, text: &str, spans: &[DetectedSpan]) -> (Vec<Finding>, Counts) {
@@ -192,6 +212,11 @@ impl<'a> Screen<'a> {
         };
         let mut a = assess_counts(&counts, Some(&target), &self.policy, term_classification_of(&findings));
         let redaction = redact_for(text, &findings, &a);
+        let screened_verdict = a.verdict;
+        let outcome = self.purview.as_ref().map(|check| check(text));
+        if let Some(o) = &outcome {
+            a.verdict = purview::apply(a.verdict, &mut a.reasons, o);
+        }
         let (sent, replacements) = match (a.verdict, &redaction) {
             (Verdict::Allow, _) => (Some(text.to_string()), BTreeMap::new()),
             (Verdict::Redact, Some(r)) => (Some(r.text.clone()), r.replacements.clone()),
@@ -203,12 +228,17 @@ impl<'a> Screen<'a> {
         Screened {
             verdict: a.verdict,
             allowed: sent.is_some(),
-            redacted: if a.verdict == Verdict::Allow { Some(text.to_string()) } else { redaction.map(|r| r.text) },
+            redacted: match (a.verdict, screened_verdict) {
+                (Verdict::Deny, _) => None,
+                (_, Verdict::Allow) => Some(text.to_string()),
+                _ => redaction.map(|r| r.text),
+            },
             text: sent,
             findings,
             counts,
             reasons: a.reasons,
             replacements,
+            purview: outcome,
         }
     }
 }

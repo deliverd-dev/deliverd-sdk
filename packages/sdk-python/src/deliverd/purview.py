@@ -7,12 +7,13 @@
         user_id=entra_object_id_of_the_user,
         app={"name": "Claims assistant", "entra_app_id": "11111111-…"},
     )
-    screened = deliverd.screen(prompt, ai_system_id=CLAIMS_MODEL, purview=purview)
+    checked = screen(prompt, purview=purview)
 
-The Python half of ``packages/core/src/purview.ts``, rule for rule. The call
+The Python half of ``packages/core/src/purview.ts``, rule for rule, and the
+same file as ``deliverd/purview.py`` in the Deliverd SDK. The call
 goes from where your agent runs straight to Microsoft Graph
 (``processContent``), with your own Entra app's token, so the text goes to
-Microsoft and never to Deliverd. Deliverd is sent only the outcome:
+Microsoft and never to Deliverd. When Deliverd is used, it is sent only the outcome:
 
 - ``block``: nothing is sent. The organisation's own policy said so, and it is
   honoured on every plan, report-only included.
@@ -256,7 +257,7 @@ def purview_check(
     timeout: float = 10.0,
     transport: Optional[Transport] = None,
 ) -> PurviewCheck:
-    """A check :meth:`deliverd.Deliverd.screen` runs on the text before asking Deliverd.
+    """A check ``screen()`` runs on the text: ``deliverd_screen.screen`` or ``Deliverd.screen``.
 
     ``token`` is a Microsoft Graph access token, or a callable returning one,
     called on every check so a credential can refresh it. ``app`` is your app

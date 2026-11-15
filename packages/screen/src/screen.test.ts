@@ -281,3 +281,28 @@ it("lists the MCP server in the registry under the name and version npm has", ()
   expect(server.version).toBe(pkg.version);
   expect(server.packages).toEqual([expect.objectContaining({ identifier: pkg.name, version: pkg.version })]);
 });
+
+describe("names(), the opt-in name model", () => {
+  it("loads the model once, on first use, and finds names with the patterns", async () => {
+    const { names } = await import("./adapters.js");
+    let loads = 0;
+    const detector = names({
+      load: async () => {
+        loads++;
+        return async (text: string) => {
+          const at = text.indexOf("Mary Byrne");
+          return at < 0 ? [] : [{ entity_group: "PER", score: 0.99, start: at, end: at + "Mary Byrne".length }];
+        };
+      },
+    });
+    const first = await screen("Ask Mary Byrne at mary@example.ie", { detectors: [detector] });
+    expect(first.text).toBe("Ask [NAME_1] at [EMAIL_1]");
+    await screen("Nobody here", { detectors: [detector] });
+    expect(loads).toBe(1);
+  });
+
+  it("says how to install transformers.js when it is missing", async () => {
+    const { names } = await import("./adapters.js");
+    await expect(names()("Mary")).rejects.toThrow(/npm install @huggingface\/transformers/);
+  });
+});

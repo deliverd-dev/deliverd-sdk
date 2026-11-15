@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0
+
+- **More national and bank identifiers, each with its check digit.** US
+  ITINs; Canadian Social Insurance numbers (Luhn-checked, in groups of three or
+  after "SIN"); French social security numbers (NIR, with their key); Spanish
+  DNI and NIE numbers and Italian fiscal codes (check letters); Dutch BSNs
+  (eleven test), Polish PESEL numbers and German tax IDs (Steuer-ID, ISO 7064)
+  after the word for them, because nine or eleven bare digits are too often
+  something else; passport numbers and VAT numbers after the word; and bank
+  details after the word: US routing numbers (ABA checksum), UK sort codes and
+  account numbers. New kinds: `us_itin`, `ca_sin`, `fr_nir`, `es_dni`,
+  `it_fiscal_code`, `nl_bsn`, `pl_pesel`, `de_tax_id`, `passport`,
+  `vat_number` and `bank_account`, in the shared test cases for all three
+  languages. Presidio's `US_ITIN`, `US_PASSPORT`, `US_BANK_NUMBER`, `ES_NIF`,
+  `ES_NIE`, `IT_FISCAL_CODE` and `PL_PESEL` map to them.
+- **Microsoft Purview, if you want it.** `Screen::purview(check)` holds your
+  organisation's Purview DLP answer beside the screen's own, and the stricter
+  wins: a block denies, a warn is an ask. The rules are in
+  `deliverd_screen::purview`. With the new `purview` feature,
+  `PurviewClient` makes the call too (an Entra token and Graph's
+  `processContent`, over ureq and rustls), and `deliverd-screen mcp` reads the
+  same `DELIVERD_PURVIEW_*` variables as the TypeScript package. Without the
+  feature the library still has one dependency, regex.
+
 ## 0.1.2
 
 - **More secrets and numbers found.** A private key is now redacted whole,

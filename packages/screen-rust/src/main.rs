@@ -59,7 +59,18 @@ fn findings_json(findings: &[Finding]) -> Value {
 
 fn run(args: &[String], stdin: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) -> io::Result<u8> {
     if args.first().map(String::as_str) == Some("mcp") {
-        serve(stdin, stdout)?;
+        #[cfg(feature = "purview")]
+        {
+            let client = purview_from_env()?;
+            let check = client.as_ref().map(|c| move |t: &str| c.check(t));
+            serve(
+                stdin,
+                stdout,
+                check.as_ref().map(|f| f as &dyn Fn(&str) -> deliverd_screen::purview::PurviewOutcome),
+            )?;
+        }
+        #[cfg(not(feature = "purview"))]
+        serve(stdin, stdout, None)?;
         return Ok(0);
     }
     let mut files: Vec<&str> = vec![];
@@ -168,8 +179,18 @@ fn tool() -> Value {
     })
 }
 
+/// A check that asks Microsoft Purview about a text, when one is set up.
+type PurviewCheck<'a> = Option<&'a dyn Fn(&str) -> deliverd_screen::purview::PurviewOutcome>;
+
+/// Microsoft Purview from `DELIVERD_PURVIEW_*`, when built with the `purview`
+/// feature and the variables are set; otherwise nothing is sent anywhere.
+#[cfg(feature = "purview")]
+fn purview_from_env() -> io::Result<Option<deliverd_screen::purview::PurviewClient>> {
+    deliverd_screen::purview::PurviewClient::from_env().map_err(io::Error::other)
+}
+
 /// The answer to one message, or `None` for a notification.
-fn handle(req: &Value) -> Option<Value> {
+fn handle(req: &Value, purview: PurviewCheck) -> Option<Value> {
     let id = req.get("id")?.clone();
     let reply = |result: Value| json!({ "jsonrpc": "2.0", "id": id, "result": result });
     let fail = |code: i64, message: String| json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } });
@@ -205,8 +226,11 @@ fn handle(req: &Value) -> Option<Value> {
                 .and_then(Classification::from_key)
                 .unwrap_or(Classification::Internal);
             let personal = args.get("personalData").and_then(Value::as_bool) == Some(true);
-            let checked =
-                Screen::new().model("the destination").allow(classification, personal).terms(terms).check(text);
+            let mut screen = Screen::new().model("the destination").allow(classification, personal).terms(terms);
+            if let Some(check) = purview {
+                screen = screen.purview(check);
+            }
+            let checked = screen.check(text);
             let summary = json!({
                 "verdict": checked.verdict.key(),
                 "allowed": checked.allowed,
@@ -215,6 +239,15 @@ fn handle(req: &Value) -> Option<Value> {
                 "reasons": checked.reasons,
                 "text": checked.text,
             });
+            let mut summary = summary;
+            if let Some(o) = &checked.purview {
+                summary["purview"] = json!({
+                    "restriction": o.restriction.map(|r| r.key()),
+                    "actions": o.actions,
+                    "scopeModified": o.scope_modified,
+                    "unavailable": o.unavailable,
+                });
+            }
             reply(json!({
                 "content": [{ "type": "text", "text": serde_json::to_string_pretty(&summary).unwrap_or_default() }],
                 "structuredContent": summary,
@@ -225,14 +258,14 @@ fn handle(req: &Value) -> Option<Value> {
     })
 }
 
-fn serve(input: &mut impl BufRead, output: &mut impl Write) -> io::Result<()> {
+fn serve(input: &mut impl BufRead, output: &mut impl Write, purview: PurviewCheck) -> io::Result<()> {
     for line in input.lines() {
         let line = line?;
         if line.trim().is_empty() {
             continue;
         }
         let answer = match serde_json::from_str::<Value>(&line) {
-            Ok(req) => handle(&req),
+            Ok(req) => handle(&req, purview),
             Err(_) => {
                 Some(json!({ "jsonrpc": "2.0", "id": null, "error": { "code": -32700, "message": "Parse error" } }))
             }
@@ -284,12 +317,15 @@ mod tests {
 
     #[test]
     fn lists_and_runs_screen_text_without_the_values_it_replaced() {
-        let list = handle(&json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" })).unwrap();
+        let list = handle(&json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }), None).unwrap();
         assert_eq!(list["result"]["tools"][0]["name"], "screen_text");
-        let call = handle(&json!({
-            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": { "name": "screen_text", "arguments": { "text": "Email mary@example.ie" } }
-        }))
+        let call = handle(
+            &json!({
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": { "name": "screen_text", "arguments": { "text": "Email mary@example.ie" } }
+            }),
+            None,
+        )
         .unwrap();
         assert_eq!(call["result"]["structuredContent"]["verdict"], "redact");
         assert_eq!(call["result"]["structuredContent"]["text"], "Email [EMAIL_1]");
@@ -298,9 +334,9 @@ mod tests {
 
     #[test]
     fn answers_no_notification_and_says_when_a_line_is_not_json() {
-        assert!(handle(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" })).is_none());
+        assert!(handle(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }), None).is_none());
         let mut out = vec![];
-        serve(&mut "not json\n".as_bytes(), &mut out).unwrap();
+        serve(&mut "not json\n".as_bytes(), &mut out, None).unwrap();
         assert!(String::from_utf8(out).unwrap().contains("-32700"));
     }
 }

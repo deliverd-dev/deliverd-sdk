@@ -1,6 +1,6 @@
 {
   "name": "@deliverd/screen",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A pre-send check for every prompt. Finds and redacts personal data, secrets and your own confidential terms before text goes to an AI model. Runs locally, no account, no network calls. Bring your own model for names.",
   "mcpName": "io.github.deliverd-dev/deliverd-screen",
   "type": "module",
@@ -17,6 +17,10 @@
     "./adapters": {
       "types": "./dist/adapters.d.ts",
       "default": "./dist/adapters.js"
+    },
+    "./proxy": {
+      "types": "./dist/proxy.d.ts",
+      "default": "./dist/proxy.js"
     },
     "./ai-sdk": {
       "types": "./dist/ai-sdk.d.ts",

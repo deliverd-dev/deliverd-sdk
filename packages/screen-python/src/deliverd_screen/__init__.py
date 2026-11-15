@@ -9,7 +9,8 @@
     return checked.restore(answer)
 
 Everything runs here. Nothing is sent anywhere: no account, no key, no network
-call. The detectors are the same rules Deliverd's servers and SDKs run, held to
+call, unless you pass ``purview``, which asks your own Microsoft Purview about
+the text. The detectors are the same rules Deliverd's servers and SDKs run, held to
 the shared vectors in ``packages/conformance``.
 
 Patterns find structured identifiers well and people's names hardly at all.
@@ -49,8 +50,10 @@ from .data_screen import (
     summarise,
     term_classification_of,
 )
+from .purview import PurviewCheck, PurviewOutcome, apply_purview, entra_app_token, purview_check
+from .purview_env import purview_from_env
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 #: A detector: a callable from the text to spans (``DetectedSpan`` or dicts of kind, start, end).
 SpanDetector = Callable[[str], Sequence[object]]
@@ -78,6 +81,8 @@ class Screened:
     reasons: List[str]
     #: Placeholder to original value. Yours alone; never sent anywhere.
     replacements: Dict[str, str] = field(default_factory=dict)
+    #: Microsoft Purview's answer, when ``purview`` was given.
+    purview: Optional[PurviewOutcome] = None
 
     def restore(self, answer: str) -> str:
         """Put the original values back into text a model wrote using the placeholders."""
@@ -111,6 +116,7 @@ def screen(
     terms: Sequence[object] = (),
     detectors: Sequence[SpanDetector] = (),
     spans: Sequence[object] = (),
+    purview: Optional[PurviewCheck] = None,
 ) -> Screened:
     """Check text before it goes to a model, and decide what may be sent.
 
@@ -118,6 +124,11 @@ def screen(
     ``allow`` sends it as it is; ``redact`` replaces what it may not receive
     with placeholders, and :meth:`Screened.restore` puts them back in the
     answer; ``ask`` needs a person; ``deny`` sends nothing.
+
+    ``purview``, from :func:`purview_check` or :func:`purview_from_env`, asks
+    your organisation's Microsoft Purview about the text too, with your own
+    Entra app, so the text goes to Microsoft and nowhere else. The stricter
+    answer wins: a Purview block denies, a warn is an ask.
     """
     findings, counts = detect(text, terms, detectors, spans)
     p = dict(policy or {})
@@ -128,22 +139,31 @@ def screen(
         p,
         term_classification_of(findings),
     )
+    outcome = purview(text) if purview is not None else None
+    verdict, reasons = apply_purview(a.verdict, a.reasons, outcome)
     redaction = redact_for(text, findings, a.verdict, a.offending)
-    if a.verdict == "allow":
+    if verdict == "allow":
         sent: Optional[str] = text
-    elif a.verdict == "redact":
+    elif verdict == "redact":
         sent = redaction.text if redaction else None
     else:
         sent = None
+    if verdict == "deny":
+        shown: Optional[str] = None
+    elif a.verdict == "allow":
+        shown = text
+    else:
+        shown = redaction.text if redaction else None
     return Screened(
-        verdict=a.verdict,
+        verdict=verdict,
         allowed=sent is not None,
         text=sent,
-        redacted=text if a.verdict == "allow" else (redaction.text if redaction else None),
+        redacted=shown,
         findings=findings,
         counts=counts,
-        reasons=a.reasons + [_ASK_REASON] if a.verdict == "ask" else a.reasons,
-        replacements=dict(redaction.replacements) if redaction and a.verdict == "redact" else {},
+        reasons=reasons + [_ASK_REASON] if verdict == "ask" else reasons,
+        replacements=dict(redaction.replacements) if redaction and verdict == "redact" else {},
+        purview=outcome,
     )
 
 
@@ -165,4 +185,9 @@ __all__ = [
     "DATA_KIND_KEYS",
     "SCREEN_CLASSIFICATIONS",
     "DEFAULT_SCREEN_POLICY",
+    "purview_check",
+    "purview_from_env",
+    "entra_app_token",
+    "PurviewCheck",
+    "PurviewOutcome",
 ]

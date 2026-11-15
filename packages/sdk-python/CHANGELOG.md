@@ -6,6 +6,14 @@
 
 A patch. 0.28.0 went to PyPI on 15 November 2026 from deliverd-sdk b6a2c34.
 
+### Changed
+
+- **`Deliverd.screen()` finds more identifiers**, the same as Deliverd Screen
+  0.2.0 for Python: US ITINs, Canadian SINs, French NIRs, Spanish DNI/NIE
+  numbers, Italian fiscal codes, Dutch BSNs, Polish PESEL numbers, German tax
+  IDs, passport and VAT numbers, and bank details, each with its check digit
+  or after the word for it.
+
 ## 0.28.0
 
 A minor, for an addition. 0.27.0 went to PyPI on 14 November 2026 from

@@ -100,6 +100,13 @@ _PRESIDIO: Dict[str, str] = {
     "IP_ADDRESS": "ip_address",
     "US_SSN": "us_ssn",
     "UK_NINO": "uk_national_insurance",
+    "US_ITIN": "us_itin",
+    "US_PASSPORT": "passport",
+    "US_BANK_NUMBER": "bank_account",
+    "ES_NIF": "es_dni",
+    "ES_NIE": "es_dni",
+    "IT_FISCAL_CODE": "it_fiscal_code",
+    "PL_PESEL": "pl_pesel",
 }
 
 
@@ -117,5 +124,47 @@ def presidio(analyzer: Any, language: str = "en", min_score: float = 0.5) -> Cal
             for r in results
             if r.entity_type in _PRESIDIO and r.score >= min_score
         ]
+
+    return detect
+
+
+#: The name model :func:`names` uses unless told otherwise: BERT fine-tuned for named entities, MIT licence.
+DEFAULT_NAME_MODEL = "dslim/bert-base-NER"
+
+
+def names(
+    model: str = DEFAULT_NAME_MODEL,
+    min_score: float = 0.5,
+    on_load: Optional[Callable[[str], None]] = None,
+) -> Callable[[str], List[DetectedSpan]]:
+    """People's names, found by a small model that runs on this machine. Opt in.
+
+        # pip install transformers torch
+        from deliverd_screen import screen
+        from deliverd_screen.adapters import names
+
+        detectors = [names()]
+        checked = screen("Ask Mary Byrne about it", detectors=detectors)
+        checked.text  # "Ask [NAME_1] about it"
+
+    The first call downloads the model from Hugging Face once and caches it;
+    after that nothing leaves the machine. Text is never sent anywhere: the
+    model runs in this process. It finds names as well as the model does,
+    which is well for English and worse for other languages and for names that
+    are also ordinary words. Organisations and places are ignored.
+    """
+    state: Dict[str, Any] = {"detect": None}
+
+    def detect(text: str) -> List[DetectedSpan]:
+        if state["detect"] is None:
+            try:
+                from transformers import pipeline  # type: ignore[import-not-found]
+            except ImportError as error:
+                raise RuntimeError("names() runs a model with Hugging Face transformers: pip install transformers torch") from error
+            if on_load is not None:
+                on_load(model)
+            ner = pipeline("token-classification", model=model, aggregation_strategy="simple")
+            state["detect"] = token_classifier(ner, min_score=min_score)
+        return state["detect"](text)
 
     return detect

@@ -58,6 +58,17 @@ export const DATA_KINDS = {
   uk_national_insurance: { label: "UK National Insurance number", category: "personal", placeholder: "NINO", redactable: true },
   ie_pps: { label: "Irish PPS number", category: "personal", placeholder: "PPS", redactable: true },
   us_ssn: { label: "US Social Security number", category: "personal", placeholder: "SSN", redactable: true },
+  us_itin: { label: "US ITIN", category: "personal", placeholder: "ITIN", redactable: true },
+  ca_sin: { label: "Canadian Social Insurance number", category: "personal", placeholder: "SIN", redactable: true },
+  fr_nir: { label: "French social security number", category: "personal", placeholder: "NIR", redactable: true },
+  es_dni: { label: "Spanish DNI or NIE", category: "personal", placeholder: "DNI", redactable: true },
+  it_fiscal_code: { label: "Italian fiscal code", category: "personal", placeholder: "CF", redactable: true },
+  nl_bsn: { label: "Dutch BSN", category: "personal", placeholder: "BSN", redactable: true },
+  pl_pesel: { label: "Polish PESEL number", category: "personal", placeholder: "PESEL", redactable: true },
+  de_tax_id: { label: "German tax ID", category: "personal", placeholder: "STEUERID", redactable: true },
+  passport: { label: "Passport number", category: "personal", placeholder: "PASSPORT", redactable: true },
+  vat_number: { label: "VAT number", category: "financial", placeholder: "VAT", redactable: true },
+  bank_account: { label: "Bank account number", category: "financial", placeholder: "ACCOUNT", redactable: true },
   ip_address: { label: "IP address", category: "personal", placeholder: "IP", redactable: true },
   date_of_birth: { label: "Date of birth", category: "personal", placeholder: "DOB", redactable: true },
   /** Never found by a pattern here: only by a model detector the caller plugs in (`spans`). */
@@ -175,6 +186,100 @@ function ipv6Valid(raw: string): boolean {
   return compressed === 0 ? groups === 8 : compressed === 1 && groups >= 3 && groups <= 7;
 }
 
+/** An ITIN: 9XX-XX-XXXX with a middle group the IRS issues (50-65, 70-88, 90-92, 94-99). */
+function itinValid(raw: string): boolean {
+  const g = Number(raw.slice(4, 6));
+  return (g >= 50 && g <= 65) || (g >= 70 && g <= 88) || (g >= 90 && g <= 92) || (g >= 94 && g <= 99);
+}
+
+/** A Canadian SIN: nine digits, Luhn-checked; none is issued starting with 0 or 8. */
+function sinValid(raw: string): boolean {
+  const d = digitsOf(raw);
+  return d.length === 9 && d[0] !== "0" && d[0] !== "8" && luhn(d);
+}
+
+/** An ABA routing number: weights 3, 7, 1 repeating, a multiple of 10. */
+function abaValid(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 9 || /^0+$/.test(d)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += (d.charCodeAt(i) - 48) * [3, 7, 1][i % 3]!;
+  return sum % 10 === 0;
+}
+
+/** A French NIR: thirteen digits (2A and 2B for Corsica) and a key, 97 minus the number mod 97. */
+function nirValid(raw: string): boolean {
+  const s = raw.replace(/ /g, "").toUpperCase();
+  if (s.length !== 15) return false;
+  const body = s.slice(0, 13).replace("2A", "19").replace("2B", "18");
+  if (!/^\d{13}$/.test(body)) return false;
+  let mod = 0;
+  for (const ch of body) mod = (mod * 10 + (ch.charCodeAt(0) - 48)) % 97;
+  return 97 - mod === Number(s.slice(13));
+}
+
+/** A Spanish DNI (eight digits) or NIE (X, Y or Z and seven), and its check letter. */
+function dniValid(raw: string): boolean {
+  const s = raw.replace("-", "").toUpperCase();
+  const n = Number(s.slice(0, -1).replace(/^X/, "0").replace(/^Y/, "1").replace(/^Z/, "2"));
+  return "TRWAGMYFPDXBNJZSQVHLCKE"[n % 23] === s.at(-1);
+}
+
+const CF_ODD = [1, 0, 5, 7, 9, 13, 15, 17, 19, 21, 2, 4, 18, 20, 11, 3, 6, 8, 12, 14, 16, 10, 22, 25, 24, 23];
+
+/** An Italian codice fiscale and its check letter. */
+function fiscalCodeValid(raw: string): boolean {
+  const s = raw.toUpperCase();
+  let sum = 0;
+  for (let i = 0; i < 15; i++) {
+    const c = s.charCodeAt(i);
+    const v = c >= 65 ? c - 65 : c - 48;
+    sum += i % 2 === 0 ? CF_ODD[v]! : v;
+  }
+  return String.fromCharCode(65 + (sum % 26)) === s[15];
+}
+
+/** A Dutch BSN: the eleven test, weights 9 to 2 and -1 on the last digit. */
+function bsnValid(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 9 || /^0+$/.test(d)) return false;
+  let sum = 0;
+  for (let i = 0; i < 8; i++) sum += (d.charCodeAt(i) - 48) * (9 - i);
+  return (sum - (d.charCodeAt(8) - 48)) % 11 === 0;
+}
+
+/** A Polish PESEL: weights 1, 3, 7, 9 repeating, and a check digit. */
+function peselValid(raw: string): boolean {
+  if (!/^\d{11}$/.test(raw)) return false;
+  let sum = 0;
+  for (let i = 0; i < 10; i++) sum += (raw.charCodeAt(i) - 48) * [1, 3, 7, 9][i % 4]!;
+  return (10 - (sum % 10)) % 10 === raw.charCodeAt(10) - 48;
+}
+
+/** A German Steuer-ID: eleven digits, not starting with 0, ISO 7064 MOD 11,10. */
+function steuerIdValid(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 11 || d[0] === "0") return false;
+  let product = 10;
+  for (let i = 0; i < 10; i++) {
+    let sum = (d.charCodeAt(i) - 48 + product) % 10;
+    if (sum === 0) sum = 10;
+    product = (2 * sum) % 11;
+  }
+  const check = 11 - product;
+  return (check === 10 ? 0 : check) === d.charCodeAt(10) - 48;
+}
+
+/** A passport number after the word: some digits in it, so "passport holder" is not one. */
+function passportValid(raw: string): boolean {
+  return digitsOf(raw).length >= 4;
+}
+
+/** A VAT number after the word: written in capitals, as issued, with digits in it. */
+function vatValid(raw: string): boolean {
+  return raw === raw.toUpperCase() && digitsOf(raw).length >= 6;
+}
+
 /** A value in a .env line that is a placeholder, not a credential. */
 function envSecretValid(value: string): boolean {
   return !/^[<{%(]/.test(value) && !/your|example|placeholder|changeme|xxxx/i.test(value);
@@ -234,6 +339,33 @@ const DETECTORS: Detector[] = [
     pattern: /\b(?!BG|GB|NK|KN|TN|NT|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z] ?\d{2} ?\d{2} ?\d{2} ?[A-D]\b/g,
   },
   { kind: "ie_pps", pattern: /\b\d{7}[A-W][A-IW]?\b/g, valid: ppsValid },
+  { kind: "us_itin", pattern: /\b9\d{2}-\d{2}-\d{4}\b/g, valid: itinValid },
+  // Written in groups of three, or as nine digits after the words.
+  { kind: "ca_sin", pattern: /\b\d{3}[ -]\d{3}[ -]\d{3}\b/g, valid: sinValid },
+  { kind: "ca_sin", pattern: /\b(?:SIN|social insurance (?:number|no\.?))[ \t:#]*(\d{9})\b/gi, valid: sinValid, group: 1 },
+  { kind: "fr_nir", pattern: /\b[12] ?\d{2} ?\d{2} ?(?:\d{2}|2[AB]) ?\d{3} ?\d{3} ?\d{2}\b/g, valid: nirValid },
+  { kind: "es_dni", pattern: /\b(?:\d{8}|[XYZ]\d{7})-?[A-Z]\b/g, valid: dniValid },
+  { kind: "it_fiscal_code", pattern: /\b[A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z]\b/g, valid: fiscalCodeValid },
+  // Nine or eleven bare digits are too often something else: these need the word before them.
+  { kind: "nl_bsn", pattern: /\b(?:BSN|burgerservicenummer)(?:-?nummer)?[ \t:#.]*(\d{9}|\d{4}\.\d{2}\.\d{3}|\d{3}[ .]\d{3}[ .]\d{3})\b/gi, valid: bsnValid, group: 1 },
+  { kind: "pl_pesel", pattern: /\bPESEL[ \t:#.]*(\d{11})\b/gi, valid: peselValid, group: 1 },
+  {
+    kind: "de_tax_id",
+    pattern: /\b(?:steuer-?id(?:entifikationsnummer)?|steuerliche identifikationsnummer|idnr\.?|tax id)[ \t:#.]*(\d{2} ?\d{3} ?\d{3} ?\d{3})\b/gi,
+    valid: steuerIdValid,
+    group: 1,
+  },
+  { kind: "passport", pattern: /\bpassport(?: (?:no\.?|number|#))?[ \t:#]*([A-Z0-9]{6,9})\b/gi, valid: passportValid, group: 1 },
+  {
+    kind: "vat_number",
+    pattern: /\b(?:VAT|BTW|TVA|IVA|USt-?IdNr\.?)(?: (?:no\.?|number|reg(?:istration)?(?: no\.?| number)?|id))?[ \t:#.]*((?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|GB|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|XI) ?[0-9A-Z]{8,12})\b/gi,
+    valid: vatValid,
+    group: 1,
+  },
+  // Bank details after the words: a US routing number, a UK sort code, an account number.
+  { kind: "bank_account", pattern: /\b(?:routing|ABA|RTN)(?: (?:no\.?|number|#))?[ \t:#]*(\d{9})\b/gi, valid: abaValid, group: 1 },
+  { kind: "bank_account", pattern: /\bsort code[ \t:#]*(\d{2}[- ]?\d{2}[- ]?\d{2})\b/gi, group: 1 },
+  { kind: "bank_account", pattern: /\b(?:account|acct|a\/c)(?: (?:no\.?|number|#))?[ \t:#]*(\d{8,17})\b/gi, group: 1 },
   { kind: "email", pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/g },
   {
     kind: "date_of_birth",
@@ -262,7 +394,7 @@ const DETECTORS: Detector[] = [
 
 /** Earlier wins an overlap: a card number is not also a phone number. */
 const PRIORITY: Record<DataKind, number> = Object.fromEntries(
-  ["secret", "iban", "payment_card", "us_ssn", "uk_national_insurance", "ie_pps", "email", "date_of_birth", "phone", "ip_address", "term", "person_name", "special_category"].map(
+  ["secret", "iban", "payment_card", "us_ssn", "uk_national_insurance", "ie_pps", "us_itin", "ca_sin", "fr_nir", "es_dni", "it_fiscal_code", "nl_bsn", "pl_pesel", "de_tax_id", "passport", "vat_number", "bank_account", "email", "date_of_birth", "phone", "ip_address", "term", "person_name", "special_category"].map(
     (k, i) => [k, i]
   )
 ) as Record<DataKind, number>;
@@ -466,6 +598,9 @@ export function readScreenPolicy(raw: unknown): ScreenPolicy {
   };
 }
 
+/** Labels that start with a proper name, so they keep their capitals in a sentence. */
+const KEEP_CASE: ReadonlySet<DataKind> = new Set(["ca_sin", "fr_nir", "it_fiscal_code", "nl_bsn", "pl_pesel", "de_tax_id"]);
+
 const plural = (n: number, label: string) => `${n} ${label.toLowerCase()}${n === 1 ? "" : "s"}`;
 
 /** "2 email addresses and 1 IBAN", for a reason or an approval's title. */
@@ -481,6 +616,8 @@ export function describeCounts(counts: ScreenCounts): string {
     if (k === "ip_address") return `${n} IP address${n === 1 ? "" : "es"}`;
     if (k === "date_of_birth") return `${n} date${n === 1 ? "" : "s"} of birth`;
     if (k === "ie_pps") return `${n} Irish PPS number${n === 1 ? "" : "s"}`;
+    if (k === "es_dni") return `${n} Spanish ${n === 1 ? "DNI or NIE" : "DNIs or NIEs"}`;
+    if (KEEP_CASE.has(k)) return `${n} ${label}${n === 1 ? "" : "s"}`;
     return /^[A-Z]{2,}/.test(label) ? `${n} ${label}${n === 1 ? "" : "s"}` : plural(n, label);
   });
   if (parts.length <= 1) return parts[0] ?? "nothing";

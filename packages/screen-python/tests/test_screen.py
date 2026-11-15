@@ -118,3 +118,73 @@ class Packaging(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Purview(unittest.TestCase):
+    """Purview's answer, held beside the screen's own: the stricter wins."""
+
+    APP = {"name": "Claims assistant", "entra_app_id": "11111111-1111-1111-1111-111111111111"}
+    USER = "22222222-2222-2222-2222-222222222222"
+
+    def check(self, status, body=None, on_unavailable="ask"):
+        from deliverd_screen import purview_check
+
+        sent = []
+
+        def transport(url, headers, payload, timeout):
+            sent.append((url, json.loads(payload.decode("utf-8"))))
+            return status, {"ETag": "e1"}, json.dumps(body or {}).encode("utf-8")
+
+        return purview_check("token", self.APP, user_id=self.USER, on_unavailable=on_unavailable, transport=transport), sent
+
+    def test_a_block_denies_even_clean_text_and_the_text_goes_only_to_graph(self):
+        check, sent = self.check(200, {"policyActions": [{"restrictionAction": "block"}]})
+        out = screen("Nothing personal here", purview=check)
+        self.assertEqual((out.verdict, out.allowed, out.redacted), ("deny", False, None))
+        self.assertIn("Purview policy blocks", " ".join(out.reasons))
+        self.assertEqual(out.purview.restriction, "block")
+        self.assertTrue(sent[0][0].startswith("https://graph.microsoft.com/v1.0/users/" + self.USER))
+        self.assertEqual(sent[0][1]["contentToProcess"]["contentEntries"][0]["content"]["data"], "Nothing personal here")
+
+    def test_a_warn_asks_and_shows_the_redacted_text(self):
+        check, _ = self.check(200, {"policyActions": [{"restrictionAction": "warn"}]})
+        out = screen("Write to mary@example.ie", purview=check)
+        self.assertEqual((out.verdict, out.allowed), ("ask", False))
+        self.assertEqual(out.redacted, "Write to [EMAIL_1]")
+
+    def test_no_action_keeps_the_screen_verdict(self):
+        check, _ = self.check(204)
+        out = screen("Write to mary@example.ie", purview=check)
+        self.assertEqual((out.verdict, out.text), ("redact", "Write to [EMAIL_1]"))
+
+    def test_unreachable_purview_follows_the_choice_made_beforehand(self):
+        check, _ = self.check(500, on_unavailable="deny")
+        self.assertEqual(screen("hello", purview=check).verdict, "deny")
+        check, _ = self.check(500, on_unavailable="allow")
+        out = screen("hello", purview=check)
+        self.assertEqual(out.verdict, "allow")
+        self.assertIn("could not be reached", " ".join(out.reasons))
+
+    def test_from_env_wants_all_four_or_none(self):
+        from deliverd_screen import purview_from_env
+
+        self.assertIsNone(purview_from_env({}))
+        with self.assertRaises(ValueError):
+            purview_from_env({"DELIVERD_PURVIEW_TENANT_ID": "x"})
+
+    def test_the_rules_are_the_sdk_file_byte_for_byte(self):
+        sdk = ROOT.parent / "sdk-python" / "src" / "deliverd" / "purview.py"
+        here = ROOT / "src" / "deliverd_screen" / "purview.py"
+        self.assertEqual(here.read_text("utf-8"), sdk.read_text("utf-8"))
+
+
+class Names(unittest.TestCase):
+    def test_says_how_to_install_transformers_when_it_is_missing(self):
+        import importlib.util
+
+        from deliverd_screen.adapters import names
+
+        if importlib.util.find_spec("transformers") is not None:
+            self.skipTest("transformers is installed here")
+        with self.assertRaisesRegex(RuntimeError, "pip install transformers"):
+            names()("Mary Byrne")

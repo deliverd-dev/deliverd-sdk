@@ -113,6 +113,13 @@ const PRESIDIO: Record<string, DataKind> = {
   IP_ADDRESS: "ip_address",
   US_SSN: "us_ssn",
   UK_NINO: "uk_national_insurance",
+  US_ITIN: "us_itin",
+  US_PASSPORT: "passport",
+  US_BANK_NUMBER: "bank_account",
+  ES_NIF: "es_dni",
+  ES_NIE: "es_dni",
+  IT_FISCAL_CODE: "it_fiscal_code",
+  PL_PESEL: "pl_pesel",
 };
 
 export interface PresidioOptions {
@@ -147,4 +154,66 @@ export function presidio(options: PresidioOptions = {}): SpanDetector {
       .filter((r) => r.score >= minScore && PRESIDIO[r.entity_type])
       .map((r) => ({ kind: PRESIDIO[r.entity_type]!, start: r.start, end: r.end }));
   };
+}
+
+/** The name model `names()` uses unless told otherwise: BERT fine-tuned for named entities, MIT licence, about 110 MB quantised. */
+export const DEFAULT_NAME_MODEL = "Xenova/bert-base-NER";
+
+export interface NamesOptions extends TokenClassifierOptions {
+  /** A Hugging Face token-classification model that transformers.js can run. Default `DEFAULT_NAME_MODEL`. */
+  model?: string;
+  /** Told once, before the model is first loaded (and downloaded, the first time on this machine). */
+  onLoad?: (model: string) => void;
+  /** Loads the pipeline. Default transformers.js's `pipeline("token-classification", model)`; pass your own to load it another way. */
+  load?: (model: string) => Promise<(text: string) => Promise<readonly ClassifiedToken[]>>;
+}
+
+type Pipeline = (text: string) => Promise<readonly ClassifiedToken[]>;
+
+/**
+ * People's names, found by a small model that runs on this machine. Opt in:
+ * install transformers.js beside this package and add the detector.
+ *
+ * ```ts
+ * // npm install @huggingface/transformers
+ * import { screen } from "@deliverd/screen";
+ * import { names } from "@deliverd/screen/adapters";
+ *
+ * const detectors = [names()];
+ * const checked = await screen("Ask Mary Byrne about it", { detectors });
+ * checked.text; // "Ask [NAME_1] about it"
+ * ```
+ *
+ * The first call downloads the model from Hugging Face once and caches it;
+ * after that nothing leaves the machine. Text is never sent anywhere: the
+ * model runs in this process. It finds names as well as the model does,
+ * which is well for English and worse for other languages and for names that
+ * are also ordinary words. Organisations and places are ignored.
+ */
+export function names(options: NamesOptions = {}): SpanDetector {
+  const model = options.model ?? DEFAULT_NAME_MODEL;
+  let loading: Promise<Pipeline> | null = null;
+  const load = async (): Promise<Pipeline> => {
+    if (options.load) {
+      options.onLoad?.(model);
+      return options.load(model);
+    }
+    const specifier = "@huggingface/transformers";
+    let mod: { pipeline: (task: string, model: string, options?: object) => Promise<Pipeline> };
+    try {
+      mod = (await import(specifier)) as typeof mod;
+    } catch {
+      throw new Error("names() runs a model with transformers.js. Install it beside @deliverd/screen: npm install @huggingface/transformers");
+    }
+    options.onLoad?.(model);
+    return mod.pipeline("token-classification", model, { dtype: "q8" });
+  };
+  const detect = tokenClassifier(
+    async (text) => {
+      loading ??= load();
+      return (await loading)(text);
+    },
+    options
+  );
+  return detect;
 }

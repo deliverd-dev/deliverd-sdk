@@ -28,6 +28,11 @@ def main(argv: Optional[List[str]] = None, stdin: TextIO = sys.stdin, stdout: Te
     parser.add_argument("--json", action="store_true", help="print what was found as JSON: kinds, offsets and counts, never values")
     parser.add_argument("--fail", action="store_true", help="exit 1 when anything is found")
     parser.add_argument("--terms", metavar="FILE", help="your own words not to send, one per line")
+    parser.add_argument(
+        "--names",
+        action="store_true",
+        help="also find people's names, with a model that runs on this machine (needs: pip install transformers torch; downloaded once)",
+    )
     parser.add_argument("-v", "--version", action="version", version=__version__)
     args = parser.parse_args(argv)
     if args.redact and len(args.files) > 1:
@@ -47,10 +52,16 @@ def main(argv: Optional[List[str]] = None, stdin: TextIO = sys.stdin, stdout: Te
             with open(name, encoding="utf-8") as f:
                 inputs.append((name, f.read()))
 
+    detectors = []
+    if args.names:
+        from .adapters import names
+
+        detectors.append(names(on_load=lambda m: stderr.write("Loading the name model {}. It is downloaded once, then runs on this machine.\n".format(m))))
+
     found = 0
     report = []
     for name, text in inputs:
-        findings, counts = detect(text, terms)
+        findings, counts = detect(text, terms, detectors)
         found += len(findings)
         if args.redact:
             stdout.write(redact(text, findings).text)

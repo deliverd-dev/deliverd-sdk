@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.2.0
+
+- **More national and bank identifiers, each with its check digit.** US
+  ITINs; Canadian Social Insurance numbers (Luhn-checked, in groups of three or
+  after "SIN"); French social security numbers (NIR, with their key); Spanish
+  DNI and NIE numbers and Italian fiscal codes (check letters); Dutch BSNs
+  (eleven test), Polish PESEL numbers and German tax IDs (Steuer-ID, ISO 7064)
+  after the word for them, because nine or eleven bare digits are too often
+  something else; passport numbers and VAT numbers after the word; and bank
+  details after the word: US routing numbers (ABA checksum), UK sort codes and
+  account numbers. New kinds: `us_itin`, `ca_sin`, `fr_nir`, `es_dni`,
+  `it_fiscal_code`, `nl_bsn`, `pl_pesel`, `de_tax_id`, `passport`,
+  `vat_number` and `bank_account`, in the shared test cases for all three
+  languages. Presidio's `US_ITIN`, `US_PASSPORT`, `US_BANK_NUMBER`, `ES_NIF`,
+  `ES_NIE`, `IT_FISCAL_CODE` and `PL_PESEL` map to them.
+- **Microsoft Purview, if you want it.** `screen(text, purview=...)` also asks
+  your organisation's Purview DLP policies about the text, through Microsoft
+  Graph with your own Entra app, and the stricter answer wins: a Purview block
+  denies, a warn is an ask. `purview_check()` makes the check,
+  `entra_app_token()` gets it a token, and `purview_from_env()` builds one from
+  the same `DELIVERD_PURVIEW_*` variables as the TypeScript package. Only the
+  standard library; without `purview`, nothing is sent anywhere, as before.
+- **Names, with a model on your machine, if you want it.** `names()` in
+  `deliverd_screen.adapters` runs a named-entity model with Hugging Face
+  `transformers` in this process (install it yourself). `--names` on the
+  command line.
+
 ## 0.1.2
 
 - **More secrets and numbers found.** A private key is now redacted whole,

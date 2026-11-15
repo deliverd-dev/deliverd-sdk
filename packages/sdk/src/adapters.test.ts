@@ -4,21 +4,30 @@ import { describe, expect, it } from "vitest";
 import * as adapters from "./adapters/index.js";
 import {
   approveInGraph,
+  changeOpenRouterGuardrail,
   deliverdAllow,
   deliverdWebMcpAllow,
   deliverdCanUseTool,
+  deliverdPermissionRequest,
   deliverdToolApproval,
   generateWithDeliverdApprovals,
+  openRouterGuardrailForData,
+  openRouterModelsInUse,
   pendingMastraApproval,
+  raiseOpenRouterKeyLimit,
+  registerOpenRouterModels,
   resolveInterruptions,
   resolveMastraApproval,
+  resolveOpenRouterApprovals,
   resumeFromCallback,
   runMuseFunctionCalls,
   runMuseToolCalls,
   runWithDeliverdApprovals,
   uiSdkApprovalRoute,
   type Approver,
+  type RegisterClient,
 } from "./adapters/index.js";
+import { Deliverd } from "./index.js";
 import { DeliverdTimeoutError } from "./errors.js";
 import type { CallbackEnvelope, Decision } from "./types.js";
 
@@ -489,6 +498,263 @@ describe("Muse Spark's function calls", () => {
   });
 });
 
+describe("OpenRouter's Agent SDK", () => {
+  /*
+   * Driven the way `@openrouter/agent` 1.2.1 drives them: the PermissionRequest
+   * hook gets `{ toolName, toolInput, riskLevel }` and the hook context
+   * `{ signal, hookName, sessionId }` (sessionId is "" unless the run names
+   * one); a paused ModelResult offers `getPendingToolCalls()` and `getState()`.
+   * The real package was also run end to end against a stand-in Responses API
+   * (examples/openrouter-agent): approved, declined, paused and resumed.
+   */
+  const payload = (toolName: string, toolInput: Record<string, unknown>) => ({ toolName, toolInput, riskLevel: "medium" as const });
+  const context = (sessionId = "") => ({ signal: new AbortController().signal, hookName: "PermissionRequest", sessionId });
+
+  it("allows the call once a person says yes, and passes the input and approvers", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const hook = deliverdPermissionRequest({ deliverd, approvers: ["finance"] });
+    expect(await hook.handler(payload("refund", { order: "1042" }), context("sess_1"))).toEqual({ decision: "allow" });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.approvers).toEqual(["finance"]);
+    expect(asked[0]!.input).toEqual({ order: "1042" });
+    expect(asked[0]!.risk).toBe("medium");
+    expect(asked[0]!.externalId).toMatch(/^openrouter:sess_1:refund:[0-9a-f]{8}$/);
+  });
+
+  it("denies with the person's reason, which OpenRouter hands the model", async () => {
+    const { deliverd } = approver(decision("rejected", { note: "Over the limit" }));
+    const result = await deliverdPermissionRequest({ deliverd }).handler(payload("refund", {}), context());
+    expect(result.decision).toBe("deny");
+    expect(result.reason).toMatch(/declined running refund by Dana\. Their reason: Over the limit/);
+  });
+
+  it("denies, rather than throws, when nobody answers in time", async () => {
+    const { deliverd } = approver(new DeliverdTimeoutError("apr_1", 5));
+    const result = await deliverdPermissionRequest({ deliverd, timeout: "5m" }).handler(payload("refund", {}), context());
+    expect(result).toMatchObject({ decision: "deny" });
+  });
+
+  it("allows a call `when` does not select without asking", async () => {
+    const { deliverd, asked } = approver(decision("rejected"));
+    const hook = deliverdPermissionRequest({ deliverd, when: (tool) => tool === "refund" });
+    expect(await hook.handler(payload("lookupOrder", {}), context())).toEqual({ decision: "allow" });
+    expect(asked).toHaveLength(0);
+  });
+
+  it("keys the same input the same way regardless of key order, and asks again for a repeat", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const hook = deliverdPermissionRequest({ deliverd });
+    await hook.handler(payload("refund", { a: 1, b: 2 }), context("s"));
+    await hook.handler(payload("refund", { b: 2, a: 1 }), context("s"));
+    expect(asked[1]!.externalId).toBe(`${asked[0]!.externalId}:2`);
+  });
+
+  it("never shares a key between two hooks when the run names no session", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    await deliverdPermissionRequest({ deliverd }).handler(payload("refund", { order: "1" }), context(""));
+    await deliverdPermissionRequest({ deliverd }).handler(payload("refund", { order: "1" }), context(""));
+    expect(asked[0]!.externalId).not.toBe(asked[1]!.externalId);
+  });
+
+  it("resolves a paused run into the ids to resume with, keyed by conversation and call", async () => {
+    let n = 0;
+    const deliverd: Approver = {
+      async approve(options) {
+        n += 1;
+        return n === 1 ? decision("approved") : decision("rejected", { note: "No" });
+      },
+    };
+    const asked: string[] = [];
+    const spy: Approver = { approve: async (o) => (asked.push(o.externalId!), deliverd.approve(o)) };
+    const paused = {
+      getPendingToolCalls: async () => [
+        { id: "call_1", name: "refund", arguments: { order: "1" } },
+        { id: "call_2", name: "sendEmail", arguments: '{"to":"a@b.c"}' },
+        { id: "call_3", name: "lookupOrder", arguments: {} },
+      ],
+      getState: async () => ({ id: "conv_9", status: "awaiting_approval" }),
+    };
+    const resume = await resolveOpenRouterApprovals(paused, { deliverd: spy, when: (tool) => tool !== "lookupOrder" });
+    expect(asked).toEqual(["openrouter:conv_9:call_1", "openrouter:conv_9:call_2"]);
+    expect(resume.approveToolCalls).toEqual(["call_1", "call_3"]);
+    expect(resume.rejectToolCalls).toEqual(["call_2"]);
+    expect(resume.reasons.call_2).toMatch(/Their reason: No/);
+  });
+
+  it("returns nothing to do when the run is not paused", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const idle = { getPendingToolCalls: async () => [], getState: async () => ({ id: "c" }) };
+    expect(await resolveOpenRouterApprovals(idle, { deliverd })).toEqual({ approveToolCalls: [], rejectToolCalls: [], reasons: {} });
+    expect(asked).toHaveLength(0);
+  });
+});
+
+describe("OpenRouter's own controls", () => {
+  /*
+   * A double of OpenRouter's management API as `@openrouter/sdk` 1.5.103
+   * describes it: answers wrapped in `{ data }`, snake_case fields. The PATCH
+   * bodies these helpers send were also compared with what @openrouter/sdk
+   * itself sends for the same change, and matched.
+   */
+  function openrouter(state: { guardrail?: Record<string, unknown>; key?: Record<string, unknown>; activity?: Record<string, unknown>[] }) {
+    const calls: { method: string; url: string; body?: unknown; auth?: string }[] = [];
+    const fetch = (async (url: string, init: RequestInit) => {
+      const headers = init.headers as Record<string, string>;
+      calls.push({ method: init.method!, url, body: init.body ? JSON.parse(String(init.body)) : undefined, auth: headers.authorization });
+      if (url.endsWith("/activity")) return Response.json({ data: state.activity ?? [] });
+      if (url.includes("/guardrails/")) return state.guardrail ? Response.json({ data: state.guardrail }) : Response.json({ error: { message: "Not found" } }, { status: 404 });
+      if (url.includes("/keys/")) return Response.json({ data: state.key });
+      return Response.json({ data: {} });
+    }) as unknown as typeof globalThis.fetch;
+    return { calls, admin: { managementKey: "sk-or-mgmt", fetch } };
+  }
+  const guardrail = { id: "g1", name: "Production", limit_usd: 100, enforce_zdr: true, allowed_providers: ["OpenAI", "Anthropic"], created_at: "2026-11-01", updated_at: "2026-11-02" };
+
+  it("shows each setting that would change, applies it on a yes, and keeps the key on your side", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const { calls, admin } = openrouter({ guardrail });
+    const result = await changeOpenRouterGuardrail("g1", { limitUsd: 50, allowedDataRegions: ["europe"], enforceZdr: true }, { deliverd, openrouter: admin, approvers: ["platform"] });
+    expect(result).toMatchObject({ applied: true, decidedBy: "Dana", approvalId: "apr_1" });
+    expect(asked[0]!.title).toBe("Change the OpenRouter guardrail “Production”");
+    expect(asked[0]!.description).toContain("Spend limit (USD): 100 → 50");
+    expect(asked[0]!.description).toContain("Data regions: none → europe");
+    expect(asked[0]!.description).not.toContain("Zero data retention"); // unchanged
+    expect(asked[0]!.risk).toBe("medium");
+    expect(JSON.stringify(asked[0])).not.toContain("sk-or-mgmt");
+    expect(calls.map((c) => c.method)).toEqual(["GET", "PATCH"]);
+    expect(calls[1]!.url).toBe("https://openrouter.ai/api/v1/guardrails/g1");
+    expect(calls[1]!.body).toEqual({ limit_usd: 50, allowed_data_regions: ["europe"] });
+    expect(calls[1]!.auth).toBe("Bearer sk-or-mgmt");
+  });
+
+  it("asks as high risk when a change loosens anything", async () => {
+    for (const change of [{ limitUsd: 500 }, { limitUsd: null }, { enforceZdr: false }, { allowedProviders: ["OpenAI", "Anthropic", "DeepInfra"] }, { allowedProviders: null }, { enablePaidModelTraining: true }]) {
+      const { deliverd, asked } = approver(decision("approved"));
+      await changeOpenRouterGuardrail("g1", change, { deliverd, openrouter: openrouter({ guardrail }).admin });
+      expect(asked[0]!.risk, JSON.stringify(change)).toBe("high");
+    }
+  });
+
+  it("changes nothing on a no, and says why", async () => {
+    const { deliverd } = approver(decision("rejected", { note: "Not before the audit" }));
+    const { calls, admin } = openrouter({ guardrail });
+    const result = await changeOpenRouterGuardrail("g1", { limitUsd: 500 }, { deliverd, openrouter: admin });
+    expect(result.applied).toBe(false);
+    expect(result).toMatchObject({ reason: "A person declined the change by Dana, so nothing was changed. Their reason: Not before the audit" });
+    expect(calls.map((c) => c.method)).toEqual(["GET"]);
+  });
+
+  it("asks nothing when nothing would change", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const result = await changeOpenRouterGuardrail("g1", { limitUsd: 100, allowedProviders: ["Anthropic", "OpenAI"] }, { deliverd, openrouter: openrouter({ guardrail }).admin });
+    expect(result.applied).toBe(false);
+    expect(asked).toHaveLength(0);
+  });
+
+  it("keys the same change the same way until the guardrail changes", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    await changeOpenRouterGuardrail("g1", { limitUsd: 50 }, { deliverd, openrouter: openrouter({ guardrail }).admin });
+    await changeOpenRouterGuardrail("g1", { limitUsd: 50 }, { deliverd, openrouter: openrouter({ guardrail }).admin });
+    await changeOpenRouterGuardrail("g1", { limitUsd: 50 }, { deliverd, openrouter: openrouter({ guardrail: { ...guardrail, updated_at: "2026-11-15" } }).admin });
+    expect(asked[0]!.externalId).toBe(asked[1]!.externalId);
+    expect(asked[2]!.externalId).not.toBe(asked[0]!.externalId);
+  });
+
+  it("surfaces OpenRouter's own error", async () => {
+    const { deliverd } = approver(decision("approved"));
+    await expect(changeOpenRouterGuardrail("nope", { limitUsd: 1 }, { deliverd, openrouter: openrouter({}).admin })).rejects.toThrow(/\(404\): Not found/);
+  });
+
+  it("raises a key's limit on a yes, showing what it has spent", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const { calls, admin } = openrouter({ key: { hash: "h1", name: "support-agent", limit: 50, usage: 12.5, usage_monthly: 4, created_at: "x" } });
+    const result = await raiseOpenRouterKeyLimit("h1", { limit: 80 }, { deliverd, openrouter: admin });
+    expect(result.applied).toBe(true);
+    expect(asked[0]!.title).toBe("Set OpenRouter key “support-agent” to a $80 limit");
+    expect(asked[0]!.description).toContain("It has spent $12.50 so far, $4.00 this month.");
+    expect(asked[0]!.risk).toBe("medium");
+    expect(calls[1]).toMatchObject({ method: "PATCH", url: "https://openrouter.ai/api/v1/keys/h1", body: { limit: 80 } });
+    const { deliverd: d2, asked: a2 } = approver(decision("approved"));
+    await raiseOpenRouterKeyLimit("h1", { limit: null }, { deliverd: d2, openrouter: admin });
+    expect(a2[0]!.risk).toBe("high");
+  });
+
+  describe("the AI use policy, read for OpenRouter", () => {
+    const cell = (rule: "yes" | "no" | "conditional", condition = "") => ({ rule, condition, satisfiedBy: "ask" as const });
+    const row = (consumer: ReturnType<typeof cell>, enterprise: ReturnType<typeof cell>, priv: ReturnType<typeof cell>) => ({ consumer, enterprise, private: priv });
+    const policy = {
+      enforce: true,
+      automatedDecisionLine: "",
+      outOfBounds: "",
+      grid: {
+        public: row(cell("yes"), cell("yes"), cell("yes")),
+        internal: row(cell("no"), cell("yes"), cell("yes")),
+        confidential: row(cell("no"), cell("conditional", "Only with a client's consent"), cell("yes")),
+        restricted: row(cell("no"), cell("no"), cell("yes")),
+        personal: row(cell("no"), cell("yes"), cell("yes")),
+        special: row(cell("no"), cell("no"), cell("no")),
+      },
+    };
+
+    it("public data needs nothing", () => {
+      expect(openRouterGuardrailForData(policy, ["public"])).toMatchObject({ allowed: true, deploymentClass: "consumer", guardrail: {} });
+    });
+
+    it("data the policy keeps to enterprise tools needs zero data retention and no training", () => {
+      const reading = openRouterGuardrailForData(policy, ["public", "personal", "confidential"], { region: "europe" });
+      expect(reading).toMatchObject({
+        allowed: true,
+        deploymentClass: "enterprise",
+        guardrail: { enforceZdr: true, enablePaidModelTraining: false, enableFreeModelTraining: false, enableFreeModelPublication: false, allowedDataRegions: ["europe"] },
+      });
+      expect(reading.conditions).toEqual(["confidential data: Only with a client's consent"]);
+    });
+
+    it("never lets OpenRouter carry what the policy keeps to a private deployment, or out of AI altogether", () => {
+      expect(openRouterGuardrailForData(policy, ["restricted"])).toMatchObject({ allowed: false, deploymentClass: "private" });
+      expect(openRouterGuardrailForData(policy, ["special"])).toMatchObject({ allowed: false, deploymentClass: null });
+    });
+  });
+
+  it("reads activity by model and registers only the models nobody registered", async () => {
+    const { admin } = openrouter({
+      activity: [
+        { date: "2026-11-10 00:00:00", model: "openai/gpt-4o-mini", provider_name: "OpenAI", requests: 10, usage: 0.1 },
+        { date: "2026-11-12 00:00:00", model: "openai/gpt-4o-mini", provider_name: "Azure", requests: 5, usage: 0.05 },
+        { date: "2026-11-11 00:00:00", model: "anthropic/claude-sonnet-4.5", provider_name: "Anthropic", requests: 3, usage: 0.3 },
+        { date: "2026-11-11 00:00:00", model: "meta/llama", provider_name: "Groq", requests: 1, usage: 0 },
+      ],
+    });
+    const uses = await openRouterModelsInUse(admin);
+    expect(uses[0]).toMatchObject({ model: "openai/gpt-4o-mini", providers: ["OpenAI", "Azure"], requests: 15, firstSeen: "2026-11-10 00:00:00", lastSeen: "2026-11-12 00:00:00" });
+    const registered: unknown[] = [];
+    const client = {
+      governance: {
+        aiSystems: {
+          list: async () => [{ id: "s1", name: "Support bot", model: "anthropic/claude-sonnet-4.5" }],
+          register: async (input: unknown) => (registered.push(input), { id: `s${registered.length + 1}`, name: "x" }),
+        },
+      },
+    };
+    const result = await registerOpenRouterModels({ deliverd: client, openrouter: admin, minRequests: 2 });
+    expect(result.registered).toEqual([{ id: "s2", model: "openai/gpt-4o-mini" }]);
+    expect(result.skipped.sort()).toEqual(["anthropic/claude-sonnet-4.5", "meta/llama"]);
+    expect(registered[0]).toMatchObject({
+      name: "openai/gpt-4o-mini via OpenRouter",
+      provider: "OpenAI, Azure",
+      supplier: "OpenRouter",
+      entryType: "discovered",
+      buildOrBuy: "buy",
+    });
+  });
+
+  it("takes the Deliverd client as it is", () => {
+    // Compile-time: the real client satisfies what registerOpenRouterModels asks for.
+    const client: RegisterClient = new Deliverd({ apiKey: "dlv_test" });
+    expect(client.governance.aiSystems).toBeDefined();
+  });
+});
+
 describe("the README", () => {
   it("imports from @deliverd/sdk/adapters only what it exports", () => {
     const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
@@ -509,6 +775,8 @@ describe("the README", () => {
         "deliverdWebMcpAllow",
         "uiSdkApprovalRoute",
         "watchManagedAgentSessions",
+        "deliverdPermissionRequest",
+        "resolveOpenRouterApprovals",
       ])
     );
     for (const name of imported) expect(adapters, `README imports ${name}`).toHaveProperty(name);

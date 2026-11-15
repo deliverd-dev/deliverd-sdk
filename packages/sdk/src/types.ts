@@ -1989,6 +1989,42 @@ export interface RegisterAiSystemInput {
   customerFacing?: boolean;
   /** The contract in the ICT third-party register it runs under. */
   ictArrangementId?: string | null;
+  /**
+   * consumer (a personal account, no contract), enterprise (the vendor's
+   * service under your contract) or private (your own cloud and region). The
+   * AI use policy says which data may go into each.
+   */
+  deploymentClass?: UsePolicyDeploymentClass | null;
+  /** How the use came to the register. `discovered`: found in use. */
+  entryType?: "internal_build" | "supplier_ai" | "feature_in_service" | "proof_of_concept" | "discovered" | null;
+  buildOrBuy?: "build" | "buy" | "hybrid" | null;
+  /** The supplier, when bought. */
+  supplier?: string | null;
+}
+
+/** Deployment classes, from the least control over the data to the most. */
+export type UsePolicyDeploymentClass = "consumer" | "enterprise" | "private";
+/** Data classes, least sensitive first. */
+export type UsePolicyData = "public" | "internal" | "confidential" | "restricted" | "personal" | "special";
+
+/** One cell of the AI use policy: may this data go into this kind of tool? */
+export interface UsePolicyCell {
+  rule: "yes" | "no" | "conditional";
+  /** For a conditional cell: the condition, as a person reads it when asked. */
+  condition: string;
+  /** `ask`: a person approves each time. `dpia`: a current, signed-off DPIA on the record. */
+  satisfiedBy: "ask" | "dpia";
+}
+
+/** The AI use policy: which data may go into which kind of AI tool. */
+export interface UsePolicy {
+  /** Whether data screening applies the grid. Off, it is a written policy only. */
+  enforce: boolean;
+  grid: Record<UsePolicyData, Record<UsePolicyDeploymentClass, UsePolicyCell>>;
+  /** Where the organisation draws the GDPR Article 22 line, in its own words. */
+  automatedDecisionLine: string;
+  /** Uses that are out, in plain words. */
+  outOfBounds: string;
 }
 
 /** An agent may raise a system's risk but not lower it, and may not retire it. */

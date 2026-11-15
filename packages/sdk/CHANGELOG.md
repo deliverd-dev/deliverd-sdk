@@ -2,9 +2,41 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.37.1
+## 0.38.0
 
-A patch. 0.37.0 went to npm on 15 November 2026 from deliverd-sdk 86a80b1.
+A minor, for an addition. 0.37.0 went to npm on 15 November 2026 from
+deliverd-sdk 86a80b1; this was opened as 0.37.1.
+
+### Added
+
+- **`@deliverd/sdk/adapters`: OpenRouter's Agent SDK.** `deliverdPermissionRequest()`
+  is a `PermissionRequest` hook for `@openrouter/agent`'s `callModel`: each
+  call to a tool marked `requireApproval` is decided by a person, the run
+  waits and carries on, and a no reaches the model with the person's reason.
+  `resolveOpenRouterApprovals(result, options)` works across a pause instead:
+  it asks about each pending call of a run saved with a `state` accessor and
+  returns the `approveToolCalls` and `rejectToolCalls` to resume it with,
+  keyed by conversation and call id so a restart never asks twice. Checked
+  end to end against `@openrouter/agent` 1.2.1.
+- **OpenRouter's own controls, with a person's yes.** `changeOpenRouterGuardrail()`
+  reads a guardrail, shows a person each setting that would change (before
+  and after; anything that loosens is high risk) and applies it only on a yes.
+  `raiseOpenRouterKeyLimit()` does the same for one key's credit limit,
+  showing what it has spent. Both run with your management key, which never
+  reaches Deliverd; their requests match what `@openrouter/sdk` sends.
+- **The AI use policy, for OpenRouter.** `deliverd.governance.aiUsePolicy()`
+  reads the policy (`GET /api/v1/governance/ai-use-policy`), and
+  `openRouterGuardrailForData(policy, data)` says whether OpenRouter may carry
+  that data at all and with which guardrail settings: none for what consumer
+  tools may take, zero data retention with training and publication off for
+  what needs an enterprise tenant, and never what the policy keeps to a
+  private deployment.
+- **OpenRouter activity into the AI register.** `openRouterModelsInUse()` reads
+  the last 30 days of activity by model; `registerOpenRouterModels()` adds the
+  models nobody registered as found in use, supplier OpenRouter, for a person
+  to triage.
+- **`RegisterAiSystemInput`: `deploymentClass`, `entryType`, `buildOrBuy` and
+  `supplier`,** which the API already accepted.
 
 ## 0.37.0
 

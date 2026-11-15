@@ -34,6 +34,32 @@ export { approveInGraph, resumeFromCallback } from "./langgraph.js";
 export type { DeliverdInterruptValue, GraphApprovalRecord, GraphApprover, GraphDecision } from "./langgraph.js";
 export { generateWithDeliverdApprovals, pendingMastraApproval, resolveMastraApproval } from "./mastra.js";
 export type { MastraApprovingAgent, MastraOutput } from "./mastra.js";
+export { deliverdPermissionRequest, resolveOpenRouterApprovals } from "./openrouter.js";
+export type {
+  OpenRouterHookContext,
+  OpenRouterPausedResult,
+  OpenRouterPendingCall,
+  OpenRouterPermissionHook,
+  OpenRouterPermissionPayload,
+  OpenRouterPermissionResult,
+  OpenRouterResume,
+} from "./openrouter.js";
+export {
+  changeOpenRouterGuardrail,
+  openRouterGuardrailForData,
+  openRouterModelsInUse,
+  raiseOpenRouterKeyLimit,
+  registerOpenRouterModels,
+} from "./openrouter.js";
+export type {
+  OpenRouterAdmin,
+  OpenRouterChangeOptions,
+  OpenRouterChangeResult,
+  OpenRouterGuardrailSettings,
+  OpenRouterModelUse,
+  OpenRouterPolicyReading,
+  RegisterClient,
+} from "./openrouter.js";
 export { runMuseFunctionCalls, runMuseToolCalls } from "./muse-spark.js";
 export type {
   MuseFunctionCall,

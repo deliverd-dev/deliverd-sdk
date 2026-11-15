@@ -887,6 +887,22 @@ const output = await generateWithDeliverdApprovals(agent, agent.generate("Refund
 Each suspended call is approved with `agent.approveToolCallGenerate` or declined
 with `agent.declineToolCallGenerate`, and the person's reason reaches the model.
 
+**OpenRouter Agent SDK** (`@openrouter/agent`) — mark tools `requireApproval: true` as usual, then hand OpenRouter's `PermissionRequest` hook to Deliverd:
+
+```ts
+import { deliverdPermissionRequest, resolveOpenRouterApprovals } from "@deliverd/sdk/adapters";
+
+const result = openrouter.callModel({
+  model, input, tools,
+  hooks: { PermissionRequest: [deliverdPermissionRequest({ deliverd, approvers: ["finance"] })] },
+});
+```
+
+The run waits for the person and carries on; a no reaches the model with their
+reason. For a wait longer than a process should stay up, let the run pause with
+a `state` accessor, then `resolveOpenRouterApprovals(result, { deliverd })`
+returns the `approveToolCalls` and `rejectToolCalls` to resume it with.
+
 **Muse Spark** (Meta Model API) — the loop runs the calls, so hand them over with the function that runs them:
 
 ```ts

@@ -18,6 +18,7 @@ import type {
   GovernanceSummaryInput,
   IctRegister,
   ListIncidentsInput,
+  UsePolicy,
   ModelChangeInput,
   ModelChangeResult,
   RegisterAiSystemInput,
@@ -190,6 +191,15 @@ export class AiGovernance {
   /** The ICT third-party register: providers, contracts, the AI systems under each, gaps and concentration. */
   ictRegister(signal?: AbortSignal): Promise<IctRegister> {
     return this.http.request<IctRegister>({ method: "GET", path: "/governance/ict-register", signal });
+  }
+
+  /**
+   * The AI use policy: which data may go into which kind of AI tool. Read
+   * only; a person changes it in the app (Governance → AI use policy).
+   */
+  async aiUsePolicy(signal?: AbortSignal): Promise<UsePolicy> {
+    const { policy } = await this.http.request<{ policy: UsePolicy }>({ method: "GET", path: "/governance/ai-use-policy", signal });
+    return policy;
   }
 
   /** The organisation's AI governance in counts, optionally narrowed. Never a compliance percentage. */

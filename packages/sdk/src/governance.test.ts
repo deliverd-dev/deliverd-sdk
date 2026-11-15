@@ -140,6 +140,12 @@ describe("governance across the organisation", () => {
     expect(await deliverd.governance.aiSystems.list()).toEqual([{ id: "s1", name: "Claims triage" }]);
   });
 
+  it("reads the AI use policy, not its envelope", async () => {
+    const { seen, deliverd } = recording({ policy: { enforce: true, grid: {}, automatedDecisionLine: "", outOfBounds: "" } });
+    expect((await deliverd.governance.aiUsePolicy()).enforce).toBe(true);
+    expect(seen[0]).toMatchObject({ method: "GET", url: "https://deliverd.example/api/v1/governance/ai-use-policy" });
+  });
+
   it("asks what an agent may do", async () => {
     const { seen, deliverd } = recording({ action: "send", mode: "approval" });
     const answer = await deliverd.governance.checkAuthority({ action: "send" });

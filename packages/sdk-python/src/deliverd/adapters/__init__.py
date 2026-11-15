@@ -12,6 +12,9 @@ tool call from their inbox, Slack or Teams, and the agent carries on.
   and MCP tools.
 - :mod:`deliverd.adapters.foundry` — Microsoft Foundry Agent Service's
   ``mcp_approval_request``, for an MCP tool with ``require_approval``.
+- :mod:`deliverd.adapters.perplexity` — Perplexity's Agent API: the
+  ``mcp_approval_request`` items from MCP servers and connectors with
+  ``require_approval``, and the function calls your code runs.
 - :mod:`deliverd.adapters.pydantic_ai` — Pydantic AI's deferred tools, for
   ``requires_approval=True``: a ``HandleDeferredToolCalls`` capability that
   answers them inside the run.

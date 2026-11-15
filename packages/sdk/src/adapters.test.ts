@@ -22,6 +22,10 @@ import {
   resumeFromCallback,
   runMuseFunctionCalls,
   runMuseToolCalls,
+  answerPerplexityApprovals,
+  runPerplexityFunctionCalls,
+  runPerplexityWithDeliverd,
+  type PerplexityResponse,
   runWithDeliverdApprovals,
   uiSdkApprovalRoute,
   type Approver,
@@ -498,6 +502,128 @@ describe("Muse Spark's function calls", () => {
   });
 });
 
+describe("Perplexity's Agent API", () => {
+  const approvalRequest = {
+    type: "mcp_approval_request",
+    id: "mcpr_1",
+    server_label: "linear",
+    connector_id: "connector_linear",
+    name: "update_issue",
+    arguments: '{"id":"LIN-12","state":"Done"}',
+  };
+
+  it("answers each MCP approval request with a person's decision", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const { responses, reasons } = await answerPerplexityApprovals(
+      [{ type: "mcp_list_tools" }, approvalRequest],
+      { deliverd, approvers: ["platform-team"] }
+    );
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.externalId).toBe("perplexity:mcpr_1");
+    expect(asked[0]!.input).toEqual({ id: "LIN-12", state: "Done" });
+    expect(asked[0]!.metadata).toMatchObject({ tool: "update_issue", server: "linear", connector: "connector_linear" });
+    expect(responses).toEqual([{ type: "mcp_approval_response", approval_request_id: "mcpr_1", approve: true }]);
+    expect(reasons).toEqual({});
+  });
+
+  it("declines with the person's reason, where the model reads it", async () => {
+    const { deliverd } = approver(decision("rejected", { note: "Not before the release" }));
+    const { responses, reasons } = await answerPerplexityApprovals([approvalRequest], { deliverd });
+    expect(responses[0]!.approve).toBe(false);
+    expect(responses[0]!.reason).toContain("Not before the release");
+    expect(reasons.mcpr_1).toContain("declined running update_issue by Dana");
+    const quiet = await answerPerplexityApprovals([approvalRequest], { deliverd, sendReason: false });
+    expect(quiet.responses[0]).not.toHaveProperty("reason");
+  });
+
+  it("approves without asking a call `when` does not select", async () => {
+    const { deliverd, asked } = approver(decision("rejected"));
+    const { responses } = await answerPerplexityApprovals([approvalRequest], { deliverd, when: () => false });
+    expect(asked).toHaveLength(0);
+    expect(responses[0]!.approve).toBe(true);
+  });
+
+  it("runs only the function calls a person approved", async () => {
+    const { deliverd, asked } = approver(decision("rejected", { note: "Too much" }));
+    let ran = 0;
+    const results = await runPerplexityFunctionCalls(
+      [{ type: "function_call", call_id: "fc_1", name: "refund", arguments: '{"amount":900}' }],
+      () => ran++,
+      { deliverd }
+    );
+    expect(asked[0]!.externalId).toBe("perplexity:fc_1");
+    expect(ran).toBe(0);
+    expect(results[0]!.type).toBe("function_call_output");
+    expect(results[0]!.output).toContain("Too much");
+  });
+
+  function client(script: PerplexityResponse[]) {
+    const sent: Record<string, unknown>[] = [];
+    return {
+      sent,
+      responses: {
+        async create(params: Record<string, unknown>) {
+          sent.push(params);
+          return script.shift()!;
+        },
+      },
+    };
+  }
+
+  it("keeps answering until the run asks for nothing more, chained by response id", async () => {
+    const { deliverd } = approver(decision("approved"));
+    const fake = client([
+      { id: "resp_1", status: "completed", output: [approvalRequest] },
+      { id: "resp_2", status: "completed", output: [{ type: "function_call", call_id: "fc_1", name: "lookup", arguments: "{}" } as never] },
+      { id: "resp_3", status: "completed", output: [{ type: "message" }] },
+    ]);
+    const tools = [{ type: "connector", id: "connector_linear", server_label: "linear", require_approval: "always" }];
+    const final = await runPerplexityWithDeliverd(
+      fake,
+      { model: "openai/gpt-5.6-sol", input: "Close LIN-12", tools },
+      { deliverd, run: () => "found" }
+    );
+    expect(final.id).toBe("resp_3");
+    expect(fake.sent[1]).toEqual({
+      model: "openai/gpt-5.6-sol",
+      tools,
+      input: [{ type: "mcp_approval_response", approval_request_id: "mcpr_1", approve: true }],
+      previous_response_id: "resp_1",
+    });
+    expect(fake.sent[2]!.input).toEqual([{ type: "function_call_output", call_id: "fc_1", output: "found" }]);
+    expect(fake.sent[2]!.previous_response_id).toBe("resp_2");
+  });
+
+  it("resends the conversation instead, for zero data retention", async () => {
+    const { deliverd } = approver(decision("approved"));
+    const fake = client([
+      { id: "resp_1", output: [approvalRequest] },
+      { id: "resp_2", output: [{ type: "message" }] },
+    ]);
+    await runPerplexityWithDeliverd(fake, { model: "m", input: "Close LIN-12" }, { deliverd, replay: true });
+    expect(fake.sent[1]).not.toHaveProperty("previous_response_id");
+    expect(fake.sent[1]!.input).toEqual([
+      { type: "message", role: "user", content: "Close LIN-12" },
+      approvalRequest,
+      { type: "mcp_approval_response", approval_request_id: "mcpr_1", approve: true },
+    ]);
+  });
+
+  it("hands back a function call it was given nothing to run with", async () => {
+    const { deliverd } = approver(decision("approved"));
+    const fake = client([{ id: "resp_1", output: [{ type: "function_call", call_id: "fc_1", name: "x", arguments: "{}" } as never] }]);
+    const final = await runPerplexityWithDeliverd(fake, { model: "m", input: "hi" }, { deliverd });
+    expect(final.id).toBe("resp_1");
+    expect(fake.sent).toHaveLength(1);
+  });
+
+  it("stops after maxRounds", async () => {
+    const { deliverd } = approver(decision("approved"));
+    const fake = client(Array.from({ length: 5 }, (_, i) => ({ id: `r${i}`, output: [{ ...approvalRequest, id: `m${i}` }] })));
+    await expect(runPerplexityWithDeliverd(fake, { model: "m", input: "hi" }, { deliverd, maxRounds: 2 })).rejects.toThrow(/after 2 rounds/);
+  });
+});
+
 describe("OpenRouter's Agent SDK", () => {
   /*
    * Driven the way `@openrouter/agent` 1.2.1 drives them: the PermissionRequest
@@ -777,6 +903,7 @@ describe("the README", () => {
         "watchManagedAgentSessions",
         "deliverdPermissionRequest",
         "resolveOpenRouterApprovals",
+        "runPerplexityWithDeliverd",
       ])
     );
     for (const name of imported) expect(adapters, `README imports ${name}`).toHaveProperty(name);

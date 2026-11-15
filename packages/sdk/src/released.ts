@@ -38059,8 +38059,13 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.38.0 is on npm (15 November 2026, from deliverd-sdk 17b55b9). Same surface. */
-  "0.38.1": [
+  /*
+   * Opened as 0.38.1 when 0.38.0 went to npm (15 November 2026, from
+   * deliverd-sdk 17b55b9); renamed 0.39.0 for an addition: Perplexity's Agent
+   * API (answerPerplexityApprovals, runPerplexityFunctionCalls,
+   * runPerplexityWithDeliverd) and their types.
+   */
+  "0.39.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -39495,6 +39500,15 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:OpenRouterPermissionResult",
     "adapters:OpenRouterPolicyReading",
     "adapters:OpenRouterResume",
+    "adapters:PerplexityApprovalOptions",
+    "adapters:PerplexityApprovalRequest",
+    "adapters:PerplexityApprovalResponse",
+    "adapters:PerplexityApprovals",
+    "adapters:PerplexityClient",
+    "adapters:PerplexityFunctionCall",
+    "adapters:PerplexityFunctionCallOutput",
+    "adapters:PerplexityResponse",
+    "adapters:PerplexityRunOptions",
     "adapters:RegisterClient",
     "adapters:ToolApprovalOptions",
     "adapters:UI_SDK_DEFAULT_TIMEOUT",
@@ -39503,6 +39517,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:UiSdkAskContext",
     "adapters:UiSdkStep",
     "adapters:answerManagedAgentConfirmations",
+    "adapters:answerPerplexityApprovals",
     "adapters:approveInGraph",
     "adapters:changeOpenRouterGuardrail",
     "adapters:defaultDescription",
@@ -39525,6 +39540,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:resumeFromCallback",
     "adapters:runMuseFunctionCalls",
     "adapters:runMuseToolCalls",
+    "adapters:runPerplexityFunctionCalls",
+    "adapters:runPerplexityWithDeliverd",
     "adapters:runWithDeliverdApprovals",
     "adapters:uiSdkApprovalRoute",
     "adapters:watchManagedAgentSessions",

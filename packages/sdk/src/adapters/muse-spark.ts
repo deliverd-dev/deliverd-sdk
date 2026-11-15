@@ -109,12 +109,18 @@ export async function runMuseToolCalls(
   return results;
 }
 
-async function approveAndRun(
+/**
+ * Ask about one call when `when` selects it, and run it only on a yes. Shared
+ * with the other Responses-API-shaped adapters (Perplexity's Agent API), each
+ * keying its requests with its own prefix. Not exported from the adapters entry.
+ */
+export async function approveAndRun(
   toolName: string,
   rawArguments: string,
   callId: string,
   run: MuseToolRunner,
-  options: MuseToolApprovalOptions
+  options: MuseToolApprovalOptions,
+  prefix = "muse-spark:"
 ): Promise<string> {
   const input = parseArguments(rawArguments);
   if (!options.when || (await options.when(toolName, input))) {
@@ -124,7 +130,7 @@ async function approveAndRun(
         : undefined;
     // The call id makes the ask idempotent: a loop that is retried, or a
     // process restarted mid-wait, finds the request it already made.
-    const outcome = await askAboutCall(toolName, input, `muse-spark:${callId}`, options, undefined, editable);
+    const outcome = await askAboutCall(toolName, input, `${prefix}${callId}`, options, undefined, editable);
     if (!outcome.allowed) return outcome.reason;
     // What was approved runs, which is the proposal unless a person corrected it.
     return render(await run(toolName, outcome.input ?? input));

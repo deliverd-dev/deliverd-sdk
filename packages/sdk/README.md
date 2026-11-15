@@ -903,6 +903,24 @@ reason. For a wait longer than a process should stay up, let the run pause with
 a `state` accessor, then `resolveOpenRouterApprovals(result, { deliverd })`
 returns the `approveToolCalls` and `rejectToolCalls` to resume it with.
 
+**Perplexity Agent API** — set `require_approval` on the MCP servers and connectors that can change something, and let Deliverd answer the run:
+
+```ts
+import { runPerplexityWithDeliverd } from "@deliverd/sdk/adapters";
+
+const response = await runPerplexityWithDeliverd(perplexity, {
+  model: "openai/gpt-5.6-sol",
+  input: "Close the stale issues in our tracker",
+  tools: [{ type: "connector", id: "connector_linear", server_label: "linear", require_approval: "always" }],
+}, { deliverd, approvers: ["platform-team"], run: runTool });
+```
+
+Each `mcp_approval_request` waits for a person and is answered with an
+`mcp_approval_response` (a no carries their reason); with `run`, each of your
+own `function_call`s runs only on a yes. Perplexity runs MCP calls without
+asking unless `require_approval` is set. `replay: true` resends the
+conversation for zero data retention accounts.
+
 **Muse Spark** (Meta Model API) — the loop runs the calls, so hand them over with the function that runs them:
 
 ```ts

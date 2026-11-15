@@ -69,6 +69,22 @@ export type {
   MuseToolMessage,
   MuseToolRunner,
 } from "./muse-spark.js";
+export {
+  answerPerplexityApprovals,
+  runPerplexityFunctionCalls,
+  runPerplexityWithDeliverd,
+} from "./perplexity.js";
+export type {
+  PerplexityApprovalOptions,
+  PerplexityApprovalRequest,
+  PerplexityApprovalResponse,
+  PerplexityApprovals,
+  PerplexityClient,
+  PerplexityFunctionCall,
+  PerplexityFunctionCallOutput,
+  PerplexityResponse,
+  PerplexityRunOptions,
+} from "./perplexity.js";
 export { deliverdAllow, deliverdWebMcpAllow, describeStep, uiSdkApprovalRoute, UI_SDK_DEFAULT_TIMEOUT } from "./ui-sdk.js";
 export type { DeliverdAllowOptions, UiSdkApprovalAnswer, UiSdkApprovalRouteOptions, UiSdkAskContext, UiSdkStep } from "./ui-sdk.js";
 export { defaultDescription, DEFAULT_TOOL_EXPIRY } from "./shared.js";

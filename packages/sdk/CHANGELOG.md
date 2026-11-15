@@ -2,9 +2,24 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.38.1
+## 0.39.0
 
-A patch. 0.38.0 went to npm on 15 November 2026 from deliverd-sdk 17b55b9.
+A minor, for an addition. 0.38.0 went to npm on 15 November 2026 from
+deliverd-sdk 17b55b9; this was opened as 0.38.1.
+
+### Added
+
+- **`@deliverd/sdk/adapters`: Perplexity's Agent API.** `runPerplexityWithDeliverd(client, params, options)`
+  creates a response and keeps answering it until it asks for nothing more:
+  each `mcp_approval_request` from an MCP server or connector with
+  `require_approval` is decided by a person and answered with an
+  `mcp_approval_response` (a no carries the person's reason), and, given a
+  `run` function, each `function_call` runs only on a yes. Follow-ups chain
+  with `previous_response_id`, or with `replay: true` resend the conversation
+  for accounts under zero data retention. `answerPerplexityApprovals()` and
+  `runPerplexityFunctionCalls()` do one round, for a loop you own. Works with
+  `@perplexity-ai/perplexity_ai` or the OpenAI SDK pointed at
+  `https://api.perplexity.ai/v1`. Requests are keyed `perplexity:<id>`.
 
 ## 0.38.0
 

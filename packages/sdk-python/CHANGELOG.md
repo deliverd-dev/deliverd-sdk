@@ -2,9 +2,26 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.27.1
+## 0.28.0
 
-A patch. 0.27.0 went to PyPI on 14 November 2026 from deliverd-sdk b4ba441.
+A minor, for an addition. 0.27.0 went to PyPI on 14 November 2026 from
+deliverd-sdk b4ba441; this was opened as 0.27.1.
+
+### Added
+
+- **`deliverd.adapters.perplexity`: Perplexity's Agent API.**
+  `run_with_deliverd_approvals(client, deliverd, create_kwargs=…)` creates a
+  response and keeps answering it until it asks for nothing more: each
+  `mcp_approval_request` from an MCP server or connector with
+  `require_approval` is decided by a person and answered with an
+  `mcp_approval_response` (a no carries the person's reason), and, given
+  `run=`, each `function_call` runs only on a yes. Follow-ups chain with
+  `previous_response_id`, or with `replay=True` resend the conversation for
+  accounts under zero data retention. `approval_responses_for()` and
+  `run_function_calls()` do one round, for a loop you own; `_async` variants
+  take `AsyncPerplexity` and an `AsyncDeliverd`. Works with the `perplexityai`
+  package or the OpenAI client pointed at `https://api.perplexity.ai/v1`.
+  Requests are keyed `perplexity:<id>`.
 
 ## 0.27.0
 

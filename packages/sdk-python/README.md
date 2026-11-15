@@ -55,9 +55,10 @@ build.
 - **Inside the agent frameworks you already use.** `deliverd.adapters` answers
   the tool approvals of Claude Managed Agents (hosted or self-hosted),
   Google Antigravity, Microsoft Agent Framework, Microsoft Foundry, Pydantic
-  AI, CrewAI, Meta's Muse Spark, Amazon Bedrock Agents, Strands Agents (Bedrock
-  AgentCore) and Google ADK (Vertex AI Agent Engine) with a person's decision,
-  without any of them becoming a dependency. All ten are below.
+  AI, CrewAI, Meta's Muse Spark, Perplexity's Agent API, Amazon Bedrock Agents,
+  Strands Agents (Bedrock AgentCore) and Google ADK (Vertex AI Agent Engine)
+  with a person's decision, without any of them becoming a dependency. All
+  eleven are below.
 
 ---
 
@@ -842,6 +843,40 @@ why, or that nobody decided in time. The request stays open, keyed
 `run_tool_calls` does the same for a Chat Completions message's `tool_calls`,
 and `run_function_calls_async` and `run_tool_calls_async` take an
 `AsyncDeliverd`.
+
+## Perplexity Agent API
+
+Perplexity's Agent API runs MCP servers and connectors for you, and runs their
+calls without asking unless `require_approval` is set. Set it on the ones that
+can change something, and let Deliverd answer the run:
+
+```python
+from perplexity import Perplexity
+from deliverd import Deliverd
+from deliverd.adapters.perplexity import run_with_deliverd_approvals
+
+response = run_with_deliverd_approvals(
+    Perplexity(),
+    Deliverd(),
+    create_kwargs={
+        "model": "openai/gpt-5.6-sol",
+        "input": "Close the stale issues in our tracker",
+        "tools": [{"type": "connector", "id": "connector_linear",
+                   "server_label": "linear", "require_approval": "always"}],
+    },
+    approvers=["platform-team"],
+    run=run_tool,
+)
+print(response.output_text)
+```
+
+Each `mcp_approval_request` waits for a person and is answered with an
+`mcp_approval_response`; a no carries their reason, which the model reads.
+Given `run=`, each of your own `function_call`s runs only on a yes. Requests are
+keyed `perplexity:<id>`, so asking again finds the same one; a run nobody has
+decided before `timeout` comes back with the requests still in `output`.
+`replay=True` resends the conversation instead of `previous_response_id`, for
+accounts under zero data retention.
 
 ## Amazon Bedrock Agents
 

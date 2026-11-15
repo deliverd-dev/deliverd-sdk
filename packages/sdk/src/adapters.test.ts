@@ -5,6 +5,7 @@ import * as adapters from "./adapters/index.js";
 import {
   approveInGraph,
   deliverdAllow,
+  deliverdWebMcpAllow,
   deliverdCanUseTool,
   deliverdToolApproval,
   generateWithDeliverdApprovals,
@@ -505,6 +506,7 @@ describe("the README", () => {
         "generateWithDeliverdApprovals",
         "runMuseFunctionCalls",
         "deliverdAllow",
+        "deliverdWebMcpAllow",
         "uiSdkApprovalRoute",
         "watchManagedAgentSessions",
       ])
@@ -616,5 +618,69 @@ describe("Vercel's UI SDK agent bridge", () => {
     const allow = deliverdAllow({ endpoint: "/x", fetch, when: (step) => step.label === "Plan" });
     expect(await allow({ ref: "c2", component: "select", label: "Plan", action: "setValue", args: ["Enterprise"] })).toBe(true);
     expect(asked[0]!.title).toBe('Let the agent set "Plan"');
+  });
+
+  describe("WebMCP: the browser's own agent", () => {
+    it("asks about a marked step and tells the approver the browser's agent asked", async () => {
+      const { asked, fetch, sent } = wired(decision("approved"));
+      const allow = deliverdWebMcpAllow({ endpoint: "/x", fetch });
+      expect(await allow({ ...confirmStep })).toBe(true);
+      expect(((await sent[0]!.json()) as { via?: string }).via).toBe("webmcp");
+      expect(asked).toHaveLength(1);
+      expect(asked[0]!.description).toMatch(/browser's own agent, using the page through WebMCP/);
+      expect(asked[0]!.metadata).toMatchObject({ source: "ui-sdk", via: "webmcp" });
+    });
+
+    it("lets an unmarked step through without asking, as the bridge's allow does", async () => {
+      const { asked, fetch } = wired(decision("approved"));
+      expect(await deliverdWebMcpAllow({ endpoint: "/x", fetch })({ ref: "c1", component: "input", action: "setValue", args: ["Atlas"] })).toBe(true);
+      expect(asked).toHaveLength(0);
+    });
+
+    it("does not ask twice when the bridge's deliverdAllow already asked about the same step", async () => {
+      // UI SDK hands one step object to the bridge's allow, then to registerTools' allow.
+      const { asked, fetch } = wired(decision("approved"));
+      const bridge = deliverdAllow({ endpoint: "/x", fetch });
+      const webmcp = deliverdWebMcpAllow({ endpoint: "/x", fetch });
+      const step = { ...confirmStep };
+      expect(await bridge(step)).toBe(true);
+      expect(await webmcp(step)).toBe(true);
+      expect(asked).toHaveLength(1);
+      // Once only: the same object asked about again goes to a person again.
+      expect(await webmcp(step)).toBe(true);
+      expect(asked).toHaveLength(2);
+    });
+
+    it("asks for itself when an allow other than Deliverd's said yes first", async () => {
+      const { asked, fetch } = wired(decision("approved"));
+      const step = { ...confirmStep };
+      // A bridge allow that is not Deliverd's said yes: the person was not asked, so ask.
+      expect(await deliverdWebMcpAllow({ endpoint: "/x", fetch })(step)).toBe(true);
+      expect(asked).toHaveLength(1);
+    });
+
+    it("the route's `when` sees who asked, so it can send the browser's presses to a person too", async () => {
+      const { asked, fetch } = wired(decision("approved"), {
+        when: (step, _request, { via }) => Boolean(step.confirm) || (via === "webmcp" && step.action === "press"),
+      });
+      const press = { ref: "c6", component: "button", label: "Save changes", action: "press", args: [] };
+      const webmcp = deliverdWebMcpAllow({ endpoint: "/x", fetch, when: (step) => Boolean(step.confirm) || step.action === "press" });
+      expect(await webmcp(press)).toBe(true);
+      expect(asked).toHaveLength(1);
+      // The same press, sent without via, is refused: only the browser's agent widened.
+      const bridge = deliverdAllow({ endpoint: "/x", fetch, when: () => true });
+      expect(await bridge(press)).toBe(false);
+      expect(asked).toHaveLength(1);
+    });
+
+    it("the route refuses a via that is not a short name", async () => {
+      const { deliverd, asked } = approver(decision("approved"));
+      const route = uiSdkApprovalRoute({ deliverd });
+      const response = await route(
+        new Request("https://app.example.test/x", { method: "POST", body: JSON.stringify({ step: confirmStep, nonce: "n", via: "<script>" }) })
+      );
+      expect(response.status).toBe(400);
+      expect(asked).toHaveLength(0);
+    });
   });
 });

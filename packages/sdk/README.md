@@ -921,6 +921,20 @@ files"). A no, a wait that runs out, or a route that fails all leave the
 control untouched. The route waits four minutes by default; raise its
 `timeout`, the bridge's `timeout` and your function's limit together.
 
+If the browser's own agent can use the page too, through WebMCP, give
+`registerTools` the WebMCP version. The approver is told the browser's agent
+asked, and a step the bridge already put to a person is not asked twice:
+
+```ts
+import { deliverdWebMcpAllow } from "@deliverd/sdk/adapters";
+
+registerTools(agent, { allow: deliverdWebMcpAllow({ endpoint: "/api/deliverd/ui-approval" }) });
+```
+
+Don't pass `allow: () => true` there unless the bridge itself has an `allow`
+that asks a person: without one, UI SDK lets the browser's agent through a
+`data-agent-confirm` mark on that `true` alone.
+
 **LangGraph** — pause the graph rather than a process, and resume it from the callback:
 
 ```ts

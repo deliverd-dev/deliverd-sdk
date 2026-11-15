@@ -35001,8 +35001,12 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.36.0 is on npm (14 November 2026, from deliverd-sdk 767872c). Same surface. */
-  "0.36.1": [
+  /*
+   * Opened as 0.36.1 because 0.36.0 is on npm (14 November 2026, from
+   * deliverd-sdk 767872c); renamed 0.37.0 for an addition: deliverdWebMcpAllow,
+   * the UI SDK registerTools allow, and UiSdkAskContext.
+   */
+  "0.37.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -36417,6 +36421,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:UI_SDK_DEFAULT_TIMEOUT",
     "adapters:UiSdkApprovalAnswer",
     "adapters:UiSdkApprovalRouteOptions",
+    "adapters:UiSdkAskContext",
     "adapters:UiSdkStep",
     "adapters:answerManagedAgentConfirmations",
     "adapters:approveInGraph",
@@ -36424,6 +36429,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:deliverdAllow",
     "adapters:deliverdCanUseTool",
     "adapters:deliverdToolApproval",
+    "adapters:deliverdWebMcpAllow",
     "adapters:describeStep",
     "adapters:followManagedAgentSession",
     "adapters:generateWithDeliverdApprovals",

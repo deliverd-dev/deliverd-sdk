@@ -2,9 +2,33 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.36.1
+## 0.37.0
 
-A patch. 0.36.0 went to npm on 14 November 2026 from deliverd-sdk 767872c.
+A minor, for an addition. 0.36.0 went to npm on 14 November 2026 from
+deliverd-sdk 767872c; this was opened as 0.36.1.
+
+### Added
+
+- **`@deliverd/sdk/adapters`: `deliverdWebMcpAllow()`.** The `allow` that
+  Vercel UI SDK's `registerTools` asks for, when the browser's own agent
+  (ChatGPT's site tools, or any browser with WebMCP) can use your page. A step
+  on a `data-agent-confirm` control goes to a person through your
+  `uiSdkApprovalRoute`, marked `via: "webmcp"`, so the approver reads that it
+  was the browser's agent and not one your app runs. A step the bridge's own
+  `deliverdAllow` already put to a person is not asked about twice: UI SDK
+  hands both hooks the same step, and a yes is used once.
+- **`uiSdkApprovalRoute`: who asked.** `when` and `describe` take a third and
+  second argument, `{ via }`, and the request's metadata carries `via`. A route
+  can now send every press by the browser's agent to a person, and leave your
+  own agent's unmarked presses alone. The page says who asked; nothing checks
+  it, so use it to ask more often, never less.
+
+### Why it matters
+
+With no bridge `allow`, UI SDK lets the browser's agent through a
+`data-agent-confirm` mark on `registerTools`' `allow` alone: `allow: () => true`
+there presses the button with nobody asked. `deliverdWebMcpAllow` is a safe
+thing to pass instead.
 
 ## 0.36.0
 

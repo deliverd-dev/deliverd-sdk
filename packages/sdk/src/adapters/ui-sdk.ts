@@ -39,8 +39,13 @@ import { askAboutCall, type CallDescription, type ToolApprovalOptions } from "./
  * out is a no, and the request expires with it, so nobody approves a step the
  * agent has stopped waiting for.
  *
- * Shapes follow `AgentAction` and `createAgent`'s `allow` option in
- * `@ui-sdk/core`'s agent docs (0.1.0-beta.1).
+ * When the browser's own agent can use the page too (WebMCP, through UI SDK's
+ * `registerTools`), pass `deliverdWebMcpAllow` as that `allow`. UI SDK runs it
+ * after the bridge's for each step the browser's agent asks for, inside the
+ * same `timeout`.
+ *
+ * Shapes follow `AgentAction`, `createAgent`'s `allow` option and
+ * `registerTools` in `@ui-sdk/core`'s agent docs (0.1.0-beta.1 and beta.2).
  */
 
 /** The step UI SDK hands to `allow`: its `AgentAction`. */
@@ -69,8 +74,22 @@ export interface DeliverdAllowOptions {
   headers?: Record<string, string> | (() => Record<string, string>);
   /** Told each answer, so the page can show a person's reason. */
   onAnswer?: (answer: UiSdkApprovalAnswer, step: UiSdkStep) => void;
+  /**
+   * Which agent asked, sent to your route so the approver can tell. `"webmcp"`
+   * means the browser's own agent, through `registerTools`. Letters, digits
+   * and dashes, up to 40.
+   */
+  via?: string;
   fetch?: typeof globalThis.fetch;
 }
+
+/**
+ * Steps a person has already approved through Deliverd, by identity. UI SDK
+ * hands the same step object to the bridge's `allow` and then to the one
+ * `registerTools` was given, so the second can tell that the person was
+ * already asked about this very step and not ask them twice.
+ */
+const approvedSteps = new WeakSet<object>();
 
 /**
  * UI SDK's `allow` hook, answered by a person through Deliverd.
@@ -83,6 +102,7 @@ export function deliverdAllow(
   options: DeliverdAllowOptions
 ): (step: UiSdkStep, context?: { signal?: AbortSignal }) => Promise<boolean> {
   const needsPerson = options.when ?? ((step: UiSdkStep) => Boolean(step.confirm));
+  const via = options.via !== undefined && VIA.test(options.via) ? options.via : undefined;
   return async (step, context) => {
     if (!needsPerson(step)) return true;
     const doFetch = options.fetch ?? globalThis.fetch;
@@ -92,7 +112,7 @@ export function deliverdAllow(
       const response = await doFetch(options.endpoint, {
         method: "POST",
         headers: { "content-type": "application/json", ...headers },
-        body: JSON.stringify({ step: pickStep(step), nonce: nonce() }),
+        body: JSON.stringify({ step: pickStep(step), nonce: nonce(), ...(via ? { via } : {}) }),
         signal: context?.signal,
       });
       const body = (await response.json().catch(() => null)) as Partial<UiSdkApprovalAnswer> | null;
@@ -111,7 +131,39 @@ export function deliverdAllow(
       answer = { allowed: false, reason: "The approval route could not be reached, so the step was not run." };
     }
     options.onAnswer?.(answer, step);
+    if (answer.allowed && typeof step === "object" && step !== null) approvedSteps.add(step);
     return answer.allowed;
+  };
+}
+
+/**
+ * The `allow` that UI SDK's `registerTools` asks for, answered by a person
+ * through Deliverd. Use it when the browser's own agent (ChatGPT's site tools,
+ * or any browser with WebMCP) can use your page:
+ *
+ * ```ts
+ * registerTools(agent, {
+ *   allow: deliverdWebMcpAllow({ endpoint: "/api/deliverd/ui-approval" }),
+ * });
+ * ```
+ *
+ * It asks about marked steps by default, as `deliverdAllow` does, and tells
+ * your route the browser's agent asked (`via: "webmcp"`). A step the bridge's
+ * own `deliverdAllow` already put to a person is not asked about again.
+ *
+ * Do not pass `allow: () => true` to `registerTools` unless the bridge has an
+ * `allow` that asks a person: with no bridge `allow`, UI SDK lets the browser's
+ * agent through a `data-agent-confirm` mark on that `true` alone.
+ */
+export function deliverdWebMcpAllow(
+  options: DeliverdAllowOptions
+): (step: UiSdkStep, context?: { signal?: AbortSignal }) => Promise<boolean> {
+  const ask = deliverdAllow({ ...options, via: options.via ?? "webmcp" });
+  return async (step, context) => {
+    // The bridge's own deliverdAllow said yes to this very step a moment ago.
+    // Used once: the same object never counts for a later step.
+    if (typeof step === "object" && step !== null && approvedSteps.delete(step)) return true;
+    return ask(step, context);
   };
 }
 
@@ -122,9 +174,9 @@ export interface UiSdkApprovalRouteOptions extends Omit<ToolApprovalOptions, "wh
    * the browser only sends steps it wants a person for, so anything else
    * arriving here was not sent by `deliverdAllow`.
    */
-  when?: (step: UiSdkStep, request: Request) => boolean | Promise<boolean>;
+  when?: (step: UiSdkStep, request: Request, context: UiSdkAskContext) => boolean | Promise<boolean>;
   /** What the approver reads. Built from the mark's sentence, the control and its values when omitted. */
-  describe?: (step: UiSdkStep) => CallDescription;
+  describe?: (step: UiSdkStep, context: UiSdkAskContext) => CallDescription;
   /**
    * How long to wait for the person. Default four minutes, inside UI SDK's
    * own five-minute wait and a typical function limit. Raise all three together.
@@ -132,6 +184,12 @@ export interface UiSdkApprovalRouteOptions extends Omit<ToolApprovalOptions, "wh
   timeout?: Duration;
   /** How long the request stays open. Default: the same as `timeout`. */
   expiresIn?: Duration;
+}
+
+/** What the page said about who asked. The page says it; nothing checks it. */
+export interface UiSdkAskContext {
+  /** `"webmcp"` when the browser's own agent asked, through `deliverdWebMcpAllow`. */
+  via?: string;
 }
 
 export const UI_SDK_DEFAULT_TIMEOUT: Duration = "4m";
@@ -160,8 +218,9 @@ export function uiSdkApprovalRoute(options: UiSdkApprovalRouteOptions): (request
     }
     const parsed = readBody(raw);
     if (!parsed) return json({ allowed: false, reason: "The step could not be read." }, 400);
-    const { step, nonce: id } = parsed;
-    if (!(await needsPerson(step, request))) {
+    const { step, nonce: id, via } = parsed;
+    const context: UiSdkAskContext = via ? { via } : {};
+    if (!(await needsPerson(step, request, context))) {
       return json({ allowed: false, reason: "This step is not one this route asks a person about." }, 403);
     }
     const name = stepName(step);
@@ -172,10 +231,10 @@ export function uiSdkApprovalRoute(options: UiSdkApprovalRouteOptions): (request
       {
         ...options,
         when: undefined,
-        describe: () => describe(step),
+        describe: () => describe(step, context),
         timeout,
         expiresIn: options.expiresIn ?? timeout,
-        metadata: { ...options.metadata, source: "ui-sdk" },
+        metadata: { ...options.metadata, source: "ui-sdk", ...(via ? { via } : {}) },
       },
       request.signal
     );
@@ -187,13 +246,16 @@ export function uiSdkApprovalRoute(options: UiSdkApprovalRouteOptions): (request
 }
 
 /** What an approver reads about a step, when the app did not write it. */
-export function describeStep(step: UiSdkStep): CallDescription {
+export function describeStep(step: UiSdkStep, context: UiSdkAskContext = {}): CallDescription {
   const target = step.label ? `"${step.label}"` : `the ${step.component}`;
   const verb = step.action === "press" ? "press" : step.action === "setValue" ? "set" : step.action;
   const values = (step.args ?? []).map((arg) => (typeof arg === "string" ? arg : JSON.stringify(arg))).join(", ");
   const lines = [
     step.confirm ? `The app says this: ${step.confirm}` : undefined,
     `An agent wants to ${verb} ${target}${values ? ` (${truncate(values, 500)})` : ""} in the app.`,
+    context.via === "webmcp"
+      ? "It is the browser's own agent, using the page through WebMCP, not an agent the app runs."
+      : undefined,
   ].filter(Boolean);
   return {
     title: truncate(step.confirm ?? `Let the agent ${verb} ${target}`, 200),
@@ -203,6 +265,7 @@ export function describeStep(step: UiSdkStep): CallDescription {
 }
 
 const BODY_MAX = 16_000;
+const VIA = /^[a-z0-9-]{1,40}$/;
 
 function stepName(step: UiSdkStep): string {
   return step.label ? `${step.action} "${step.label}"` : `${step.action} ${step.component}`;
@@ -220,9 +283,10 @@ function pickStep(step: UiSdkStep): UiSdkStep {
   };
 }
 
-function readBody(raw: unknown): { step: UiSdkStep; nonce: string } | null {
+function readBody(raw: unknown): { step: UiSdkStep; nonce: string; via?: string } | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const { step, nonce: id } = raw as { step?: unknown; nonce?: unknown };
+  const { step, nonce: id, via } = raw as { step?: unknown; nonce?: unknown; via?: unknown };
+  if (via !== undefined && (typeof via !== "string" || !VIA.test(via))) return null;
   if (typeof id !== "string" || id.length === 0 || id.length > 100) return null;
   if (typeof step !== "object" || step === null) return null;
   const s = step as Record<string, unknown>;
@@ -231,7 +295,7 @@ function readBody(raw: unknown): { step: UiSdkStep; nonce: string } | null {
   if (s.label !== undefined && !str(s.label)) return null;
   if (s.confirm !== undefined && !str(s.confirm)) return null;
   if (s.args !== undefined && !Array.isArray(s.args)) return null;
-  return { step: pickStep(s as unknown as UiSdkStep), nonce: id };
+  return { step: pickStep(s as unknown as UiSdkStep), nonce: id, ...(typeof via === "string" ? { via } : {}) };
 }
 
 function json(body: UiSdkApprovalAnswer | { allowed: false; reason: string }, status: number): Response {

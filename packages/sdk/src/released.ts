@@ -41166,8 +41166,14 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifySignature",
   ],
 
-  /* Opened because 0.39.1 is on npm (15 November 2026, from deliverd-sdk 2c0a749). Same surface. */
-  "0.39.2": [
+  /*
+   * Opened as 0.39.2 when 0.39.1 went to npm (15 November 2026, from
+   * deliverd-sdk 2c0a749); renamed 0.40.0 for an addition: Xero's and
+   * QuickBooks Online's tool map (classifyLedgerTool, classifyLedgerRequest,
+   * FINANCE_ACTIONS, FINANCE_ACTION_IDS, LEDGERS, LEDGER_LABEL,
+   * financeActionLabel, maskAccount) and its types.
+   */
+  "0.40.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -42570,9 +42576,17 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:DEFAULT_TOOL_EXPIRY",
     "adapters:DeliverdAllowOptions",
     "adapters:DeliverdInterruptValue",
+    "adapters:FINANCE_ACTIONS",
+    "adapters:FINANCE_ACTION_IDS",
+    "adapters:FinanceActionId",
     "adapters:GraphApprovalRecord",
     "adapters:GraphApprover",
     "adapters:GraphDecision",
+    "adapters:LEDGERS",
+    "adapters:LEDGER_LABEL",
+    "adapters:Ledger",
+    "adapters:LedgerCall",
+    "adapters:LedgerInput",
     "adapters:ManagedAgentsApprovalOptions",
     "adapters:ManagedAgentsClient",
     "adapters:ManagedAgentsEvent",
@@ -42622,6 +42636,8 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:answerPerplexityApprovals",
     "adapters:approveInGraph",
     "adapters:changeOpenRouterGuardrail",
+    "adapters:classifyLedgerRequest",
+    "adapters:classifyLedgerTool",
     "adapters:defaultDescription",
     "adapters:deliverdAllow",
     "adapters:deliverdCanUseTool",
@@ -42629,8 +42645,10 @@ export const RELEASED: Record<string, readonly string[]> = {
     "adapters:deliverdToolApproval",
     "adapters:deliverdWebMcpAllow",
     "adapters:describeStep",
+    "adapters:financeActionLabel",
     "adapters:followManagedAgentSession",
     "adapters:generateWithDeliverdApprovals",
+    "adapters:maskAccount",
     "adapters:openRouterGuardrailForData",
     "adapters:openRouterModelsInUse",
     "adapters:pendingMastraApproval",

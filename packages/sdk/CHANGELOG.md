@@ -2,9 +2,25 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.39.2
+## 0.40.0
 
-A patch. 0.39.1 went to npm on 15 November 2026 from deliverd-sdk 2c0a749.
+A minor, for an addition. 0.39.1 went to npm on 15 November 2026 from
+deliverd-sdk 2c0a749; this was opened as 0.39.2.
+
+### Added
+
+- **`@deliverd/sdk/adapters`: Xero and QuickBooks Online.** `classifyLedgerTool(ledger, tool, args)`
+  reads one tool call to Xero's MCP server or agent toolkit, or to Intuit's
+  QuickBooks MCP server, and says which finance action it is: approve a bill,
+  record a payment, post a journal, a bank transaction, change a supplier's
+  bank details, send an invoice, a credit note, payroll, a void, or any other
+  write. A read is `null`. The action carries the amount, currency,
+  counterparty and reference read from the call, so a rule such as
+  `amount gte 5000` applies; bank details are masked to their last four
+  characters. `classifyLedgerRequest(ledger, method, path, body)` does the same
+  for a REST call. `FINANCE_ACTIONS` names the actions of the "Agents in the
+  books" starter kit. The same map runs in Deliverd's ledger gateway and the
+  MCP gate's `--ledger` option.
 
 ## 0.39.1
 

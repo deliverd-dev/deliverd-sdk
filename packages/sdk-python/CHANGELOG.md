@@ -2,9 +2,20 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.28.2
+## 0.29.0
 
-A patch. 0.28.1 went to PyPI on 15 November 2026 from deliverd-sdk 2c0a749.
+A minor, for an addition. 0.28.1 went to PyPI on 15 November 2026 from
+deliverd-sdk 2c0a749; this was opened as 0.28.2.
+
+### Added
+
+- **`deliverd.ledgers`: Xero and QuickBooks Online.** `classify_ledger_tool(ledger, tool, args)`
+  reads one tool call to Xero's MCP server or agent toolkit, or to Intuit's
+  QuickBooks MCP server, and returns the finance action it is (approve a bill,
+  record a payment, post a journal, change a supplier's bank details...) with
+  the amount, currency, counterparty and reference read from the call, or
+  `None` for a read. Pass it to `gates.check` before the call runs. The same
+  map as `@deliverd/sdk`'s `classifyLedgerTool`, held to it by shared cases.
 
 ## 0.28.1
 

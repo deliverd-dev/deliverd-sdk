@@ -474,15 +474,19 @@ export const RELEASED: Record<string, readonly string[]> = {
     "unshare", "update", "use", "verify", "versions", "who", "workspaces",
   ],
 
-  /* Opened because 0.19.1 is on npm (1 November 2026, from 006a654). Same commands. */
-  "0.19.2": [
+  /*
+   * Opened because 0.19.1 is on npm (1 November 2026, from 006a654). Adds
+   * `approvals receipt` (16 November 2026), and `setup` now connects to the
+   * v2 MCP endpoint (/api/mcp/v2), so a minor version rather than a patch.
+   */
+  "0.20.0": [
     "actions", "activate", "add", "agents", "agents-md", "analytics", "answer",
     "apply", "approvals", "approve-decision", "archive", "ask", "audit",
     "cancel", "check", "collect", "comments", "complete", "context", "copy",
     "create", "data", "evidence", "export", "finding", "flows", "gates", "get",
     "given", "governance", "graph", "import", "knowledge", "link", "list",
     "login", "open", "pack", "playbooks", "policy", "publish", "push",
-    "release", "rename", "reopen", "replay", "resolve", "retract", "reviews", "rm",
+    "receipt", "release", "rename", "reopen", "replay", "resolve", "retract", "reviews", "rm",
     "rollback", "schedules", "search", "send", "set", "setup", "share", "show",
     "side-task", "simulate", "start", "tasks", "templates", "test", "unarchive",
     "unshare", "update", "use", "verify", "versions", "who", "workspaces",

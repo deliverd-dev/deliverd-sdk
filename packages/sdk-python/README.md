@@ -988,7 +988,7 @@ send as one user message.
 - **REST** — the [API reference](https://deliverd.dev/docs/api?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=readme), built from
   the [OpenAPI document](https://deliverd.dev/api/v1/openapi.json)
 - **MCP** — a remote server any agent can connect to, at
-  `https://deliverd.dev/api/mcp` ([setup](https://deliverd.dev/docs/developers/mcp?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=readme))
+  `https://deliverd.dev/api/mcp/v2` ([setup](https://deliverd.dev/docs/developers/mcp?utm_source=pypi&utm_medium=package&utm_campaign=python-sdk&utm_content=readme))
 - **TypeScript** — [`@deliverd/sdk`](https://www.npmjs.com/package/@deliverd/sdk),
   the same shapes with `await`
 - **CLI** — [`deliverd`](https://www.npmjs.com/package/deliverd) on npm

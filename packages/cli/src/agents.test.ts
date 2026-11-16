@@ -19,7 +19,7 @@ import {
  * cannot parse its config ignores the file rather than complaining.
  */
 describe("mergeMcpConfig", () => {
-  const entry = mcpEntry("https://deliverd.dev/api/mcp");
+  const entry = mcpEntry("https://deliverd.dev/api/mcp/v2");
 
   it("creates a config when there is none", () => {
     const result = JSON.parse(mergeMcpConfig(null, "deliverd", entry));
@@ -62,7 +62,7 @@ describe("mergeMcpConfig", () => {
       mcpServers: { deliverd: { url: "https://old.example/api/mcp" } },
     });
     const after = JSON.parse(mergeMcpConfig(before, "deliverd", entry));
-    expect(after.mcpServers.deliverd.url).toBe("https://deliverd.dev/api/mcp");
+    expect(after.mcpServers.deliverd.url).toBe("https://deliverd.dev/api/mcp/v2");
   });
 
   it("refuses a file it cannot parse instead of overwriting it", () => {
@@ -181,7 +181,7 @@ describe("agentPaths", () => {
  * and each difference breaks Muse in its own way if it is got wrong.
  */
 describe("mergeMuseSettings", () => {
-  const url = "https://deliverd.dev/api/mcp";
+  const url = "https://deliverd.dev/api/mcp/v2";
 
   it("creates a settings file Muse will open", () => {
     // Without schema_version every `muse` command fails "malformed settings file".
@@ -243,10 +243,10 @@ describe("Muse Code", () => {
 
   it("gets a Muse settings file from writeAgentConfig, with the path in any refusal", () => {
     const path = join(mkdtempSync(join(tmpdir(), "deliverd-muse-")), "muse", "settings.json");
-    writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp", "muse");
+    writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2", "muse");
     expect(JSON.parse(readFileSync(path, "utf8")).mcp_servers.deliverd.transport).toBe("streamable_http");
     writeFileSync(path, '{"schema_version": 3}');
-    expect(() => writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp", "muse")).toThrow(path);
+    expect(() => writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2", "muse")).toThrow(path);
   });
 });
 
@@ -257,10 +257,10 @@ describe("writeAgentConfig", () => {
 
   it("writes a new config", () => {
     const path = tmp();
-    const result = writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp");
+    const result = writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2");
     expect(result.backedUpTo).toBeNull();
     expect(JSON.parse(readFileSync(path, "utf8")).mcpServers.deliverd.url).toBe(
-      "https://deliverd.dev/api/mcp"
+      "https://deliverd.dev/api/mcp/v2"
     );
   });
 
@@ -269,7 +269,7 @@ describe("writeAgentConfig", () => {
     const before = JSON.stringify({ mcpServers: { github: { url: "x" } } });
     writeFileSync(path, before);
 
-    const result = writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp");
+    const result = writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2");
     expect(result.backedUpTo).not.toBeNull();
     expect(readFileSync(result.backedUpTo!, "utf8")).toBe(before);
     // And the original server survived the edit.
@@ -284,7 +284,7 @@ describe("writeAgentConfig", () => {
     writeFileSync(path, broken);
 
     expect(() =>
-      writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp")
+      writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2")
     ).toThrow(ConfigUnreadable);
     expect(readFileSync(path, "utf8")).toBe(broken);
   });
@@ -293,7 +293,7 @@ describe("writeAgentConfig", () => {
     const path = tmp();
     writeFileSync(path, "{oops");
     try {
-      writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp");
+      writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2");
       expect.unreachable("should have thrown");
     } catch (err) {
       expect((err as ConfigUnreadable).message).toContain(path);
@@ -303,7 +303,7 @@ describe("writeAgentConfig", () => {
   it("creates the directory when the tool has never written one", () => {
     const dir = mkdtempSync(join(tmpdir(), "deliverd-agents-"));
     const path = join(dir, "nested", "deeper", "mcp.json");
-    writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp");
+    writeAgentConfig(path, "deliverd", "https://deliverd.dev/api/mcp/v2");
     expect(existsSync(path)).toBe(true);
   });
 });

@@ -150,7 +150,7 @@ program
       loadConfig()?.baseUrl ??
       "https://deliverd.dev"
     ).replace(/\/+$/, "");
-    const mcpUrl = `${baseUrl}/api/mcp`;
+    const mcpUrl = `${baseUrl}/api/mcp/v2`;
 
     if (options.agent && !(options.agent in AGENT_NAMES)) {
       console.error(

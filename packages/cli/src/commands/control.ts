@@ -311,6 +311,26 @@ export function controlCommands(program: Command): void {
     );
 
   approvals
+    .command("receipt")
+    .description("The signed receipt for a decided request: who said yes, and how to check it")
+    .argument("<id>", "Approval id")
+    .option("--json", "Print the result as JSON, for scripting")
+    .action(
+      run(async (id: string, options: { json?: boolean }) => {
+        const config = requireConfig();
+        const made = await api<{ receipt: string; verifyUrl: string; claims: { outcome: string; decidedBy: { name: string }[] } }>(
+          config,
+          "GET",
+          `/approvals/${encodeURIComponent(id)}/receipt`
+        );
+        emit(options.json, made, () => {
+          const who = made.claims.decidedBy.map((d) => d.name).join(", ");
+          console.log(`\n✓ ${made.claims.outcome.replace("_", " ")} by ${who}.\n\n${made.receipt}\n\nCheck it: ${made.verifyUrl}\n`);
+        });
+      })
+    );
+
+  approvals
     .command("cancel")
     .description("Withdraw a request you raised, while it is still undecided")
     .argument("<id>", "Approval id")

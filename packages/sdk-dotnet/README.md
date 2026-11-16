@@ -190,4 +190,4 @@ TypeScript, Python and Rust SDKs, `packages/conformance/cases.json`.
 
 Reviews, collections, publishing, flows, tasks and development mode. The
 TypeScript, Python and Rust SDKs have them; over .NET, reach them with
-`deliverd.Http`, or over MCP at `https://deliverd.dev/api/mcp`.
+`deliverd.Http`, or over MCP at `https://deliverd.dev/api/mcp/v2`.

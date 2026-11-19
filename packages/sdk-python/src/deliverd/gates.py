@@ -367,6 +367,8 @@ class Gates:
         supersedes_gate_id: Optional[str] = None,
         callback_url: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        model: Optional[str] = None,
+        traceparent: Optional[str] = None,
     ) -> Gate:
         """Raise a decision and return straight away, even if it went to a person.
 
@@ -398,6 +400,8 @@ class Gates:
                 "supersedesGateId": supersedes_gate_id,
                 "callbackUrl": callback_url,
                 "metadata": metadata,
+                "model": model,
+                "traceparent": traceparent,
             },
             passthrough=("input", "metadata"),
         )
@@ -417,3 +421,36 @@ class Gates:
         return Gate(
             self._http, GateData.from_wire(self._http.request("GET", f"/gates/{gate_id}"))
         )
+
+
+def is_unavailable(err: BaseException) -> bool:
+    """Whether an error means Deliverd could not be reached: a network failure
+    or a 5xx. A timed-out wait and every 4xx are not, so ``on_unavailable``
+    never hides a bug or a refusal."""
+    from .errors import DeliverdError, DeliverdTimeoutError
+
+    if not isinstance(err, DeliverdError) or isinstance(err, DeliverdTimeoutError):
+        return False
+    if err.code in ("aborted", "no_api_key"):
+        return False
+    return err.status == 0 or err.status >= 500
+
+
+def unavailable_decision(mode: str, input: Dict[str, Any], err: Any) -> "GateDecision":
+    """The decision ``on_unavailable`` gives when Deliverd could not be reached."""
+    from .types import GateDecision
+
+    allowed = mode == "allow"
+    return GateDecision(
+        allowed=allowed,
+        status="allowed" if allowed else "denied",
+        reason=f'Deliverd could not be reached ({err.code}), so on_unavailable="{mode}" answered.',
+        rule=None,
+        input=input,
+        changes=[],
+        id="",
+        approval_url=None,
+        gate=None,
+        decision_token=None,
+        unavailable=True,
+    )

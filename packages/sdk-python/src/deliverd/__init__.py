@@ -36,7 +36,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 from ._http import DEFAULT_BASE_URL, HttpClient, Transport
 from .approvals import FAST_POLL_SCHEDULE, POLL_SCHEDULE, Approval, Approvals, DecisionSessions
-from .gates import Gate, Gates
+from .gates import Gate, Gates, is_unavailable, unavailable_decision
 from .governance import AiGovernance, AiSystems, Incidents
 from .collections import Collection, Collections
 from .comments import Comments
@@ -201,7 +201,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.29.1"
+__version__ = "0.30.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -547,6 +547,9 @@ class Deliverd:
         timeout: Optional[Duration] = None,
         cancel: Optional[threading.Event] = None,
         wait: bool = True,
+        model: Optional[str] = None,
+        traceparent: Optional[str] = None,
+        on_unavailable: str = "throw",
     ) -> GateDecision:
         """Ask whether to act, and wait if a person has to decide.
 
@@ -574,15 +577,37 @@ class Deliverd:
 
         ``wait=False`` returns a pending decision immediately; ``deliverd.gates``
         is the same thing with the handle exposed.
+
+        ``model`` names the model doing the work; the register record shows a
+        model it does not hold. ``traceparent`` is the W3C header of the span
+        this runs in, so a decision sent to the organisation's own
+        OpenTelemetry collector joins the trace.
+
+        ``on_unavailable`` decides what happens when Deliverd cannot be reached
+        (a network failure or a 5xx, never a 4xx): ``"throw"`` by default, or
+        ``"deny"`` or ``"allow"`` per action. It applies to the first check
+        only, never to a wait for a person. Such a decision has
+        ``unavailable=True``, an empty id and no decision token.
         """
-        gate = self.gates.create(
-            action_id=action,
-            input=input,
-            external_id=external_id,
-            environment=environment,
-            reason=reason,
-            flow_id=flow_id,
-        )
+        if on_unavailable not in ("throw", "deny", "allow"):
+            raise ValueError('on_unavailable is "throw", "deny" or "allow".')
+        try:
+            gate = self.gates.create(
+                action_id=action,
+                input=input,
+                external_id=external_id,
+                environment=environment,
+                reason=reason,
+                flow_id=flow_id,
+                model=model,
+                traceparent=traceparent,
+            )
+        except Exception as err:
+            # Only the first check. Once a person is deciding, an outage during
+            # the wait is never turned into a yes or a no on their behalf.
+            if on_unavailable == "throw" or not is_unavailable(err):
+                raise
+            return unavailable_decision(on_unavailable, input, err)
         # No wait when the caller said not to, and none when there is nothing to
         # wait for — a rule that allowed or denied it has already answered, which
         # is the common case and must not cost a poll.

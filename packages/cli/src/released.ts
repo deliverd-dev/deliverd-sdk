@@ -491,6 +491,20 @@ export const RELEASED: Record<string, readonly string[]> = {
     "side-task", "simulate", "start", "tasks", "templates", "test", "unarchive",
     "unshare", "update", "use", "verify", "versions", "who", "workspaces",
   ],
+
+  /* Opened because 0.20.0 is on npm (16 November 2026, from 829e3aa). */
+  "0.20.1": [
+    "actions", "activate", "add", "agents", "agents-md", "analytics", "answer",
+    "apply", "approvals", "approve-decision", "archive", "ask", "audit",
+    "cancel", "check", "collect", "comments", "complete", "context", "copy",
+    "create", "data", "evidence", "export", "finding", "flows", "gates", "get",
+    "given", "governance", "graph", "import", "knowledge", "link", "list",
+    "login", "open", "pack", "playbooks", "policy", "publish", "push",
+    "receipt", "release", "rename", "reopen", "replay", "resolve", "retract", "reviews", "rm",
+    "rollback", "schedules", "search", "send", "set", "setup", "share", "show",
+    "side-task", "simulate", "start", "tasks", "templates", "test", "unarchive",
+    "unshare", "update", "use", "verify", "versions", "who", "workspaces",
+  ],
 };
 
 /**
@@ -560,4 +574,5 @@ export const PUBLISHED_TO_NPM = [
   "0.18.0",
   "0.19.0",
   "0.19.1",
+  "0.20.0",
 ] as const;

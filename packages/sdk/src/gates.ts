@@ -6,6 +6,7 @@ import type {
   GateAgentRef,
   GateData,
   GateDecision,
+  GateOnUnavailable,
   RecordExecutionInput,
 } from "./types.js";
 
@@ -76,6 +77,14 @@ export interface GateOptions extends GateWaitOptions {
   environment?: string;
   reason?: string;
   flowId?: string;
+  model?: string;
+  traceparent?: string;
+  /**
+   * What to do when Deliverd cannot be reached: `throw` (default), `deny` or
+   * `allow`. Choose per action: `deny` for a payment, `allow` for a low-risk
+   * read you would rather not stall. Only network failures and 5xx count.
+   */
+  onUnavailable?: GateOnUnavailable;
   /**
    * Whether to block when policy sends it to a person. Default true.
    *
@@ -366,4 +375,33 @@ export class Gates {
     });
     return new Gate(this.http, data);
   }
+}
+
+/**
+ * Whether an error means Deliverd could not be reached, as opposed to an
+ * answer: a network failure or a 5xx. An abort, a timed-out wait and every 4xx
+ * are not, so `onUnavailable` never hides a bug or a refusal.
+ */
+export function isUnavailable(err: unknown, signal?: AbortSignal): boolean {
+  if (!(err instanceof DeliverdError) || err instanceof DeliverdTimeoutError) return false;
+  if (signal?.aborted || err.code === "aborted" || err.code === "no_api_key") return false;
+  return err.status === 0 || err.status >= 500;
+}
+
+/** The decision `onUnavailable` gives when Deliverd could not be reached. */
+export function unavailableDecision(mode: Exclude<GateOnUnavailable, "throw">, input: Record<string, unknown>, err: DeliverdError): GateDecision {
+  const allowed = mode === "allow";
+  return {
+    allowed,
+    status: allowed ? "allowed" : "denied",
+    reason: `Deliverd could not be reached (${err.code}), so onUnavailable: "${mode}" answered.`,
+    rule: null,
+    input,
+    changes: [],
+    id: "",
+    approvalUrl: null,
+    decisionToken: null,
+    gate: null,
+    unavailable: true,
+  };
 }

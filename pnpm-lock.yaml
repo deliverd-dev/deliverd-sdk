@@ -21,20 +21,20 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3
       yaml:
-        specifier: ^2.8.1
+        specifier: ^2.9.1
         version: 2.9.1
     devDependencies:
       '@types/node':
         specifier: ^20
         version: 20.19.43
       tsx:
-        specifier: ^4.20.0
+        specifier: ^4.23.15
         version: 4.23.15
       typescript:
         specifier: ^5
         version: 5.9.3
       vitest:
-        specifier: ^4.1.11
+        specifier: ^4.1.12
         version: 4.1.12(@types/node@20.19.43)(vite@8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/screen:
@@ -46,7 +46,7 @@ importers:
         specifier: ^5
         version: 5.9.3
       vitest:
-        specifier: ^4.1.11
+        specifier: ^4.1.12
         version: 4.1.12(@types/node@20.19.43)(vite@8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/sdk:
@@ -64,7 +64,7 @@ importers:
         specifier: ^5
         version: 5.9.3
       vitest:
-        specifier: ^4.1.11
+        specifier: ^4.1.12
         version: 4.1.12(@types/node@20.19.43)(vite@8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
 packages:

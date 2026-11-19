@@ -2,9 +2,24 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.29.1
+## 0.30.0
 
-A patch. 0.29.0 went to PyPI on 15 November 2026 from deliverd-sdk 4790106.
+A minor, for an addition. 0.29.0 went to PyPI on 15 November 2026 from
+deliverd-sdk 4790106; this was opened as 0.29.1.
+
+### Added
+
+- **`gate()` chooses what happens when Deliverd cannot be reached.**
+  `on_unavailable="deny"` or `"allow"` per call answers a network failure or a
+  5xx on the first check with a refusal or a yes, marked `unavailable=True`,
+  with an empty id and no decision token. The default stays `"throw"`. A 4xx
+  is never answered this way, and neither is a wait for a person who is
+  already deciding. The async client takes the same arguments.
+- **`model` and `traceparent` on a gate check**, on `gate()` and
+  `gates.create()`. Name the model doing the work, and the register record
+  shows a model it does not hold. Pass the W3C `traceparent`, and where the
+  organisation sends decisions to its own OpenTelemetry collector, the
+  decision's span joins your trace.
 
 ## 0.29.0
 

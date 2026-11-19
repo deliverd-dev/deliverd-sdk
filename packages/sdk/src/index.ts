@@ -1,6 +1,6 @@
 import { HttpClient, type ClientOptions } from "./http.js";
 import { Approvals, DecisionSessions, FAST_POLL_SCHEDULE, type WaitOptions } from "./approvals.js";
-import { Gates, type GateOptions } from "./gates.js";
+import { Gates, isUnavailable, unavailableDecision, type GateOptions } from "./gates.js";
 import { Comments, Reports, Schedules } from "./reports.js";
 import { Reviews, type ReviewWaitOptions } from "./reviews.js";
 import { Collections, type CollectWaitOptions } from "./collections.js";
@@ -321,10 +321,24 @@ export class Deliverd {
    *
    * `wait: false` returns a pending decision immediately; `deliverd.gates`
    * is the same thing with the handle exposed.
+   *
+   * `onUnavailable` decides what happens when Deliverd cannot be reached (a
+   * network failure or a 5xx, never a 4xx): `throw` by default, or `deny` or
+   * `allow` per action. It applies to the first check only, never to a wait
+   * for a person. Such a decision has `unavailable: true`, an empty id
+   * and no decision token, and nothing is recorded in Deliverd.
    */
   async gate(options: GateOptions): Promise<GateDecision> {
-    const { action, timeout, onPoll, signal, wait, pollIntervals, ...rest } = options;
-    const gate = await this.gates.create({ actionId: action, ...rest }, signal);
+    const { action, timeout, onPoll, signal, wait, pollIntervals, onUnavailable = "throw", ...rest } = options;
+    let gate;
+    try {
+      gate = await this.gates.create({ actionId: action, ...rest }, signal);
+    } catch (err) {
+      /* Only the first check. Once a person is deciding, an outage during the
+       * wait is never turned into a yes or a no on their behalf. */
+      if (onUnavailable === "throw" || !isUnavailable(err, signal)) throw err;
+      return unavailableDecision(onUnavailable, options.input, err as DeliverdError);
+    }
 
     /*
      * No wait when the caller said not to, and none when there is nothing to

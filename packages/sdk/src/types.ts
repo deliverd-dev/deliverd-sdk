@@ -188,6 +188,18 @@ export interface CreateGateInput {
   callbackUrl?: string;
   /** Anything else a person deciding should see. Read by no rule. */
   metadata?: Record<string, unknown>;
+  /**
+   * The model doing the work, `claude-sonnet-4-5` or `openai/gpt-5`. Optional.
+   * When it is not the model on the agent's register record, the record says
+   * so: a model change nobody recorded.
+   */
+  model?: string;
+  /**
+   * The W3C `traceparent` of the span this runs in. Optional. Where the
+   * organisation sends decisions to its own OpenTelemetry collector, the
+   * decision's span joins this trace.
+   */
+  traceparent?: string;
 }
 
 export interface GateData {
@@ -273,7 +285,20 @@ export interface GateDecision {
   /** The signed yes, for the code that performs the action to verify. Null unless it may be acted on now. */
   decisionToken: string | null;
   gate: unknown;
+  /**
+   * True when Deliverd could not be reached and `onUnavailable` answered
+   * instead of a rule or a person. Then `id` is empty and nothing was recorded.
+   */
+  unavailable?: boolean;
 }
+
+/**
+ * What `gate()` does when Deliverd cannot be reached (a network failure or a
+ * 5xx), per call: `throw` (the default) raises the error, `deny` returns a
+ * refusal, `allow` returns a yes without a token. Never applied to a 4xx: an
+ * unknown action or a bad input is a bug to fix, not an outage to ride out.
+ */
+export type GateOnUnavailable = "throw" | "deny" | "allow";
 
 /** One field an approver corrected before approving. */
 export interface FieldChange {

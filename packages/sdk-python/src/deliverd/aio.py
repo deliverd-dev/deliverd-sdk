@@ -728,9 +728,9 @@ class AsyncGates:
         """Ask whether you may act, and return at once — :meth:`create`, named for what it does."""
         return AsyncGate(await asyncio.to_thread(partial(self._sync.check, action_id=action_id, input=input, external_id=external_id, **scope)))
 
-    async def create(self, action_id: str, input: Dict[str, Any], external_id: str, environment: Optional[str] = None, reason: Optional[str] = None, flow_id: Optional[str] = None, description: Optional[str] = None, destination: Optional[Dict[str, Any]] = None, classification: Optional[str] = None, risk: Optional[str] = None, artifact: Optional[Dict[str, Any]] = None, agent: Optional[Dict[str, Any]] = None, execution: Optional[Dict[str, Any]] = None, supersedes_gate_id: Optional[str] = None, callback_url: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> AsyncGate:
+    async def create(self, action_id: str, input: Dict[str, Any], external_id: str, environment: Optional[str] = None, reason: Optional[str] = None, flow_id: Optional[str] = None, description: Optional[str] = None, destination: Optional[Dict[str, Any]] = None, classification: Optional[str] = None, risk: Optional[str] = None, artifact: Optional[Dict[str, Any]] = None, agent: Optional[Dict[str, Any]] = None, execution: Optional[Dict[str, Any]] = None, supersedes_gate_id: Optional[str] = None, callback_url: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None, model: Optional[str] = None, traceparent: Optional[str] = None) -> AsyncGate:
         """Raise a decision and return straight away, even if it went to a person."""
-        return AsyncGate(await asyncio.to_thread(partial(self._sync.create, action_id=action_id, input=input, external_id=external_id, environment=environment, reason=reason, flow_id=flow_id, description=description, destination=destination, classification=classification, risk=risk, artifact=artifact, agent=agent, execution=execution, supersedes_gate_id=supersedes_gate_id, callback_url=callback_url, metadata=metadata)))
+        return AsyncGate(await asyncio.to_thread(partial(self._sync.create, action_id=action_id, input=input, external_id=external_id, environment=environment, reason=reason, flow_id=flow_id, description=description, destination=destination, classification=classification, risk=risk, artifact=artifact, agent=agent, execution=execution, supersedes_gate_id=supersedes_gate_id, callback_url=callback_url, metadata=metadata, model=model, traceparent=traceparent)))
 
     async def evidence(self, gate_id: str) -> Dict[str, Any]:
         """The gate's evidence pack, as the JSON the API returns."""
@@ -1191,9 +1191,9 @@ class AsyncDeliverd:
         """Ask a person, and wait for the answer."""
         return await asyncio.to_thread(partial(self._sync.approve, title=title, description=description, risk=risk, factors=factors, links=links, approvers=approvers, report_id=report_id, external_id=external_id, flow_id=flow_id, agent=agent, model=model, metadata=metadata, callback_url=callback_url, input=input, editable_fields=editable_fields, recommendation=recommendation, expires_in=expires_in, expires_at=expires_at, on_question=on_question, on_poll=on_poll, timeout=timeout, cancel=cancel, reuse=reuse, idempotency_key=idempotency_key))
 
-    async def gate(self, action: str, input: Dict[str, Any], external_id: str, environment: Optional[str] = None, reason: Optional[str] = None, flow_id: Optional[str] = None, on_poll: Optional[Any] = None, timeout: Optional[Duration] = None, cancel: Optional[threading.Event] = None, wait: bool = True) -> GateDecision:
+    async def gate(self, action: str, input: Dict[str, Any], external_id: str, environment: Optional[str] = None, reason: Optional[str] = None, flow_id: Optional[str] = None, on_poll: Optional[Any] = None, timeout: Optional[Duration] = None, cancel: Optional[threading.Event] = None, wait: bool = True, model: Optional[str] = None, traceparent: Optional[str] = None, on_unavailable: str = 'throw') -> GateDecision:
         """Ask whether to act, and wait if a person has to decide."""
-        return await asyncio.to_thread(partial(self._sync.gate, action=action, input=input, external_id=external_id, environment=environment, reason=reason, flow_id=flow_id, on_poll=on_poll, timeout=timeout, cancel=cancel, wait=wait))
+        return await asyncio.to_thread(partial(self._sync.gate, action=action, input=input, external_id=external_id, environment=environment, reason=reason, flow_id=flow_id, on_poll=on_poll, timeout=timeout, cancel=cancel, wait=wait, model=model, traceparent=traceparent, on_unavailable=on_unavailable))
 
     async def confirm(self, title: str, **kwargs: Any) -> bool:
         """A yes or no on something small: same mechanism, lower ceremony."""

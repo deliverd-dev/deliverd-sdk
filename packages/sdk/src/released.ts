@@ -42734,7 +42734,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "verifyDecisionToken",
     "verifySignature",
   ],
-  "0.40.1": [
+  "0.41.0": [
     "ActiveSideTask.id",
     "ActiveSideTask.kind",
     "ActiveSideTask.status",
@@ -43019,9 +43019,11 @@ export const RELEASED: Record<string, readonly string[]> = {
     "CreateGateInput.flowId",
     "CreateGateInput.input",
     "CreateGateInput.metadata",
+    "CreateGateInput.model",
     "CreateGateInput.reason",
     "CreateGateInput.risk",
     "CreateGateInput.supersedesGateId",
+    "CreateGateInput.traceparent",
     "CreateReviewInput.agent",
     "CreateReviewInput.callbackUrl",
     "CreateReviewInput.expiresAt",
@@ -43354,6 +43356,7 @@ export const RELEASED: Record<string, readonly string[]> = {
     "GateDecision.reason",
     "GateDecision.rule",
     "GateDecision.status",
+    "GateDecision.unavailable",
     "GateExecutionRef.objective",
     "GateExecutionRef.parentFlowId",
     "GateExecutionRef.providerExecutionId",

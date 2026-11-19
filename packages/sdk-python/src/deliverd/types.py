@@ -1594,6 +1594,9 @@ class GateDecision:
     #: ``client.decision_tokens.verify``. None unless it may be acted on now.
     #: Last, with a default, so code that builds one in a test keeps working.
     decision_token: Optional[str] = None
+    #: True when Deliverd could not be reached and ``on_unavailable`` answered
+    #: instead of a rule or a person. Then ``id`` is empty and nothing was recorded.
+    unavailable: bool = False
 
 
 # ── Webhooks ───────────────────────────────────────────────────────────────

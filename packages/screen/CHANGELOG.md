@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **A password written out in words is a secret.** "My banking password is
+  Tr0ub4dor&3", "password: hunter2" and "passcode is 482913" are found and
+  denied like any other credential, in TypeScript, Python and Rust, with new
+  shared test cases. The value has to hold a digit or a symbol, so "the
+  password is required" is not one, and masks (`********`), placeholders
+  (`<your-password>`, `[REDACTED]`) and variables (`${DB_PASS}`) are left alone.
+  Before this, only a quoted `password = "..."`, a `.env` line or a connection
+  string was found.
+
 ## 0.3.0
 
 - **More national and bank identifiers, each with its check digit.** US

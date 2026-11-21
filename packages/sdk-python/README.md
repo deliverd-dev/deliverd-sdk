@@ -301,6 +301,24 @@ except DeliverdError as err:
 Messages say what happened and what to do about it, rather than handing you a
 code to search for.
 
+## Events
+
+Be told instead of asking. Deliverd speaks MCP Events (SEP-3415); this reads
+the same log over REST.
+
+```python
+approval = deliverd.approvals.create(title="Refund £1,240", approvers=["finance@firm.example"])
+decided = deliverd.events.wait_for_decision(approval_id=approval.id)
+if decided["status"] == "approved":
+    refund()
+
+for event in deliverd.events.watch("gate.denied", on_cursor=save):
+    page(event["data"])
+```
+
+`wait_for_decision` falls back to reading the request on a server without
+events; `approval.wait()` is unchanged. Events are kept seven days.
+
 ## Webhooks
 
 ```python

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Sequence
 
 from . import Deliverd
 from .approvals import Approval, Approvals, DecisionSessions
@@ -39,10 +39,14 @@ from .schedules import Schedules
 from .tasks import Task, Tasks
 from .types import *  # noqa: F401,F403 - the response types, same names as the sync client
 from .webhook_endpoints import WebhookEndpoints
+from .events import Events
 from .decision_token import DecisionTokens
 from .webhooks import Webhooks
 
 __all__ = ["AsyncDeliverd"]
+
+#: The end of a sync iterator, as `next()` reports it to a worker thread.
+_END = object()
 
 
 
@@ -1157,6 +1161,34 @@ class AsyncAiGovernance:
         return await asyncio.to_thread(partial(self._sync.summary, ai_system_id=ai_system_id, risk=risk, owner=owner, provider=provider, data_classification=data_classification, jurisdiction=jurisdiction, framework=framework))
 
 
+class AsyncEvents:
+    """`deliverd.events`, awaited."""
+
+    def __init__(self, sync: Events) -> None:
+        self._sync = sync
+
+    async def list(self) -> List[Dict[str, Any]]:
+        """The events this key's scopes can hear."""
+        return await asyncio.to_thread(partial(self._sync.list))
+
+    async def poll(self, name: str, arguments: Optional[Dict[str, str]] = None, cursor: Optional[str] = None, max_age_ms: Optional[int] = None, max_events: Optional[int] = None) -> Dict[str, Any]:
+        """One poll: what happened since ``cursor`` (``None`` starts from now)."""
+        return await asyncio.to_thread(partial(self._sync.poll, name=name, arguments=arguments, cursor=cursor, max_age_ms=max_age_ms, max_events=max_events))
+
+    async def wait_for_decision(self, approval_id: Optional[str] = None, gate_id: Optional[str] = None, timeout: Optional[float] = None, cancel: Optional[threading.Event] = None, min_poll_seconds: float = 1.0) -> Dict[str, Any]:
+        """Wait for one approval or gate to settle, told by an event."""
+        return await asyncio.to_thread(partial(self._sync.wait_for_decision, approval_id=approval_id, gate_id=gate_id, timeout=timeout, cancel=cancel, min_poll_seconds=min_poll_seconds))
+
+    async def watch(self, name: str, arguments: Optional[Dict[str, str]] = None, cursor: Optional[str] = None, on_cursor: Optional[Callable[[str], None]] = None, cancel: Optional[threading.Event] = None, min_poll_seconds: float = 1.0) -> AsyncIterator[Dict[str, Any]]:
+        """Every matching event as it happens, until ``cancel`` is set."""
+        it = self._sync.watch(name=name, arguments=arguments, cursor=cursor, on_cursor=on_cursor, cancel=cancel, min_poll_seconds=min_poll_seconds)
+        while True:
+            item = await asyncio.to_thread(next, it, _END)
+            if item is _END:
+                return
+            yield item
+
+
 class AsyncDeliverd:
     """The client, awaited. Takes exactly what `Deliverd` takes."""
 
@@ -1176,6 +1208,7 @@ class AsyncDeliverd:
         self.playbooks = AsyncPlaybooks(self._sync.playbooks)
         self.webhook_endpoints = AsyncWebhookEndpoints(self._sync.webhook_endpoints)
         self.governance = AsyncAiGovernance(self._sync.governance)
+        self.events = AsyncEvents(self._sync.events)
         # Pure functions: verification does no I/O, so it is not awaited.
         self.webhooks: Webhooks = self._sync.webhooks
         # Verification is pure once the public key is held; it is fetched once.

@@ -2,6 +2,22 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
+## 0.31.0
+
+A minor, for an addition. 0.30.0 went to PyPI on 19 November 2026 from
+deliverd-sdk 3b8fbb7; this was opened as 0.30.1.
+
+### Added
+
+- **`deliverd.events`: be told instead of asking.** Deliverd speaks MCP Events
+  (SEP-3415) on `/api/mcp/v2`, and the same log over REST.
+  `events.wait_for_decision(approval_id=...)` (or `gate_id=`) waits on one
+  cursor for `approval.decided` / `gate.decided`, and falls back to reading
+  the request on a server without events. `events.watch(name)` yields every
+  matching event; `events.poll()` and `events.list()` are the single calls.
+  `approval.wait()` is unchanged.
+- **Two webhook events, opt-in:** `screen.held` and `drift.detected`.
+
 ## 0.30.0
 
 A minor, for an addition. 0.29.0 went to PyPI on 15 November 2026 from

@@ -682,6 +682,27 @@ An **agent key cannot write here**. A schedule is an instruction *to* an
 agent, so setting one is a person's decision — use a user key. Reading is
 open to both, and an agent sees only the schedules addressed to it.
 
+## Events
+
+Be told instead of asking. Deliverd speaks MCP Events (SEP-3415): an MCP
+client hears them on `/api/mcp/v2`, and this SDK reads the same log over REST.
+
+```ts
+const approval = await deliverd.approvals.create({ title: "Refund £1,240", approvers: ["finance@firm.example"] });
+const decided = await deliverd.events.waitForDecision({ approvalId: approval.id });
+if (decided.status === "approved") await refund();
+
+// Every refusal, as it happens; persist the cursor to resume after a restart.
+for await (const event of deliverd.events.watch("gate.denied", {}, { onCursor: save })) page(event.data);
+```
+
+`deliverd.events.list()` names what your key can hear: `approval.decided`,
+`approval.question`, `gate.decided`, `gate.denied`, `review.settled`,
+`collection.completed`, `task.updated`, `screen.held`, `drift.detected`,
+`risk_indicator.breached` and `context.changed`. Events are kept seven days.
+`waitForDecision` falls back to reading the request on a server without
+events, and `approval.wait()` is unchanged.
+
 ## Webhooks
 
 Rather than polling, take the decision as it happens. Verify first — a

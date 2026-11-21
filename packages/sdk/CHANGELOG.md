@@ -2,6 +2,26 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
+## 0.42.0
+
+A minor, for an addition. 0.41.0 went to npm on 19 November 2026 from
+deliverd-sdk 3b8fbb7; this was opened as 0.41.1.
+
+### Added
+
+- **`deliverd.events`: be told instead of asking.** Deliverd now speaks MCP
+  Events (`io.modelcontextprotocol/events`, SEP-3415) on `/api/mcp/v2`, and
+  the same log over REST. `events.waitForDecision({ approvalId })` (or
+  `{ gateId }`) waits on one cursor for `approval.decided` / `gate.decided`
+  instead of reading the request again and again, and falls back to reading
+  it when the server has no events (an older self-hosted copy).
+  `events.watch(name, args)` is an async iterator over every matching event;
+  `events.poll()` and `events.list()` are the single calls. `approval.wait()`
+  and `gate.wait()` are unchanged.
+- **Two webhook events, opt-in:** `screen.held` (data screening held text for
+  a person) and `drift.detected` (an agent's week departs from its month).
+  An endpoint receives them only by naming them.
+
 ## 0.41.0
 
 A minor, for an addition. 0.40.0 went to npm on 15 November 2026 from

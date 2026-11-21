@@ -492,18 +492,22 @@ export const RELEASED: Record<string, readonly string[]> = {
     "unshare", "update", "use", "verify", "versions", "who", "workspaces",
   ],
 
-  /* Opened because 0.20.0 is on npm (16 November 2026, from 829e3aa). */
-  "0.20.1": [
+  /*
+   * Opened as 0.20.1 because 0.20.0 is on npm (16 November 2026, from
+   * 829e3aa); renamed 0.21.0 when `events list` and `events watch` (MCP
+   * Events, 21 November 2026) made it a minor version.
+   */
+  "0.21.0": [
     "actions", "activate", "add", "agents", "agents-md", "analytics", "answer",
     "apply", "approvals", "approve-decision", "archive", "ask", "audit",
     "cancel", "check", "collect", "comments", "complete", "context", "copy",
-    "create", "data", "evidence", "export", "finding", "flows", "gates", "get",
+    "create", "data", "events", "evidence", "export", "finding", "flows", "gates", "get",
     "given", "governance", "graph", "import", "knowledge", "link", "list",
     "login", "open", "pack", "playbooks", "policy", "publish", "push",
     "receipt", "release", "rename", "reopen", "replay", "resolve", "retract", "reviews", "rm",
     "rollback", "schedules", "search", "send", "set", "setup", "share", "show",
     "side-task", "simulate", "start", "tasks", "templates", "test", "unarchive",
-    "unshare", "update", "use", "verify", "versions", "who", "workspaces",
+    "unshare", "update", "use", "verify", "versions", "watch", "who", "workspaces",
   ],
 };
 

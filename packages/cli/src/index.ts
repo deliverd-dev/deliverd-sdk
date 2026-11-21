@@ -16,6 +16,7 @@ import { taskCommands } from "./commands/tasks.js";
 import { contextCommands } from "./commands/context.js";
 import { actionCommands } from "./commands/actions.js";
 import { policyCommands } from "./commands/policy.js";
+import { eventCommands } from "./commands/events.js";
 import { auditCommands } from "./commands/audit.js";
 import {
   AGENT_NAMES,
@@ -303,5 +304,6 @@ policyCommands(program);
 governanceCommands(program);
 complianceCommands(program);
 auditCommands(program);
+eventCommands(program);
 
 program.parseAsync().catch(fail);

@@ -634,6 +634,39 @@
         }
       ],
       "redacted": "Routing number [ACCOUNT_1], account [ACCOUNT_2], sort code [ACCOUNT_3]; routing 123456789 is not one"
+    },
+    {
+      "text": "My online banking password is Tr0ub4dor&3, can you log in and pay my bill?",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "Tr0ub4dor&3"
+        }
+      ],
+      "redacted": "My online banking password is [SECRET_1], can you log in and pay my bill?"
+    },
+    {
+      "text": "username: dave.r password: hunter2. Passcode is 482913; passphrase: correct-horse-battery-staple",
+      "findings": [
+        {
+          "kind": "secret",
+          "value": "hunter2"
+        },
+        {
+          "kind": "secret",
+          "value": "482913"
+        },
+        {
+          "kind": "secret",
+          "value": "correct-horse-battery-staple"
+        }
+      ],
+      "redacted": "username: dave.r password: [SECRET_1]. Passcode is [SECRET_2]; passphrase: [SECRET_3]"
+    },
+    {
+      "text": "The password is required, your password was reset, password: ******** and password: <your-password> are not passwords",
+      "findings": [],
+      "redacted": "The password is required, your password was reset, password: ******** and password: <your-password> are not passwords"
     }
   ],
   "decisions": [

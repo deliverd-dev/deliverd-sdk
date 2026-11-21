@@ -618,6 +618,17 @@ fn env_secret_valid(value: &str) -> bool {
         && !["your", "example", "placeholder", "changeme", "xxxx"].iter().any(|w| lower.contains(w))
 }
 
+/// A password written out in a sentence: it must hold a digit or a symbol, and not be a mask, a placeholder or a variable.
+fn spoken_password_valid(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    value.bytes().any(|b| !b.is_ascii_alphabetic())
+        && !value.starts_with('$')
+        && !value.chars().all(|c| matches!(c, '*' | '\u{2022}' | 'x' | 'X' | '.'))
+        && env_secret_valid(value)
+        && !lower.contains("redacted")
+        && !lower.contains("hidden")
+}
+
 fn is_word(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
 }
@@ -698,6 +709,11 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
                 r#"\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|SECRET_KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|AUTH_TOKEN)[ \t]*=[ \t]*["']?([!%&(-~]{6,})"#,
                 false,
             )
+        },
+        // A password written out in words, the way people tell a person, or an assistant, their login.
+        Pattern {
+            valid: Some(spoken_password_valid),
+            ..p(DataKind::Secret, r#"\b(?:pass(?:word|code|phrase)|passwd)s?(?:[ \t]+(?:is|was)(?:[ \t]*[:=])?|[ \t]*[:=])[ \t]*["']?([!#-&(-~]{5,127}[A-Za-z0-9#$%&*+\-/<=>@^_`{|}~(\[])"#, true)
         },
         Pattern { valid: Some(iban_valid), ..p(DataKind::Iban, r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b", false) },
         Pattern {

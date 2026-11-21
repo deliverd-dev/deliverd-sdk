@@ -280,6 +280,16 @@ function vatValid(raw: string): boolean {
   return raw === raw.toUpperCase() && digitsOf(raw).length >= 6;
 }
 
+/**
+ * A password written out in a sentence or a form, "my banking password is
+ * Tr0ub4dor&3" or "password: Tr0ub4dor&3". It must hold a digit or a symbol,
+ * so "the password is required" is not one, and a mask, a placeholder or a
+ * variable such as ${DB_PASS} is not.
+ */
+function spokenPasswordValid(value: string): boolean {
+  return /[^A-Za-z]/.test(value) && !value.startsWith("$") && !/^[*•xX.]+$/.test(value) && envSecretValid(value) && !/redacted|hidden/i.test(value);
+}
+
 /** A value in a .env line that is a placeholder, not a credential. */
 function envSecretValid(value: string): boolean {
   return !/^[<{%(]/.test(value) && !/your|example|placeholder|changeme|xxxx/i.test(value);
@@ -322,6 +332,13 @@ const DETECTORS: Detector[] = [
     kind: "secret",
     pattern: /\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|SECRET_KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|AUTH_TOKEN)[ \t]*=[ \t]*["']?([!%&(-~]{6,})/g,
     valid: envSecretValid,
+    group: 1,
+  },
+  // A password written out in words, the way people tell a person, or an assistant, their login.
+  {
+    kind: "secret",
+    pattern: /\b(?:pass(?:word|code|phrase)|passwd)s?(?:[ \t]+(?:is|was)(?:[ \t]*[:=])?|[ \t]*[:=])[ \t]*["']?([!#-&(-~]{5,127}[A-Za-z0-9#$%&*+\-\/<=>@^_`{|}~(\[])/gi,
+    valid: spokenPasswordValid,
     group: 1,
   },
   { kind: "iban", pattern: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b/g, valid: ibanValid },

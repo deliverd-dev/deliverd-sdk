@@ -27,6 +27,7 @@ from deliverd.reviews import Review, Reviews
 from deliverd.schedules import Schedules
 from deliverd.tasks import Task, Tasks
 from deliverd.webhook_endpoints import WebhookEndpoints
+from deliverd.events import Events
 
 NAMESPACES = [
     ("approvals", Approvals),
@@ -43,6 +44,7 @@ NAMESPACES = [
     ("playbooks", Playbooks),
     ("webhook_endpoints", WebhookEndpoints),
     ("governance", AiGovernance),
+    ("events", Events),
 ]
 #: Namespaces inside a namespace: `deliverd.governance.ai_systems`.
 SUB_NAMESPACES = {AiGovernance: [("ai_systems", AiSystems), ("incidents", Incidents)]}
@@ -143,6 +145,21 @@ def emit_method(owner: str, name: str, func: Any) -> List[str]:
     doc = inspect.getdoc(func) or ""
     first = doc.split("\n")[0] if doc else ""
 
+    if inspect.isgeneratorfunction(func):
+        # A generator (`events.watch`) cannot be awaited whole: each item is
+        # fetched on a worker thread, so iterating never blocks the loop.
+        item = ret[len("Iterator["):-1] if ret.startswith("Iterator[") else "Any"
+        out = ["    async def %s(self%s) -> AsyncIterator[%s]:" % (name, (", " + decl) if decl else "", item)]
+        if first:
+            out.append('        """%s"""' % first.replace('"""', "'''"))
+        out.append("        it = self._sync.%s(%s)" % (name, call))
+        out.append("        while True:")
+        out.append("            item = await asyncio.to_thread(next, it, _END)")
+        out.append("            if item is _END:")
+        out.append("                return")
+        out.append("            yield item")
+        return out
+
     out = ["    async def %s(self%s) -> %s:" % (name, (", " + decl) if decl else "", async_ret)]
     if first:
         out.append('        """%s"""' % first.replace('"""', "'''"))
@@ -186,7 +203,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Sequence
 
 from . import Deliverd
 from .approvals import Approval, Approvals, DecisionSessions
@@ -203,10 +220,14 @@ from .schedules import Schedules
 from .tasks import Task, Tasks
 from .types import *  # noqa: F401,F403 - the response types, same names as the sync client
 from .webhook_endpoints import WebhookEndpoints
+from .events import Events
 from .decision_token import DecisionTokens
 from .webhooks import Webhooks
 
 __all__ = ["AsyncDeliverd"]
+
+#: The end of a sync iterator, as `next()` reports it to a worker thread.
+_END = object()
 '''
 
 

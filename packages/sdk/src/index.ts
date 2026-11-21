@@ -1,6 +1,7 @@
 import { HttpClient, type ClientOptions } from "./http.js";
 import { Approvals, DecisionSessions, FAST_POLL_SCHEDULE, type WaitOptions } from "./approvals.js";
 import { Gates, isUnavailable, unavailableDecision, type GateOptions } from "./gates.js";
+import { Events } from "./events.js";
 import { Comments, Reports, Schedules } from "./reports.js";
 import { Reviews, type ReviewWaitOptions } from "./reviews.js";
 import { Collections, type CollectWaitOptions } from "./collections.js";
@@ -29,6 +30,17 @@ import type {
 
 export { Approval, Approvals, DecisionSessions, POLL_SCHEDULE, type WaitOptions } from "./approvals.js";
 export { Gate, Gates, type GateOptions, type GateWaitOptions } from "./gates.js";
+export {
+  Events,
+  type Decided,
+  type EventArguments,
+  type EventDefinition,
+  type EventName,
+  type EventOccurrence,
+  type PollInput,
+  type PollResult,
+  type WatchOptions,
+} from "./events.js";
 export { Comments, Reports, Schedules } from "./reports.js";
 export { Review, Reviews, type ReviewWaitOptions } from "./reviews.js";
 export { Collection, Collections, type CollectWaitOptions } from "./collections.js";
@@ -198,6 +210,8 @@ export class Deliverd {
   readonly webhookEndpoints: WebhookEndpoints;
   /** Check a gate's signed yes where the action happens, before it happens. */
   readonly decisionTokens: DecisionTokens;
+  /** Be told instead of asking: MCP Events (approval.decided, gate.decided...) over REST. */
+  readonly events: Events;
   readonly http: HttpClient;
   /** Whether an imaginary approver is deciding these. */
   readonly development: boolean;
@@ -235,6 +249,7 @@ export class Deliverd {
     this.webhooks = new Webhooks();
     this.webhookEndpoints = new WebhookEndpoints(this.http);
     this.decisionTokens = new DecisionTokens(this.http.baseUrl, options.fetch);
+    this.events = new Events(this.http);
   }
 
   /**

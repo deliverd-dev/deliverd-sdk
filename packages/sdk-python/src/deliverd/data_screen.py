@@ -305,6 +305,17 @@ _SPECIAL_PATTERN = re.compile(
     _AI,
 )
 
+def _spoken_password_valid(value: str) -> bool:
+    """A password written out in a sentence: it must hold a digit or a symbol, and not be a mask, a placeholder or a variable."""
+    return (
+        re.search(r"[^A-Za-z]", value) is not None
+        and not value.startswith("$")
+        and re.fullmatch(r"[*\u2022xX.]+", value) is None
+        and _env_secret_valid(value)
+        and re.search(r"redacted|hidden", value, re.I) is None
+    )
+
+
 # (kind, pattern, validator, group)
 _DETECTORS = [
     *[("secret", p, None, 0) for p in _SECRET_PATTERNS],
@@ -320,6 +331,8 @@ _DETECTORS = [
         _env_secret_valid,
         1,
     ),
+    # A password written out in words, the way people tell a person, or an assistant, their login.
+    ("secret", re.compile(r"""\b(?:pass(?:word|code|phrase)|passwd)s?(?:[ \t]+(?:is|was)(?:[ \t]*[:=])?|[ \t]*[:=])[ \t]*["']?([!#-&(-~]{5,127}[A-Za-z0-9#$%&*+\-/<=>@^_`{|}~(\[])""", _AI), _spoken_password_valid, 1),
     ("iban", re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b", _A), _iban_valid, 0),
     ("payment_card", re.compile(r"\b[2-6]\d{3}(?:[ -]?\d{4}){2}[ -]?\d{1,7}\b", _A), _card_valid, 0),
     ("us_ssn", re.compile(r"\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b", _A), None, 0),

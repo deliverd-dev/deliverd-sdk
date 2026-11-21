@@ -37,6 +37,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 from ._http import DEFAULT_BASE_URL, HttpClient, Transport
 from .approvals import FAST_POLL_SCHEDULE, POLL_SCHEDULE, Approval, Approvals, DecisionSessions
 from .gates import Gate, Gates, is_unavailable, unavailable_decision
+from .events import EVENT_NAMES, Events
 from .governance import AiGovernance, AiSystems, Incidents
 from .collections import Collection, Collections
 from .comments import Comments
@@ -201,7 +202,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.30.0"
+__version__ = "0.31.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -243,6 +244,8 @@ __all__ = [
     "Approvals",
     "Gate",
     "Gates",
+    "Events",
+    "EVENT_NAMES",
     "Review",
     "Reviews",
     "Collection",
@@ -468,6 +471,8 @@ class Deliverd:
         self.governance = AiGovernance(self.http)
         #: Check a gate's signed yes where the action happens, before it happens.
         self.decision_tokens = DecisionTokens(self.http.base_url)
+        #: Be told instead of asking: MCP Events (approval.decided, gate.decided...) over REST.
+        self.events = Events(self.http)
 
     # ── the four verbs ─────────────────────────────────────────────────────
 

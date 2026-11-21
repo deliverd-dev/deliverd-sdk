@@ -67,6 +67,16 @@ npx deliverd collect get <id>
 npx deliverd flows start "Q3 close"          # then pass --flow <id> to the above
 ```
 
+## Be told when it is decided
+
+```bash
+deliverd events watch gate.denied                       # every denied gate, as it happens
+deliverd events watch approval.decided --id <id> --once # wait for one decision, then exit
+```
+
+`deliverd events list` shows what your key can hear. These read the same MCP
+Events feed an MCP client reads on `/api/mcp/v2`.
+
 ## Keep long work on its objective
 
 ```bash

@@ -1652,6 +1652,8 @@ WEBHOOK_EVENTS = (
     # Opt-in: a person confirmed or retired knowledge, or a playbook or prompt
     # went into force or was retired. For a sync that keeps other tools in step.
     "context.changed",
+    "screen.held",
+    "drift.detected",
     # Opt-in: one audit log entry, with its chain position and hashes. For a SIEM.
     "audit.event",
 )

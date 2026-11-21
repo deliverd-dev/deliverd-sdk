@@ -265,3 +265,23 @@ class AnInboxOffline(unittest.TestCase):
         with self.assertRaises(DeliverdError) as caught:
             c.approvals.create_session(approval.id, approver="sarah@acme.example")
         self.assertEqual(caught.exception.code, "development_only")
+
+
+def test_sign_up_hint_once_and_quiet_in_ci(capsys, monkeypatch):
+    from deliverd import dev
+    from deliverd import Deliverd
+
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("DELIVERD_DEV_HINT", raising=False)
+    dev._reset_hint()
+    client = Deliverd(mode="development")
+    client.approve(title="Deploy production")
+    client.approve(title="Deploy again")
+    err = capsys.readouterr().err
+    assert err.count(dev.DEVELOPMENT_SIGN_UP_URL) == 1
+    assert "utm_source=devmode" in dev.DEVELOPMENT_SIGN_UP_URL
+
+    dev._reset_hint()
+    monkeypatch.setenv("CI", "true")
+    Deliverd(mode="development").approve(title="In CI")
+    assert dev.DEVELOPMENT_SIGN_UP_URL not in capsys.readouterr().err

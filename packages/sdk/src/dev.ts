@@ -73,6 +73,33 @@ export interface DevelopmentOptions {
 
 const DEFAULT_QUESTION = "Has this been through staging?";
 
+/**
+ * Where development mode points when you want a real person to answer: a
+ * free account. Tagged so the site can count sign-ups that came from here.
+ */
+export const DEVELOPMENT_SIGN_UP_URL =
+  "https://deliverd.dev/sign-up?utm_source=devmode&utm_medium=sdk&utm_campaign=typescript";
+
+let hinted = false;
+
+/**
+ * One line, once per process, after the first simulated approval: how to
+ * have a real person answer. Not in CI (nobody reads it there) and off with
+ * `DELIVERD_DEV_HINT=0`.
+ */
+function hintOnce(): void {
+  if (hinted) return;
+  hinted = true;
+  const env = typeof process !== "undefined" ? process.env : {};
+  if (env.DELIVERD_DEV_HINT === "0" || env.CI) return;
+  console.log(`  Ready for a real person to answer on their phone? Free account, no card: ${DEVELOPMENT_SIGN_UP_URL}\n`);
+}
+
+/** For tests: show the hint again. */
+export function resetDevelopmentHint(): void {
+  hinted = false;
+}
+
 let counter = 0;
 
 interface Stored {
@@ -176,7 +203,10 @@ export function developmentFetch(options: DevelopmentOptions = {}): typeof globa
         outcome,
         options,
       });
-      if (options.log !== false) announce(data, outcome);
+      if (options.log !== false) {
+        announce(data, outcome);
+        hintOnce();
+      }
       return json(data, 201);
     }
 

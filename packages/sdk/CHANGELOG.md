@@ -6,6 +6,13 @@
 
 A patch. 0.42.0 went to npm on 21 November 2026 from deliverd-sdk 1a08335.
 
+### Added
+
+- **Development mode says where a real person comes in.** After the first
+  simulated approval in a process, one line points to a free account
+  (`DEVELOPMENT_SIGN_UP_URL`, tagged `utm_source=devmode`). Once per process, never when
+  `CI` is set, and off with `DELIVERD_DEV_HINT=0` or when logging is off.
+
 ## 0.42.0
 
 A minor, for an addition. 0.41.0 went to npm on 19 November 2026 from

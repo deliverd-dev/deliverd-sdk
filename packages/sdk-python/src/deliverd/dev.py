@@ -123,6 +123,39 @@ def _say(line: str, options: DevelopmentOptions) -> None:
         print(line, file=sys.stderr)
 
 
+#: Where development mode points when you want a real person to answer: a
+#: free account, tagged so the site can count sign-ups that came from here.
+DEVELOPMENT_SIGN_UP_URL = (
+    "https://deliverd.dev/sign-up?utm_source=devmode&utm_medium=sdk&utm_campaign=python"
+)
+
+_hinted = False
+
+
+def _hint_once(options: DevelopmentOptions) -> None:
+    """One line, once per process, after the first simulated approval.
+
+    Not in CI (nobody reads it there) and off with ``DELIVERD_DEV_HINT=0``.
+    """
+    global _hinted
+    if _hinted or not options.log:
+        return
+    _hinted = True
+    if os.environ.get("DELIVERD_DEV_HINT") == "0" or os.environ.get("CI"):
+        return
+    print(
+        "[deliverd] Ready for a real person to answer on their phone? "
+        "Free account, no card: " + DEVELOPMENT_SIGN_UP_URL,
+        file=sys.stderr,
+    )
+
+
+def _reset_hint() -> None:
+    """For tests: show the hint again."""
+    global _hinted
+    _hinted = False
+
+
 class _Store:
     """One request, and when the imaginary person acts on it."""
 
@@ -279,6 +312,7 @@ def development_transport(options: Optional[DevelopmentOptions] = None) -> Trans
         }
         approvals[approval_id] = _Store(data, _now() + opts.delay, outcome)
         _say("[deliverd] development: asked — {}".format(data["title"]), opts)
+        _hint_once(opts)
         return reply(data)
 
     # ── reviews ────────────────────────────────────────────────────────────

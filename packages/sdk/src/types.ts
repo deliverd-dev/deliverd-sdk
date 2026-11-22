@@ -2800,6 +2800,8 @@ export interface KnowledgeEntryData {
   proposedBy: string;
   createdAt: string;
   updatedAt: string;
+  /** Open flags saying it may not hold. On confirmed entries from search and get. */
+  openFlags?: number;
 }
 
 export interface KnowledgeDetail extends KnowledgeEntryData {
@@ -2821,6 +2823,8 @@ export interface ProposeKnowledgeInput {
   flowId?: string;
   /** The confirmed entry this would replace, once a person confirms it. */
   supersedesId?: string;
+  /** Open flags this answers: flags on the entry it supersedes, or missing-knowledge flags. They close when a person confirms it. */
+  answersFlagIds?: string[];
   sourceUrl?: string;
   sourceLabel?: string;
   /** Your own reference. An open entry with the same one comes back instead of a second. */
@@ -2865,9 +2869,14 @@ export interface PromoteFindingInput {
   tags?: string[];
 }
 
+/** Send exactly one of `markdown`, `files` or `zipBase64`. */
 export interface ImportKnowledgeInput {
-  /** A Deliverd export, or a notes file such as AGENTS.md. Each heading becomes one proposed entry. */
-  markdown: string;
+  /** A Deliverd export, or a notes file such as AGENTS.md. Each heading becomes one proposed entry. A single OKF concept file is read as OKF. */
+  markdown?: string;
+  /** The Markdown files of an Open Knowledge Format (OKF) bundle, with their paths. Each concept becomes one proposed entry. */
+  files?: { path: string; content: string }[];
+  /** An OKF bundle as a zip, base64-encoded. */
+  zipBase64?: string;
   workspaceId?: string;
   /** Where the file came from, e.g. the repository and path. */
   source?: string;
@@ -2876,6 +2885,63 @@ export interface ImportKnowledgeInput {
 export interface ImportedKnowledge {
   created: KnowledgeEntryData[];
   skipped: { title: string; reason: string }[];
+  /** How the input was read. An OKF concept's bundle trust is said in its source label. */
+  format: "markdown" | "okf";
+}
+
+export type KnowledgeFlagReason = "wrong" | "out_of_date" | "incomplete" | "conflicts" | "missing";
+export type KnowledgeFlagStatus = "open" | "resolved" | "dismissed";
+
+export interface FlagKnowledgeInput {
+  /** The confirmed entry that did not hold. Leave out only with reason `missing`. */
+  entryId?: string;
+  reason: KnowledgeFlagReason;
+  /** What you saw, for a person to check. A secret is refused. */
+  note: string;
+  /** What you think it should say. Never applied as is. */
+  suggestion?: string;
+  evidenceUrl?: string;
+  /** For missing knowledge: the workspace it belongs to. */
+  workspaceId?: string;
+}
+
+/** A report that an entry did not hold, or that knowledge is missing. A person decides it. */
+export interface KnowledgeFlagData {
+  id: string;
+  reason: KnowledgeFlagReason;
+  reasonLabel: string;
+  note: string;
+  suggestion: string | null;
+  evidenceUrl: string | null;
+  status: KnowledgeFlagStatus;
+  entry: { id: string; title: string; status: KnowledgeStatus; url: string } | null;
+  workspaceId: string | null;
+  /** The revision proposed to answer it, while it waits for a person. */
+  proposal: { id: string; url: string } | null;
+  flaggedBy: string;
+  flaggedAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolutionNote: string | null;
+}
+
+export interface FlaggedKnowledge {
+  flag: KnowledgeFlagData;
+  /** True when you had already flagged this entry and that flag is still open. */
+  resumed: boolean;
+}
+
+export interface ListKnowledgeFlagsInput {
+  /** `open` when omitted. */
+  status?: KnowledgeFlagStatus | "all";
+  entryId?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface KnowledgeFlagPage {
+  flags: KnowledgeFlagData[];
+  nextCursor: string | null;
 }
 
 export interface ExportKnowledgeInput {

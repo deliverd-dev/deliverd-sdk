@@ -510,12 +510,16 @@ export const RELEASED: Record<string, readonly string[]> = {
     "unshare", "update", "use", "verify", "versions", "watch", "who", "workspaces",
   ],
 
-  /* Opened because 0.21.0 is on npm (21 November 2026, from deliverd-sdk 1a08335). */
-  "0.21.1": [
+  /*
+   * Opened as 0.21.1 because 0.21.0 is on npm (21 November 2026, from
+   * deliverd-sdk 1a08335); renamed 0.22.0 when `knowledge flag` and
+   * `knowledge flags` (knowledge flags, 22 November 2026) made it a minor.
+   */
+  "0.22.0": [
     "actions", "activate", "add", "agents", "agents-md", "analytics", "answer",
     "apply", "approvals", "approve-decision", "archive", "ask", "audit",
     "cancel", "check", "collect", "comments", "complete", "context", "copy",
-    "create", "data", "events", "evidence", "export", "finding", "flows", "gates", "get",
+    "create", "data", "events", "evidence", "export", "finding", "flag", "flags", "flows", "gates", "get",
     "given", "governance", "graph", "import", "knowledge", "link", "list",
     "login", "open", "pack", "playbooks", "policy", "publish", "push",
     "receipt", "release", "rename", "reopen", "replay", "resolve", "retract", "reviews", "rm",

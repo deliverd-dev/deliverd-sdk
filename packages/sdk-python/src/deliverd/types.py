@@ -1890,6 +1890,8 @@ class KnowledgeEntryData(Model):
     proposed_by: str
     created_at: str
     updated_at: str
+    #: Open flags saying it may not hold. On confirmed entries from search and get; None otherwise.
+    open_flags: Optional[int]
 
 
 @dataclass
@@ -1926,8 +1928,52 @@ class ImportedKnowledge(Model):
     created: List[KnowledgeEntryData]
     #: ``title`` and ``reason`` for each heading that was not brought in.
     skipped: List[Dict[str, Any]]
+    #: ``markdown`` or ``okf``: how the input was read. An OKF concept's bundle trust is in its source label.
+    format: str
 
     _NESTED_LISTS = {"created": KnowledgeEntryData}
+
+
+@dataclass
+class KnowledgeFlagData(Model):
+    """A report that an entry did not hold, or that knowledge is missing. A person decides it."""
+
+    id: str
+    #: ``wrong`` | ``out_of_date`` | ``incomplete`` | ``conflicts`` | ``missing``
+    reason: str
+    reason_label: str
+    note: str
+    suggestion: Optional[str]
+    evidence_url: Optional[str]
+    #: ``open`` | ``resolved`` | ``dismissed``
+    status: str
+    #: ``id``, ``title``, ``status`` and ``url`` of the entry; None for missing knowledge.
+    entry: Optional[Dict[str, Any]]
+    workspace_id: Optional[str]
+    #: ``id`` and ``url`` of the revision proposed to answer it, while it waits for a person.
+    proposal: Optional[Dict[str, Any]]
+    flagged_by: str
+    flagged_at: str
+    resolved_at: Optional[str]
+    resolved_by: Optional[str]
+    resolution_note: Optional[str]
+
+
+@dataclass
+class FlaggedKnowledge(Model):
+    flag: KnowledgeFlagData
+    #: True when you had already flagged this entry and that flag is still open.
+    resumed: bool
+
+    _NESTED = {"flag": KnowledgeFlagData}
+
+
+@dataclass
+class KnowledgeFlagPage(Model):
+    flags: List[KnowledgeFlagData]
+    next_cursor: Optional[str]
+
+    _NESTED_LISTS = {"flags": KnowledgeFlagData}
 
 
 @dataclass

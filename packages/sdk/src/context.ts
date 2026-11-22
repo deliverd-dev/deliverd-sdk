@@ -4,12 +4,16 @@ import type {
   DraftPlaybookInput,
   EditKnowledgeInput,
   ExportKnowledgeInput,
+  FlaggedKnowledge,
+  FlagKnowledgeInput,
   ImportedKnowledge,
   ImportKnowledgeInput,
   KnowledgeDetail,
   KnowledgeEntryData,
   KnowledgeExport,
+  KnowledgeFlagPage,
   KnowledgeSearchResult,
+  ListKnowledgeFlagsInput,
   PlaybookData,
   PlaybookDetail,
   PlaybookSummary,
@@ -84,7 +88,25 @@ export class Knowledge {
     });
   }
 
-  /** Bring in a Deliverd export or a notes file such as AGENTS.md. Each heading becomes a proposed entry. */
+  /**
+   * Say a confirmed entry did not hold, or that knowledge is missing, without
+   * writing the fix. The entry is unchanged until a person decides.
+   */
+  flag(input: FlagKnowledgeInput, signal?: AbortSignal): Promise<FlaggedKnowledge> {
+    return this.http.request<FlaggedKnowledge>({ method: "POST", path: "/knowledge/flags", body: input, signal });
+  }
+
+  /** Flags raised on the knowledge, newest first; open ones unless `status` says otherwise. Page with `nextCursor`. */
+  listFlags(input: ListKnowledgeFlagsInput = {}, signal?: AbortSignal): Promise<KnowledgeFlagPage> {
+    return this.http.request<KnowledgeFlagPage>({
+      method: "GET",
+      path: "/knowledge/flags",
+      query: { status: input.status, entryId: input.entryId, limit: input.limit, cursor: input.cursor },
+      signal,
+    });
+  }
+
+  /** Bring in a Deliverd export, a notes file such as AGENTS.md, or an OKF bundle. Each heading or concept becomes a proposed entry. */
   import(input: ImportKnowledgeInput, signal?: AbortSignal): Promise<ImportedKnowledge> {
     return this.http.request<ImportedKnowledge>({ method: "POST", path: "/knowledge/import", body: input, signal });
   }

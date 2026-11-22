@@ -130,6 +130,9 @@ from .types import (
     KnowledgeDetail,
     KnowledgeEntryData,
     KnowledgeSearchResult,
+    KnowledgeFlagData,
+    FlaggedKnowledge,
+    KnowledgeFlagPage,
     PlaybookData,
     PlaybookDetail,
     PlaybookSummary,
@@ -202,7 +205,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.31.2"
+__version__ = "0.32.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -317,6 +320,9 @@ __all__ = [
     "KnowledgeDetail",
     "KnowledgeEntryData",
     "KnowledgeSearchResult",
+    "KnowledgeFlagData",
+    "FlaggedKnowledge",
+    "KnowledgeFlagPage",
     "PlaybookData",
     "PlaybookDetail",
     "PlaybookSummary",

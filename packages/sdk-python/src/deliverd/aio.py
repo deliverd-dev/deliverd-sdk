@@ -1031,6 +1031,10 @@ class AsyncKnowledge:
         """Everything you may see, as Markdown that imports back."""
         return await asyncio.to_thread(partial(self._sync.export_markdown, status=status, workspace_id=workspace_id))
 
+    async def flag(self, reason: str, note: str, entry_id: Optional[str] = None, suggestion: Optional[str] = None, evidence_url: Optional[str] = None, workspace_id: Optional[str] = None) -> FlaggedKnowledge:
+        """Say a confirmed entry did not hold, or (``reason="missing"``, no entry) that knowledge is missing."""
+        return await asyncio.to_thread(partial(self._sync.flag, reason=reason, note=note, entry_id=entry_id, suggestion=suggestion, evidence_url=evidence_url, workspace_id=workspace_id))
+
     async def get(self, entry_id: str) -> KnowledgeDetail:
         """One entry, with the versions before and after it."""
         return await asyncio.to_thread(partial(self._sync.get, entry_id=entry_id))
@@ -1043,13 +1047,21 @@ class AsyncKnowledge:
         """Bring in a Deliverd export or a notes file such as AGENTS.md. Each heading becomes a proposed entry."""
         return await asyncio.to_thread(partial(self._sync.import_markdown, markdown=markdown, workspace_id=workspace_id, source=source))
 
+    async def import_okf(self, files: Optional[Dict[str, str]] = None, zip_bytes: Optional[bytes] = None, workspace_id: Optional[str] = None, source: Optional[str] = None) -> ImportedKnowledge:
+        """Bring in an Open Knowledge Format (OKF) bundle: ``files`` as ``{path: text}``, or the bundle zipped."""
+        return await asyncio.to_thread(partial(self._sync.import_okf, files=files, zip_bytes=zip_bytes, workspace_id=workspace_id, source=source))
+
+    async def list_flags(self, status: Optional[str] = None, entry_id: Optional[str] = None, limit: Optional[int] = None, cursor: Optional[str] = None) -> KnowledgeFlagPage:
+        """Flags raised on the knowledge, newest first; open ones unless ``status`` says otherwise. Page with ``next_cursor``."""
+        return await asyncio.to_thread(partial(self._sync.list_flags, status=status, entry_id=entry_id, limit=limit, cursor=cursor))
+
     async def promote_finding(self, task_id: str, finding_id: str, kind: Optional[str] = None, title: Optional[str] = None, body: Optional[str] = None, tags: Optional[Sequence[str]] = None) -> ProposedKnowledge:
         """Propose a task's finding as knowledge, keeping where it came from."""
         return await asyncio.to_thread(partial(self._sync.promote_finding, task_id=task_id, finding_id=finding_id, kind=kind, title=title, body=body, tags=tags))
 
-    async def propose(self, kind: str, title: str, body: str, tags: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, flow_id: Optional[str] = None, supersedes_id: Optional[str] = None, source_url: Optional[str] = None, source_label: Optional[str] = None, external_id: Optional[str] = None) -> ProposedKnowledge:
+    async def propose(self, kind: str, title: str, body: str, tags: Optional[Sequence[str]] = None, workspace_id: Optional[str] = None, flow_id: Optional[str] = None, supersedes_id: Optional[str] = None, source_url: Optional[str] = None, source_label: Optional[str] = None, external_id: Optional[str] = None, answers_flag_ids: Optional[Sequence[str]] = None) -> ProposedKnowledge:
         """Propose an entry. It is a proposal until a person confirms it; a secret is refused."""
-        return await asyncio.to_thread(partial(self._sync.propose, kind=kind, title=title, body=body, tags=tags, workspace_id=workspace_id, flow_id=flow_id, supersedes_id=supersedes_id, source_url=source_url, source_label=source_label, external_id=external_id))
+        return await asyncio.to_thread(partial(self._sync.propose, kind=kind, title=title, body=body, tags=tags, workspace_id=workspace_id, flow_id=flow_id, supersedes_id=supersedes_id, source_url=source_url, source_label=source_label, external_id=external_id, answers_flag_ids=answers_flag_ids))
 
     async def search(self, q: Optional[str] = None, kind: Optional[str] = None, status: Optional[str] = None, workspace_id: Optional[str] = None, flow_id: Optional[str] = None, limit: Optional[int] = None) -> KnowledgeSearchResult:
         """Ranked by relevance to ``q``; confirmed entries unless ``status`` says otherwise."""

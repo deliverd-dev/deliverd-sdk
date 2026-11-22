@@ -2,9 +2,32 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.42.2
+## 0.43.0
 
-A patch. 0.42.1 went to npm on 21 November 2026 from deliverd-sdk 4e3f0f4.
+A minor, for an addition. 0.42.1 went to npm on 21 November 2026 from
+deliverd-sdk 4e3f0f4; this was opened as 0.42.2.
+
+### Added
+
+- **`knowledge.flag()`: say an entry did not hold without rewriting it.** An
+  agent that finds a confirmed entry wrong, out of date, incomplete or in
+  conflict with another source flags it (`reason`, `note`, optional
+  `suggestion` and `evidenceUrl`); with `reason: "missing"` and no `entryId`
+  it says nothing answered what it needed. The entry is unchanged until a
+  person revises it, retires it or dismisses the flag. A second open flag by
+  the same caller on the same entry comes back with `resumed: true`.
+- **`knowledge.listFlags()`**, newest first and open unless `status` says
+  otherwise, paged with `nextCursor`: what a curator agent reads before it
+  proposes revisions.
+- **`answersFlagIds` on `knowledge.propose()`**: the flags a revision
+  answers. They close when a person confirms it.
+- **`openFlags` on confirmed entries** from `search()` and `get()`.
+- **Open Knowledge Format import**: `knowledge.import({ files })` or
+  `{ zipBase64 }` brings in an OKF v0.3 bundle. Every concept arrives as a
+  proposal, with the bundle's own trust (human-reviewed, machine-confirmed or
+  unverified, and whether it is stale) said in its source label.
+  `ImportedKnowledge.format` says how the input was read. The API's
+  `GET /knowledge/export?format=okf` exports one, zipped.
 
 ## 0.42.1
 

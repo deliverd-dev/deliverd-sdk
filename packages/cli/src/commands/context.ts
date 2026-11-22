@@ -180,6 +180,61 @@ export function contextCommands(program: Command): void {
     );
 
   knowledge
+    .command("flag")
+    .description("Say a confirmed entry did not hold, or that knowledge is missing, without writing the fix; a person decides")
+    .argument("[id]", "The entry. Leave out with --reason missing")
+    .requiredOption("--reason <reason>", "wrong | out_of_date | incomplete | conflicts | missing")
+    .requiredOption("--note <text>", "What you saw, for a person to check")
+    .option("--suggestion <text>", "What you think it should say; never applied as is")
+    .option("--evidence <url>", "A page, trace or run a person can open")
+    .option("--workspace <id>", "For missing knowledge: the workspace it belongs to")
+    .option("--json", "Print the result as JSON, for scripting")
+    .action(
+      run(async (id: string | undefined, options: { reason: string; note: string; suggestion?: string; evidence?: string; workspace?: string; json?: boolean }) => {
+        const config = requireConfig();
+        const out = await api<{ flag: { id: string; reasonLabel: string; entry: { title: string; url: string } | null }; resumed: boolean }>(config, "POST", "/knowledge/flags", {
+          entryId: id,
+          reason: options.reason,
+          note: options.note,
+          suggestion: options.suggestion,
+          evidenceUrl: options.evidence,
+          workspaceId: options.workspace,
+        });
+        emit(options.json, out, () => {
+          const what = out.flag.entry ? `"${out.flag.entry.title}"` : "missing knowledge";
+          console.log(out.resumed ? `\nYou already flagged ${what}; that flag is still open.\n` : `\n✓ Flagged ${what} (${out.flag.reasonLabel}). A person decides in Deliverd; until then it is unchanged.`);
+          if (out.flag.entry) console.log(`  ${out.flag.entry.url}\n`);
+        });
+      })
+    );
+
+  knowledge
+    .command("flags")
+    .description("Flags raised on the knowledge, newest first; open ones unless --status says otherwise")
+    .option("--status <status>", "open (the default) | resolved | dismissed | all")
+    .option("--entry <id>", "Only the flags on one entry")
+    .option("--limit <n>", "How many", "50")
+    .option("--json", "Print the result as JSON, for scripting")
+    .action(
+      run(async (options: { status?: string; entry?: string; limit: string; json?: boolean }) => {
+        const config = requireConfig();
+        const qs = query({ status: options.status, entryId: options.entry, limit: options.limit });
+        const out = await api<{ flags: { id: string; reasonLabel: string; status: string; note: string; flaggedBy: string; entry: { title: string } | null; proposal: { url: string } | null }[]; nextCursor: string | null }>(
+          config,
+          "GET",
+          `/knowledge/flags?${qs}`
+        );
+        emit(options.json, out, () => {
+          if (!out.flags.length) console.log("No flags.");
+          for (const f of out.flags) {
+            console.log(`${f.entry ? f.entry.title : "Missing knowledge"} — ${f.reasonLabel}, ${f.status}\n  ${f.note}\n  ${f.id} · by ${f.flaggedBy}${f.proposal ? ` · revision waiting: ${f.proposal.url}` : ""}\n`);
+          }
+          if (out.nextCursor) console.log("More flags; raise --limit.");
+        });
+      })
+    );
+
+  knowledge
     .command("given")
     .description("What an objective and its side tasks were given, and who confirmed it")
     .argument("<task-id>")

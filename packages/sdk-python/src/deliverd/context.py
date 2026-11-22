@@ -13,6 +13,7 @@ one and run one, never publish it, and never confirm knowledge.
 
 from __future__ import annotations
 
+import base64
 import urllib.parse
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -20,9 +21,11 @@ from ._http import HttpClient
 from ._wire import body_from
 from .types import (
     ContextGiven,
+    FlaggedKnowledge,
     ImportedKnowledge,
     KnowledgeDetail,
     KnowledgeEntryData,
+    KnowledgeFlagPage,
     KnowledgeSearchResult,
     PlaybookData,
     PlaybookDetail,
@@ -104,8 +107,13 @@ class Knowledge:
         source_url: Optional[str] = None,
         source_label: Optional[str] = None,
         external_id: Optional[str] = None,
+        answers_flag_ids: Optional[Sequence[str]] = None,
     ) -> ProposedKnowledge:
-        """Propose an entry. It is a proposal until a person confirms it; a secret is refused."""
+        """Propose an entry. It is a proposal until a person confirms it; a secret is refused.
+
+        ``answers_flag_ids``: open flags this answers (on the entry it supersedes, or missing-knowledge
+        flags). They close when a person confirms it.
+        """
         payload = body_from(
             {
                 "kind": kind,
@@ -118,9 +126,73 @@ class Knowledge:
                 "source_url": source_url,
                 "source_label": source_label,
                 "external_id": external_id,
+                "answers_flag_ids": list(answers_flag_ids) if answers_flag_ids is not None else None,
             }
         )
         return ProposedKnowledge.from_wire(self._http.request("POST", "/knowledge", body=payload))
+
+    def flag(
+        self,
+        reason: str,
+        note: str,
+        entry_id: Optional[str] = None,
+        suggestion: Optional[str] = None,
+        evidence_url: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> FlaggedKnowledge:
+        """Say a confirmed entry did not hold, or (``reason="missing"``, no entry) that knowledge is missing.
+
+        The entry is unchanged until a person decides. ``reason``: ``wrong``, ``out_of_date``,
+        ``incomplete``, ``conflicts`` or ``missing``.
+        """
+        payload = body_from(
+            {
+                "entry_id": entry_id,
+                "reason": reason,
+                "note": note,
+                "suggestion": suggestion,
+                "evidence_url": evidence_url,
+                "workspace_id": workspace_id,
+            }
+        )
+        return FlaggedKnowledge.from_wire(self._http.request("POST", "/knowledge/flags", body=payload))
+
+    def list_flags(
+        self,
+        status: Optional[str] = None,
+        entry_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+    ) -> KnowledgeFlagPage:
+        """Flags raised on the knowledge, newest first; open ones unless ``status`` says otherwise. Page with ``next_cursor``."""
+        payload = self._http.request(
+            "GET", "/knowledge/flags", query={"status": status, "entryId": entry_id, "limit": limit, "cursor": cursor}
+        )
+        return KnowledgeFlagPage.from_wire(payload)
+
+    def import_okf(
+        self,
+        files: Optional[Dict[str, str]] = None,
+        zip_bytes: Optional[bytes] = None,
+        workspace_id: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> ImportedKnowledge:
+        """Bring in an Open Knowledge Format (OKF) bundle: ``files`` as ``{path: text}``, or the bundle zipped.
+
+        Every concept arrives as a proposal; the bundle's own trust is said in its source label.
+        """
+        if (files is None) == (zip_bytes is None):
+            raise ValueError("Pass exactly one of files or zip_bytes.")
+        payload = body_from(
+            {
+                "files": [{"path": p, "content": c} for p, c in files.items()] if files is not None else None,
+                "zip_base64": base64.b64encode(zip_bytes).decode("ascii") if zip_bytes is not None else None,
+                "workspace_id": workspace_id,
+                "source": source,
+            },
+            passthrough=("files",),
+        )
+        return ImportedKnowledge.from_wire(self._http.request("POST", "/knowledge/import", body=payload))
 
     def edit(
         self,

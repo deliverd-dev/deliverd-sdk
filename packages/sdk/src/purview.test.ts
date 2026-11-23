@@ -4,11 +4,19 @@ import { entraAppToken, purviewCheck } from "./purview.js";
 const APP = { name: "Claims assistant", entraAppId: "11111111-2222-4333-8444-555555555555" };
 const USER = "5def8f26-aff8-4db6-a08c-0fcf8f1aa2ba";
 
-function fakeFetch(responses: { status: number; body?: unknown; etag?: string }[]) {
+type Answer = { status: number; body?: unknown; etag?: string };
+
+/** processContent answers in turn; protectionScopes/compute answers `compute` (by default 200 with no ETag). */
+function fakeFetch(responses: Answer[], compute: Answer | (() => Answer) = { status: 200, body: { value: [] } }) {
   const calls: { url: string; init: RequestInit }[] = [];
+  let n = 0;
   const impl = (async (url: string, init: RequestInit) => {
-    calls.push({ url, init });
-    const r = responses[Math.min(calls.length - 1, responses.length - 1)]!;
+    const r = url.endsWith("/protectionScopes/compute")
+      ? typeof compute === "function"
+        ? compute()
+        : compute
+      : responses[Math.min(n++, responses.length - 1)]!;
+    if (!url.endsWith("/protectionScopes/compute")) calls.push({ url, init });
     return new Response(r.body === undefined ? null : JSON.stringify(r.body), {
       status: r.status,
       headers: r.etag ? { ETag: r.etag } : {},
@@ -34,8 +42,42 @@ describe("purviewCheck", () => {
     expect(body.contentToProcess.protectedAppMetadata.applicationLocation.value).toBe(APP.entraAppId);
   });
 
-  it("sends the last ETag on the next call", async () => {
-    const { impl, calls } = fakeFetch([{ status: 200, etag: '"e1"', body: { policyActions: [] } }]);
+  it("computes the user's protection scopes for the app first, once an hour, and sends their ETag", async () => {
+    const urls: string[] = [];
+    const bodies: string[] = [];
+    const impl = (async (url: string, init: RequestInit) => {
+      urls.push(url);
+      bodies.push(String(init.body));
+      if (url.endsWith("/protectionScopes/compute")) return new Response(JSON.stringify({ value: [] }), { status: 200, headers: { ETag: '"scope"' } });
+      expect((init.headers as Record<string, string>)["If-None-Match"]).toBe('"scope"');
+      return new Response(JSON.stringify({ policyActions: [{ restrictionAction: "block" }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const check = purviewCheck({ token: "t", userId: USER, app: APP, fetch: impl });
+    expect((await check("a")).restriction).toBe("block");
+    await check("b");
+    expect(urls.filter((u) => u.endsWith("/protectionScopes/compute"))).toEqual([`https://graph.microsoft.com/v1.0/users/${USER}/dataSecurityAndGovernance/protectionScopes/compute`]);
+    expect(JSON.parse(bodies[0]!)).toMatchObject({ activities: "uploadText", locations: [{ value: APP.entraAppId }] });
+  });
+
+  it("still asks processContent when compute is refused", async () => {
+    const { impl, calls } = fakeFetch([{ status: 200, body: { policyActions: [{ restrictionAction: "warn" }] } }], { status: 403 });
+    expect(await purviewCheck({ token: "t", app: APP, fetch: impl })("x")).toMatchObject({ restriction: "warn", unavailable: false });
+    expect((calls[0]!.init.headers as Record<string, string>)["If-None-Match"]).toBeUndefined();
+  });
+
+  it("computes again and asks once more when Purview says its policies changed", async () => {
+    let computed = 0;
+    const { impl, calls } = fakeFetch(
+      [{ status: 200, body: { protectionScopeState: "modified", policyActions: [] } }, { status: 200, body: { policyActions: [{ restrictionAction: "block" }] } }],
+      () => ({ status: 200, body: { value: [] }, etag: `"e${++computed}"` })
+    );
+    expect((await purviewCheck({ token: "t", app: APP, fetch: impl })("x")).restriction).toBe("block");
+    expect(computed).toBe(2);
+    expect((calls[1]!.init.headers as Record<string, string>)["If-None-Match"]).toBe('"e2"');
+  });
+
+  it("sends the computed scope's ETag on every call", async () => {
+    const { impl, calls } = fakeFetch([{ status: 200, body: { policyActions: [] } }], { status: 200, body: { value: [] }, etag: '"e1"' });
     const check = purviewCheck({ token: "tok", app: APP, fetch: impl });
     await check("one");
     await check("two");

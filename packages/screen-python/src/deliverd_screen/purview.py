@@ -12,7 +12,8 @@
 The Python half of ``packages/core/src/purview.ts``, rule for rule, and the
 same file as ``deliverd/purview.py`` in the Deliverd SDK. The call
 goes from where your agent runs straight to Microsoft Graph
-(``processContent``), with your own Entra app's token, so the text goes to
+(``protectionScopes/compute`` about once an hour, then ``processContent``),
+with your own Entra app's token, so the text goes to
 Microsoft and never to Deliverd. When Deliverd is used, it is sent only the outcome:
 
 - ``block``: nothing is sent. The organisation's own policy said so, and it is
@@ -21,7 +22,8 @@ Microsoft and never to Deliverd. When Deliverd is used, it is sent only the outc
   Purview allows is recorded, with who made it.
 - ``audit``: no hold. Purview has recorded the activity itself.
 
-The Entra app needs ``Content.Process.User`` or ``Content.Process.All``
+The Entra app needs ``Content.Process.User`` or ``Content.Process.All``, and
+``ProtectionScopes.Compute.User`` or ``ProtectionScopes.Compute.All``
 (application permission with ``user_id``, or delegated with the signed-in
 user's token and no ``user_id``). Purview applies DLP policies to an
 Entra-registered app only when they were created with ``New-DlpComplianceRule``;
@@ -190,6 +192,19 @@ def process_content_body(
     }
 
 
+def compute_scopes_body(app: Mapping[str, str]) -> Dict[str, Any]:
+    """The body ``protectionScopes/compute`` takes: which DLP policies cover this app's prompts for the user."""
+    return {
+        "activities": "uploadText",
+        "locations": [{"@odata.type": "microsoft.graph.policyLocationApplication", "value": app["entra_app_id"]}],
+        "integratedAppMetadata": {"name": app["name"], "version": app.get("version", "1.0")},
+    }
+
+
+# How long a computed scope is trusted (Microsoft recommends an hour), and how long to wait after compute is refused.
+_SCOPE_TTL = 60 * 60.0
+_SCOPE_RETRY = 15 * 60.0
+
 Transport = Callable[[str, Dict[str, str], bytes, float], Tuple[int, Dict[str, str], bytes]]
 
 
@@ -274,28 +289,58 @@ def purview_check(
         raise ValueError("purview_check: user_id is the user's Entra object id, a GUID.")
     if on_unavailable not in ("allow", "ask", "deny"):
         raise ValueError("purview_check: on_unavailable is 'allow', 'ask' or 'deny'.")
-    url = "{}/{}/dataSecurityAndGovernance/processContent".format(_GRAPH, "users/" + user_id if user_id else "me")
+    base = "{}/{}/dataSecurityAndGovernance".format(_GRAPH, "users/" + user_id if user_id else "me")
     send = transport or _urllib_transport
-    state: Dict[str, Any] = {"etag": None, "sequence": 0}
+    state: Dict[str, Any] = {"etag": None, "until": 0.0, "sequence": 0}
+
+    # Microsoft's flow: compute the user's protection scopes for this app, then
+    # processContent with their ETag. Without it Purview answers "modified" and
+    # no actions. Compute needs ProtectionScopes.Compute.User or .All; when it
+    # is refused, processContent is asked without an ETag, as before.
+    def scope_etag(bearer: str) -> Optional[str]:
+        if time.time() < state["until"]:
+            return state["etag"]
+        try:
+            status, response_headers, _ = send(
+                base + "/protectionScopes/compute",
+                {"Authorization": "Bearer " + bearer, "Content-Type": "application/json"},
+                json.dumps(compute_scopes_body(app)).encode("utf-8"),
+                timeout,
+            )
+            ok = 200 <= status < 300
+            state["etag"] = next((v for k, v in response_headers.items() if k.lower() == "etag"), None) if ok else None
+            state["until"] = time.time() + (_SCOPE_TTL if ok else _SCOPE_RETRY)
+        except Exception:
+            state["etag"] = None
+            state["until"] = time.time() + _SCOPE_RETRY
+        return state["etag"]
+
+    def ask(text: str, bearer: str, etag: Optional[str]) -> Tuple[int, Dict[str, str], bytes]:
+        headers = {"Authorization": "Bearer " + bearer, "Content-Type": "application/json"}
+        if etag:
+            headers["If-None-Match"] = etag
+        body = json.dumps(process_content_body(text, app, agent, correlation_id, state["sequence"])).encode("utf-8")
+        state["sequence"] += 1
+        return send(base + "/processContent", headers, body, timeout)
 
     def check(text: str) -> PurviewOutcome:
         try:
             bearer = token() if callable(token) else token
-            headers = {"Authorization": "Bearer " + bearer, "Content-Type": "application/json"}
-            if state["etag"]:
-                headers["If-None-Match"] = state["etag"]
-            body = json.dumps(process_content_body(text, app, agent, correlation_id, state["sequence"])).encode("utf-8")
-            state["sequence"] += 1
-            status, response_headers, raw = send(url, headers, body, timeout)
+            etag = scope_etag(bearer)
+            status, _, raw = ask(text, bearer, etag)
+            if 200 <= status < 300 and status not in (202, 204):
+                first = purview_outcome_from_response(json.loads(raw.decode("utf-8")))
+                if not first.scope_modified or not etag:
+                    return first
+                # The tenant's policies changed since the scope was computed: compute again and ask once more.
+                state["until"] = 0.0
+                etag = scope_etag(bearer)
+                status, _, raw = ask(text, bearer, etag)
             if status in (202, 204):
                 return PurviewOutcome(None)
             if status < 200 or status >= 300:
                 return purview_unavailable(on_unavailable)
-            etag = next((v for k, v in response_headers.items() if k.lower() == "etag"), None)
-            outcome = purview_outcome_from_response(json.loads(raw.decode("utf-8")))
-            # Purview's policies changed, or first sight: the next call starts from this state.
-            state["etag"] = etag or state["etag"]
-            return outcome
+            return purview_outcome_from_response(json.loads(raw.decode("utf-8")))
         except Exception:
             return purview_unavailable(on_unavailable)
 

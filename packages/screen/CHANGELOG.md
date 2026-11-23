@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
 
+- **Microsoft Purview now applies its DLP rules to your app.** `purviewCheck()`
+  computes the app's protection scope first
+  (`protectionScopes/compute`, once an hour) and sends its ETag with each
+  `processContent` call, as Microsoft requires; without it Purview answered
+  with no actions even when a rule matched. When Purview says the policy
+  changed, it computes again and asks once more. Add the Graph permission
+  `ProtectionScopes.Compute.All` (or `.User`) beside `Content.Process.All`; if
+  it is missing, the text is still asked about as before and compute is tried
+  again after 15 minutes. Tested against a real DLP policy in a Microsoft 365
+  E5 tenant: a card number with its expiry was blocked.
 - **A password written out in words is a secret.** "My banking password is
   Tr0ub4dor&3", "password: hunter2" and "passcode is 482913" are found and
   denied like any other credential, in TypeScript, Python and Rust, with new

@@ -6,6 +6,19 @@
 
 A patch. 0.43.0 went to npm on 22 November 2026 from deliverd-sdk 0c7c28f.
 
+### Fixed
+
+- **Microsoft Purview now applies its DLP rules to your app.** `purviewCheck()`
+  computes the app's protection scope first
+  (`protectionScopes/compute`, once an hour) and sends its ETag with each
+  `processContent` call, as Microsoft requires; without it Purview answered
+  with no actions even when a rule matched. When Purview says the policy
+  changed, it computes again and asks once more. Add the Graph permission
+  `ProtectionScopes.Compute.All` (or `.User`) beside `Content.Process.All`; if
+  it is missing, the text is still asked about as before and compute is tried
+  again after 15 minutes. Tested against a real DLP policy in a Microsoft 365
+  E5 tenant: a card number with its expiry was blocked.
+
 ## 0.43.0
 
 A minor, for an addition. 0.42.1 went to npm on 21 November 2026 from

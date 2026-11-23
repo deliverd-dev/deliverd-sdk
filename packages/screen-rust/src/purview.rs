@@ -251,6 +251,24 @@ mod client {
         })
     }
 
+    /// The body `protectionScopes/compute` takes: which activities and which
+    /// app the scopes are for. Its ETag goes to `processContent` as
+    /// `If-None-Match`; without it Purview does not apply app-plane DLP.
+    pub fn compute_scopes_body(app_name: &str, entra_app_id: &str) -> Value {
+        json!({
+            "activities": "uploadText",
+            "locations": [
+                { "@odata.type": "microsoft.graph.policyLocationApplication", "value": entra_app_id }
+            ],
+            "integratedAppMetadata": { "name": app_name, "version": "1.0" },
+        })
+    }
+
+    /// How long a computed scope is used before it is computed again.
+    pub const SCOPE_TTL: Duration = Duration::from_secs(3600);
+    /// How long to wait before trying compute again after it was refused.
+    pub const SCOPE_RETRY: Duration = Duration::from_secs(900);
+
     /// The outcome of a `processContent` response body.
     pub fn outcome_from_response(body: &Value) -> PurviewOutcome {
         let actions = body.get("policyActions").and_then(Value::as_array).cloned().unwrap_or_default();
@@ -262,15 +280,21 @@ mod client {
 
     struct State {
         token: Option<(String, Instant)>,
-        etag: Option<String>,
+        /// The scope ETag from compute (None when compute was refused) and
+        /// when to compute again.
+        scope: Option<(Option<String>, Instant)>,
         sequence: u64,
     }
 
     /// Asks your organisation's Purview about a text, as an Entra app acting
     /// as itself (client credentials) on behalf of one user.
     ///
-    /// The app needs the Microsoft Graph application permission
-    /// `Content.Process.All` with admin consent. Purview applies DLP policies
+    /// The app needs the Microsoft Graph application permissions
+    /// `ProtectionScopes.Compute.All` and `Content.Process.All` with admin
+    /// consent. Each check sends the ETag of the app's computed protection
+    /// scope (computed once an hour, and again when Purview says the scope
+    /// changed); if compute is refused, the text is still asked about
+    /// without one, as before, and compute is tried again after 15 minutes. Purview applies DLP policies
     /// to an Entra-registered app only when they were created with
     /// `New-DlpComplianceRule`; one made in the portal alone does not apply.
     pub struct PurviewClient {
@@ -308,7 +332,7 @@ mod client {
                 on_unavailable: OnUnavailable::default(),
                 correlation_id: uuid(),
                 agent,
-                state: Mutex::new(State { token: None, etag: None, sequence: 0 }),
+                state: Mutex::new(State { token: None, scope: None, sequence: 0 }),
             })
         }
 
@@ -398,16 +422,40 @@ mod client {
             Some(token)
         }
 
-        /// Ask Purview about one text.
-        pub fn check(&self, text: &str) -> PurviewOutcome {
-            let Ok(mut state) = self.state.lock() else { return unavailable(self.on_unavailable) };
-            let Some(token) = self.token(&mut state) else { return unavailable(self.on_unavailable) };
+        fn base(&self) -> String {
+            format!("{GRAPH}/users/{}/dataSecurityAndGovernance", self.user_id)
+        }
+
+        fn scope_etag(&self, state: &mut State, token: &str) -> Option<String> {
+            if let Some((etag, until)) = &state.scope {
+                if Instant::now() < *until {
+                    return etag.clone();
+                }
+            }
+            let url = format!("{}/protectionScopes/compute", self.base());
+            let res = self
+                .agent
+                .post(&url)
+                .header("Authorization", &format!("Bearer {token}"))
+                .send_json(compute_scopes_body(&self.app_name, &self.client_id));
+            let etag = match res {
+                Ok(r) if r.status().is_success() => {
+                    r.headers().get("ETag").and_then(|v| v.to_str().ok()).map(str::to_string)
+                }
+                _ => None,
+            };
+            let wait = if etag.is_some() { SCOPE_TTL } else { SCOPE_RETRY };
+            state.scope = Some((etag.clone(), Instant::now() + wait));
+            etag
+        }
+
+        fn ask(&self, state: &mut State, token: &str, text: &str, etag: Option<&str>) -> PurviewOutcome {
             let body =
                 process_content_body(text, &self.app_name, &self.client_id, &self.correlation_id, state.sequence);
             state.sequence += 1;
-            let url = format!("{GRAPH}/users/{}/dataSecurityAndGovernance/processContent", self.user_id);
+            let url = format!("{}/processContent", self.base());
             let mut req = self.agent.post(&url).header("Authorization", &format!("Bearer {token}"));
-            if let Some(etag) = &state.etag {
+            if let Some(etag) = etag {
                 req = req.header("If-None-Match", etag);
             }
             let Ok(mut res) = req.send_json(&body) else { return unavailable(self.on_unavailable) };
@@ -418,19 +466,37 @@ mod client {
             if !res.status().is_success() {
                 return unavailable(self.on_unavailable);
             }
-            if let Some(etag) = res.headers().get("ETag").and_then(|v| v.to_str().ok()) {
-                state.etag = Some(etag.to_string());
-            }
             match res.body_mut().read_json::<Value>() {
                 Ok(v) => outcome_from_response(&v),
                 Err(_) => unavailable(self.on_unavailable),
             }
         }
+
+        /// Ask Purview about one text.
+        pub fn check(&self, text: &str) -> PurviewOutcome {
+            let Ok(mut state) = self.state.lock() else { return unavailable(self.on_unavailable) };
+            let Some(token) = self.token(&mut state) else { return unavailable(self.on_unavailable) };
+            let etag = self.scope_etag(&mut state, &token);
+            let first = self.ask(&mut state, &token, text, etag.as_deref());
+            if !first.scope_modified || etag.is_none() {
+                return first;
+            }
+            // The policy changed since the scope was computed: compute again
+            // and ask once more.
+            state.scope = None;
+            let fresh = self.scope_etag(&mut state, &token);
+            if fresh.is_none() {
+                return first;
+            }
+            self.ask(&mut state, &token, text, fresh.as_deref())
+        }
     }
 }
 
 #[cfg(feature = "purview")]
-pub use client::{outcome_from_response, process_content_body, PurviewClient};
+pub use client::{
+    compute_scopes_body, outcome_from_response, process_content_body, PurviewClient, SCOPE_RETRY, SCOPE_TTL,
+};
 
 #[cfg(test)]
 mod tests {
@@ -489,6 +555,17 @@ mod tests {
             "11111111-1111-1111-1111-111111111111"
         );
         assert!(entry["createdDateTime"].as_str().is_some_and(|s| s.len() == 20 && s.ends_with('Z')));
+    }
+
+    #[cfg(feature = "purview")]
+    #[test]
+    fn computes_scopes_for_the_app_that_asks() {
+        let b = compute_scopes_body("Claims assistant", "11111111-1111-1111-1111-111111111111");
+        assert_eq!(b["activities"], "uploadText");
+        assert_eq!(b["locations"][0]["@odata.type"], "microsoft.graph.policyLocationApplication");
+        assert_eq!(b["locations"][0]["value"], "11111111-1111-1111-1111-111111111111");
+        assert_eq!(b["integratedAppMetadata"]["name"], "Claims assistant");
+        assert!(SCOPE_RETRY < SCOPE_TTL);
     }
 
     #[cfg(feature = "purview")]

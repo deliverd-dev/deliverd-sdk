@@ -21,11 +21,12 @@ export { type PurviewOutcome, type PurviewOnUnavailable, type PurviewRestriction
  * ```
  *
  * The call goes from where your agent runs straight to Microsoft Graph
- * (`processContent`), with your own Entra app's token, so the text goes to
+ * (`protectionScopes/compute` about once an hour, then `processContent`), with your own Entra app's token, so the text goes to
  * Microsoft and never to Deliverd. Deliverd is sent only the outcome: block,
  * warn, audit or nothing. A block stops the text; a warn puts it to a person.
  *
- * The Entra app needs `Content.Process.User` or `Content.Process.All`
+ * The Entra app needs `Content.Process.User` or `Content.Process.All`, and
+ * `ProtectionScopes.Compute.User` or `ProtectionScopes.Compute.All`
  * (application permission with `userId`, or delegated with the signed-in
  * user's token and no `userId`). Purview applies DLP policies to an
  * Entra-registered app only when they were created with
@@ -146,35 +147,74 @@ export function entraAppToken(options: EntraAppTokenOptions): () => Promise<stri
   };
 }
 
+/** The body `protectionScopes/compute` takes: which DLP policies cover this app's prompts for the user. */
+export function computeScopesBody(options: Pick<PurviewCheckOptions, "app">) {
+  return {
+    activities: "uploadText",
+    locations: [{ "@odata.type": "microsoft.graph.policyLocationApplication", value: options.app.entraAppId }],
+    integratedAppMetadata: { name: options.app.name, version: options.app.version ?? "1.0" },
+  };
+}
+
+/** How long a computed scope is trusted before it is asked again, as Microsoft recommends. */
+const SCOPE_TTL_MS = 60 * 60 * 1000;
+/** How long to wait before asking compute again after it was refused. */
+const SCOPE_RETRY_MS = 15 * 60 * 1000;
+
 export function purviewCheck(options: PurviewCheckOptions): PurviewCheck {
   if (!GUID.test(options.app.entraAppId)) throw new Error("purviewCheck: app.entraAppId is your Entra app's application (client) id, a GUID.");
   if (options.userId !== undefined && !GUID.test(options.userId)) throw new Error("purviewCheck: userId is the user's Entra object id, a GUID.");
   const doFetch = options.fetch ?? fetch;
-  const url = `${GRAPH}/${options.userId ? `users/${options.userId}` : "me"}/dataSecurityAndGovernance/processContent`;
+  const base = `${GRAPH}/${options.userId ? `users/${options.userId}` : "me"}/dataSecurityAndGovernance`;
   const onUnavailable = options.onUnavailable ?? "ask";
-  let etag: string | null = null;
+  const timeout = () => AbortSignal.timeout(options.timeoutMs ?? 10_000);
+  let scope: { etag: string | null; until: number } | null = null;
   let sequence = 0;
+
+  // Microsoft's flow: compute the user's protection scopes for this app, then
+  // processContent with their ETag. Without it Purview answers "modified" and
+  // no actions. Compute needs ProtectionScopes.Compute.User or .All; when it is
+  // refused, processContent is asked without an ETag, as before.
+  const scopeEtag = async (token: string): Promise<string | null> => {
+    if (scope && Date.now() < scope.until) return scope.etag;
+    try {
+      const res = await doFetch(`${base}/protectionScopes/compute`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(computeScopesBody(options)),
+        signal: timeout(),
+      });
+      scope = { etag: res.ok ? res.headers.get("ETag") : null, until: Date.now() + (res.ok ? SCOPE_TTL_MS : SCOPE_RETRY_MS) };
+    } catch {
+      scope = { etag: null, until: Date.now() + SCOPE_RETRY_MS };
+    }
+    return scope.etag;
+  };
+
+  const ask = (text: string, token: string, etag: string | null) =>
+    doFetch(`${base}/processContent`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(etag ? { "If-None-Match": etag } : {}) },
+      body: JSON.stringify(processContentBody(text, options, sequence++)),
+      signal: timeout(),
+    });
 
   return async (text: string) => {
     try {
       const token = typeof options.token === "function" ? await options.token() : options.token;
-      const res = await doFetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          ...(etag ? { "If-None-Match": etag } : {}),
-        },
-        body: JSON.stringify(processContentBody(text, options, sequence++)),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
-      });
+      let etag = await scopeEtag(token);
+      let res = await ask(text, token, etag);
+      if (res.ok && res.status !== 202 && res.status !== 204) {
+        const first = purviewOutcomeFromResponse(await res.json());
+        if (!first.scopeModified || !etag) return first;
+        // The tenant's policies changed since the scope was computed: compute again and ask once more.
+        scope = null;
+        etag = await scopeEtag(token);
+        res = await ask(text, token, etag);
+      }
       if (res.status === 202 || res.status === 204) return { restriction: null, actions: 0, scopeModified: false, unavailable: false };
       if (!res.ok) return purviewUnavailable(onUnavailable);
-      etag = res.headers.get("ETag") ?? etag;
-      const outcome = purviewOutcomeFromResponse(await res.json());
-      // Purview's policies changed: the next call starts from the new state.
-      if (outcome.scopeModified) etag = res.headers.get("ETag");
-      return outcome;
+      return purviewOutcomeFromResponse(await res.json());
     } catch {
       return purviewUnavailable(onUnavailable);
     }

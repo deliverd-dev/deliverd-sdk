@@ -101,7 +101,7 @@ checked.purview  # Purview's answer, beside the screen's own
 
 Only the standard library is used. The text goes to Microsoft Graph
 (`processContent`) in your own tenant, and nowhere else. The Entra app needs
-`Content.Process.All`, and the DLP rule must be created with
+`ProtectionScopes.Compute.All` and `Content.Process.All`, and the DLP rule must be created with
 `New-DlpComplianceRule`. `purview_from_env()` builds the check from
 `DELIVERD_PURVIEW_TENANT_ID`, `DELIVERD_PURVIEW_CLIENT_ID`,
 `DELIVERD_PURVIEW_CLIENT_SECRET` and `DELIVERD_PURVIEW_USER_ID`.

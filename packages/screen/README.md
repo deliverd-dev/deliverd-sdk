@@ -188,8 +188,8 @@ const checked = await screen(prompt, { purview });
 
 This is the one thing in the package that uses the network, and only when you
 pass it: the text goes to Microsoft Graph (`processContent`), in your own
-tenant, and nowhere else. The Entra app needs `Content.Process.All`, and the
-DLP rule must be created with `New-DlpComplianceRule` (Purview does not apply a
+tenant, and nowhere else. The Entra app needs `ProtectionScopes.Compute.All`
+and `Content.Process.All`, and the DLP rule must be created with `New-DlpComplianceRule` (Purview does not apply a
 portal-only rule to an Entra-registered app).
 
 For the MCP server, set `DELIVERD_PURVIEW_TENANT_ID`,

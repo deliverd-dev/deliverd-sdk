@@ -12,12 +12,15 @@ APP = {"name": "Claims assistant", "entra_app_id": "11111111-2222-3333-4444-5555
 USER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
 
-def graph(status, body=None, etag=None):
+def graph(status, body=None, etag=None, compute_status=200):
+    """processContent calls are recorded; protectionScopes/compute answers with the same ETag."""
     calls = []
 
     def transport(url, headers, raw, timeout):
+        if url.endswith("/protectionScopes/compute"):
+            return compute_status, ({"ETag": etag} if etag else {}), b'{"value": []}'
         calls.append((url, headers, json.loads(raw.decode("utf-8"))))
-        return status, ({"ETag": etag} if etag else {}), json.dumps(body or {}).encode("utf-8")
+        return status, {}, json.dumps(body or {}).encode("utf-8")
 
     return transport, calls
 
@@ -57,6 +60,40 @@ class PurviewCheckTest(unittest.TestCase):
         app = body["contentToProcess"]["protectedAppMetadata"]["applicationLocation"]["value"]
         self.assertEqual(app, APP["entra_app_id"])
         self.assertEqual(calls[1][1]["If-None-Match"], 'W/"1"')
+
+    def test_computes_the_scope_first_and_only_once_an_hour(self):
+        urls = []
+
+        def transport(url, headers, raw, timeout):
+            urls.append(url)
+            if url.endswith("/protectionScopes/compute"):
+                self.assertEqual(json.loads(raw.decode("utf-8"))["locations"][0]["value"], APP["entra_app_id"])
+                return 200, {"ETag": '"s"'}, b'{"value": []}'
+            self.assertEqual(headers["If-None-Match"], '"s"')
+            return 200, {}, b'{"policyActions": []}'
+
+        check = purview_check(token="t", app=APP, user_id=USER, transport=transport)
+        check("a")
+        check("b")
+        self.assertEqual([u for u in urls if u.endswith("/protectionScopes/compute")], ["https://graph.microsoft.com/v1.0/users/{}/dataSecurityAndGovernance/protectionScopes/compute".format(USER)])
+
+    def test_still_asks_when_compute_is_refused(self):
+        transport, calls = graph(200, {"policyActions": [{"restrictionAction": "warn"}]}, compute_status=403)
+        self.assertEqual(purview_check(token="t", app=APP, transport=transport)("x").restriction, "warn")
+        self.assertNotIn("If-None-Match", calls[0][1])
+
+    def test_computes_again_when_purview_says_its_policies_changed(self):
+        answers = [b'{"protectionScopeState": "modified", "policyActions": []}', b'{"policyActions": [{"restrictionAction": "block"}]}']
+        computed = []
+
+        def transport(url, headers, raw, timeout):
+            if url.endswith("/protectionScopes/compute"):
+                computed.append(1)
+                return 200, {"ETag": '"e{}"'.format(len(computed))}, b"{}"
+            return 200, {}, answers.pop(0)
+
+        self.assertEqual(purview_check(token="t", app=APP, transport=transport)("x").restriction, "block")
+        self.assertEqual(len(computed), 2)
 
     def test_an_error_from_graph_is_unavailable_not_allowed(self):
         transport, _ = graph(403)

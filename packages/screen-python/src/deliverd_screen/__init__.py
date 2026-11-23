@@ -53,7 +53,7 @@ from .data_screen import (
 from .purview import PurviewCheck, PurviewOutcome, apply_purview, entra_app_token, purview_check
 from .purview_env import purview_from_env
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 #: A detector: a callable from the text to spans (``DetectedSpan`` or dicts of kind, start, end).
 SpanDetector = Callable[[str], Sequence[object]]

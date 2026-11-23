@@ -269,7 +269,8 @@ describe("Microsoft Purview", () => {
     expect((await purview("a")).restriction).toBe("audit");
     await purview("b");
     expect(calls.filter((u) => u.includes("login.microsoftonline.com"))).toHaveLength(1);
-    expect(calls[1]).toContain(`/users/${USER}/dataSecurityAndGovernance/processContent`);
+    expect(calls[1]).toContain(`/users/${USER}/dataSecurityAndGovernance/protectionScopes/compute`);
+    expect(calls[2]).toContain(`/users/${USER}/dataSecurityAndGovernance/processContent`);
   });
 });
 

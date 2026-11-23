@@ -139,7 +139,7 @@ The `purview` feature adds the HTTP client (ureq with rustls). Without it,
 `Screen::purview` still takes any closure that returns a `PurviewOutcome`, so
 you can make the call with your own client. The text goes to Microsoft Graph
 (`processContent`) in your own tenant, and nowhere else. The Entra app needs
-`Content.Process.All`, and the DLP rule must be created with
+`ProtectionScopes.Compute.All` and `Content.Process.All`, and the DLP rule must be created with
 `New-DlpComplianceRule`. Built with the feature, `deliverd-screen mcp` reads
 `DELIVERD_PURVIEW_TENANT_ID`, `DELIVERD_PURVIEW_CLIENT_ID`,
 `DELIVERD_PURVIEW_CLIENT_SECRET` and `DELIVERD_PURVIEW_USER_ID` (and

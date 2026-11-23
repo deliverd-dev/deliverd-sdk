@@ -132,6 +132,8 @@ class Purview(unittest.TestCase):
         sent = []
 
         def transport(url, headers, payload, timeout):
+            if url.endswith("/protectionScopes/compute"):
+                return 200, {"ETag": "e1"}, b'{"value": []}'
             sent.append((url, json.loads(payload.decode("utf-8"))))
             return status, {"ETag": "e1"}, json.dumps(body or {}).encode("utf-8")
 

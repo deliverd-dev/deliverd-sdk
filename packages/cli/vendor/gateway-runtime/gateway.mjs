@@ -32,6 +32,9 @@ export const RISKS = ["low", "medium", "high", "critical"];
 export const ACCESS = ["read", "write"];
 export const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"];
 export const LOCATIONS = ["path", "query", "header", "body"];
+/** Where a database tool keeps its statement (sql.mjs). Covered by the fingerprint, never shown to an agent. */
+export const SQL_KEY = "x-deliverd-sql";
+const SQL_DIALECTS = ["postgres", "sqlserver"];
 const RESERVED_HEADERS = new Set(["authorization", "cookie", "host", "content-length", "content-type", "transfer-encoding", "deliverd-decision", "x-api-key", "proxy-authorization"]);
 /** A gate is asked again at most this many times for one call, when an earlier yes was already used. */
 export const MAX_ATTEMPTS = 5;
@@ -88,11 +91,18 @@ export function loadConfig(text) {
   if (!config || typeof config !== "object") throw new Error("The tools file must be a JSON object.");
   if (!SLUG.test(config.application ?? "")) problems.push("`application` is the application's short name: lower case letters, digits and hyphens, up to 40.");
   let base;
-  try {
-    base = new URL(config.baseUrl);
-    if (!["http:", "https:"].includes(base.protocol)) throw new Error();
-  } catch {
-    problems.push("`baseUrl` is the application's address, such as http://claims.internal:8080.");
+  if (config.database !== undefined) {
+    // A database instead of a REST API (sql.mjs): every tool carries its own statement.
+    if (!SQL_DIALECTS.includes(config.database?.dialect)) problems.push(`\`database.dialect\` is one of ${SQL_DIALECTS.join(", ")}.`);
+    if (!/^[A-Z_][A-Z0-9_]{0,63}$/.test(config.database?.env ?? "")) problems.push("`database.env` names the environment variable that holds the connection string, such as DATABASE_URL.");
+    if (config.baseUrl !== undefined) problems.push("A tools file has a `database` or a `baseUrl`, not both.");
+  } else {
+    try {
+      base = new URL(config.baseUrl);
+      if (!["http:", "https:"].includes(base.protocol)) throw new Error();
+    } catch {
+      problems.push("`baseUrl` is the application's address, such as http://claims.internal:8080.");
+    }
   }
   const tools = Array.isArray(config.tools) ? config.tools : [];
   if (!Array.isArray(config.tools)) problems.push("`tools` is a list.");
@@ -110,13 +120,17 @@ export function loadConfig(text) {
     for (const [field, where] of Object.entries(tool?.in ?? {})) {
       if (!LOCATIONS.includes(where)) problems.push(`${at}: \`in.${field}\` is one of ${LOCATIONS.join(", ")}.`);
     }
+    if (config.database !== undefined && !removedOrOff(tool) && tool?.inputSchema?.[SQL_KEY]?.dialect !== config.database?.dialect) problems.push(`${at}: a database tool carries its statement for ${config.database?.dialect} under inputSchema.${SQL_KEY}.`);
+    if (config.database === undefined && tool?.inputSchema?.[SQL_KEY] !== undefined) problems.push(`${at}: has a database statement, but the tools file has no \`database\`.`);
     for (const field of pathFields(tool?.path ?? "")) {
       if (!tool?.inputSchema?.properties?.[field]) problems.push(`${at}: the path names {${field}}, which the input schema does not have.`);
     }
   }
   if (problems.length) throw new Error(`The tools file has problems:\n- ${problems.join("\n- ")}`);
-  return { ...config, baseUrl: base.href.replace(/\/+$/, ""), tools };
+  return config.database !== undefined ? { ...config, tools } : { ...config, baseUrl: base.href.replace(/\/+$/, ""), tools };
 }
+
+const removedOrOff = (tool) => tool?.removed === true;
 
 /** `{id}` segments in a path. */
 export function pathFields(path) {
@@ -157,10 +171,12 @@ export function visibleTools(config, caller) {
 
 /** A tool as `tools/list` describes it. The description is the approved text, never the application's. */
 export function listing(tool) {
+  // What the runtime needs to make the call (x-deliverd-sql, x-deliverd-soap) is covered by the approval, not shown to the agent.
+  const inputSchema = Object.fromEntries(Object.entries(tool.inputSchema ?? { type: "object", properties: {} }).filter(([k]) => !k.startsWith("x-deliverd-")));
   return {
     name: tool.name,
     description: tool.description ?? "",
-    inputSchema: tool.inputSchema ?? { type: "object", properties: {} },
+    inputSchema,
     annotations: { readOnlyHint: tool.access === "read", destructiveHint: tool.access === "write" && tool.method === "DELETE" },
   };
 }
@@ -393,7 +409,7 @@ export function applyRegistry(config, approvals) {
 export function syncBody(config, { version, queuedOutcomes = 0 } = {}) {
   let host = null;
   try {
-    host = new URL(config.baseUrl).host;
+    host = config.database ? `${config.database.dialect} database` : new URL(config.baseUrl).host;
   } catch {}
   return {
     application: config.application,

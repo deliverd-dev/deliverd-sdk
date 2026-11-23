@@ -6,6 +6,26 @@
 //       Run it again when the API changes: a changed tool switches itself off
 //       until it is approved again.
 //
+//   node cli.mjs learn --dialect postgres|sqlserver [--schemas public,claims] [--queries queries.sql] [--application claims] [--database-env DATABASE_URL]
+//       Reads a database's schema (and, if given, queries the application
+//       runs) and drafts a model of the application: entities, relations,
+//       filters and actions. Learning again keeps what a person changed.
+//
+//   node cli.mjs model [--tools gateway.json]
+//       The model in words, as the person confirming it reads it.
+//
+//   node cli.mjs confirm-model --by "Name <email>" [--context]
+//       Says the model is right, for exactly the model it is now. --context
+//       also proposes it to your organisation's Context in Deliverd, with
+//       DELIVERD_API_KEY set to a key of your own with tasks:write.
+//
+//   node cli.mjs draft --sql [--tools gateway.json]
+//       Drafts find_, get_ and action tools from the confirmed model. New and
+//       changed tools start off, as with --openapi.
+//
+//   node cli.mjs draft --wsdl service.wsdl [--tools gateway.json] [--application billing --base-url http://billing.internal]
+//       The same, for a SOAP service, from its WSDL 1.1 (a file or a URL).
+//
 //   node cli.mjs list [--tools gateway.json]
 //       Every tool, whether it is on, and why not.
 //
@@ -23,8 +43,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { authSettings } from "./auth.mjs";
 import { RISKS, fingerprint, loadConfig, whyOff } from "./gateway.mjs";
+import { introspect, openDatabase } from "./db.mjs";
 import { draftTools, mergeDraft } from "./openapi.mjs";
-import { start } from "./server.mjs";
+import { draftSoapTools } from "./soap.mjs";
+import { deliverdApi, start } from "./server.mjs";
+import { confirmModel, contextProposal, describeModel, draftSqlTools, learnModel, mergeModel } from "./sql.mjs";
 
 export function parseFlags(argv) {
   const flags = {};
@@ -65,7 +88,7 @@ export function revoke(config, name) {
 }
 
 export function describe(config) {
-  const lines = [`${config.application} at ${config.baseUrl}`];
+  const lines = [`${config.application} at ${config.database ? `a ${config.database.dialect} database (${config.database.env})` : config.baseUrl}`];
   for (const t of config.tools) {
     const off = whyOff(t);
     const who = (t.callers ?? []).length ? (t.callers.includes("*") ? "any agent" : t.callers.join(", ")) : "nobody";
@@ -79,11 +102,77 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   const { flags, rest } = parseFlags(args);
   const path = toolsPath(flags, env);
   switch (command) {
+    case "learn": {
+      let existing = null;
+      try {
+        existing = readJson(path);
+      } catch {}
+      const dialect = flags.dialect || existing?.database?.dialect;
+      const envName = flags["database-env"] || existing?.database?.env || "DATABASE_URL";
+      if (!dialect) throw new Error("Say which database: --dialect postgres or --dialect sqlserver.");
+      if (existing && existing.baseUrl) throw new Error(`${path} is for an application with a REST API. Give the database its own: --tools ${flags.application ?? "database"}.json`);
+      if (!existing && !flags.application) throw new Error(`No ${path} yet: give --application <short name> to start one.`);
+      const schemas = typeof flags.schemas === "string" ? flags.schemas.split(",").map((x) => x.trim()).filter(Boolean) : [];
+      const db = await openDatabase(dialect, env[envName]);
+      let catalog;
+      try {
+        catalog = await introspect(db, { schemas });
+      } finally {
+        await db.close();
+      }
+      const queries = typeof flags.queries === "string" ? readFileSync(flags.queries, "utf8") : "";
+      const fresh = learnModel(catalog, { queries, source: { schemas, queries: !!queries } });
+      const config = existing ?? { application: flags.application, title: flags.title ?? flags.application, database: { dialect, env: envName }, tools: [] };
+      const { model, report } = mergeModel(config.model ?? null, { ...fresh, title: config.title });
+      write(path, { ...config, model });
+      console.log(describeModel(model));
+      const say = (label, names) => names.length && console.log(`${label}: ${names.join(", ")}`);
+      say("\nNew", report.added);
+      say("Gone from the database", report.removed);
+      console.log(`\nWrote the model to ${path}. Read it, edit what is wrong (names, descriptions, relations, hidden fields, actions), then: node cli.mjs confirm-model --by "Your Name <you@example.com>"`);
+      return;
+    }
+    case "model": {
+      const config = readJson(path);
+      if (!config.model) throw new Error(`${path} has no model yet. Run learn first.`);
+      console.log(describeModel(config.model));
+      return;
+    }
+    case "confirm-model": {
+      const config = readJson(path);
+      const model = confirmModel(config.model, { by: flags.by });
+      write(path, { ...config, model });
+      console.log(`Confirmed by ${model.confirmation.by}. Now draft the tools: node cli.mjs draft --sql`);
+      if (flags.context) {
+        if (!env.DELIVERD_API_KEY) throw new Error("Set DELIVERD_API_KEY to a key of your own with tasks:write to propose the model to Context.");
+        const out = await deliverdApi(env)("POST", "/knowledge", contextProposal(model, config.title ?? config.application));
+        console.log(`Proposed to Context${out?.entry?.id || out?.id ? ` (${out.entry?.id ?? out.id})` : ""}. It is a proposal until a person confirms it in Deliverd.`);
+      }
+      return;
+    }
     case "draft": {
-      if (!flags.openapi) throw new Error("Give the API's description: --openapi openapi.json (or a URL).");
-      const source = String(flags.openapi);
-      const doc = /^https?:\/\//.test(source) ? await (await fetch(source, { signal: AbortSignal.timeout(20_000) })).json() : readJson(source);
-      const { tools, notes } = draftTools(doc);
+      if (flags.sql) {
+        const existing = readJson(path);
+        if (!existing.database) throw new Error(`${path} has no database. Run learn first.`);
+        const { tools, notes } = draftSqlTools({ ...existing.model, title: existing.title });
+        const { config, report } = mergeDraft(existing, tools);
+        loadConfig(config);
+        write(path, config);
+        const say = (label, names) => names.length && console.log(`${label}: ${names.join(", ")}`);
+        say("New, off until approved", report.added);
+        say("Changed, off until approved again", report.changed.filter((n) => config.tools.find((t) => t.name === n)?.approval));
+        say("No longer in the model, off", report.removed);
+        for (const note of notes) console.log(`Note: ${note}`);
+        console.log(`Wrote ${path}. Approve the tools you want on. Reads can flow by rule in Deliverd; actions wait for whatever your rules say.`);
+        return;
+      }
+      if (!flags.openapi && !flags.wsdl) throw new Error("Give the API's description: --openapi openapi.json or --wsdl service.wsdl (a file or a URL), or --sql to draft from a confirmed database model.");
+      const source = String(flags.openapi || flags.wsdl);
+      const raw = /^https?:\/\//.test(source) ? await (await fetch(source, { signal: AbortSignal.timeout(20_000) })).text() : readFileSync(source, "utf8");
+      const doc = flags.wsdl ? { info: { title: null } } : JSON.parse(raw);
+      const drafted = flags.wsdl ? draftSoapTools(raw) : draftTools(doc);
+      if (flags.wsdl) doc.info.title = drafted.title;
+      const { tools, notes } = drafted;
       let existing;
       try {
         existing = readJson(path);
@@ -125,12 +214,13 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
       const auth = authSettings(env);
       if (!auth.entra && !auth.clientKeys.size) throw new Error("Set ENTRA_TENANT_ID and ENTRA_AUDIENCE, or GATEWAY_CLIENT_KEYS for a trial, so the runtime knows who is calling.");
       if (config.credential?.env && !env[config.credential.env]) console.warn(`[gateway-runtime] ${config.credential.env} is not set, so calls go to the application with no credential.`);
-      const { stop } = start({ config, env, auth });
+      const db = config.database ? await openDatabase(config.database.dialect, env[config.database.env]) : null;
+      const { stop } = start({ config, env, auth, db });
       for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => stop().then(() => process.exit(0)));
       return;
     }
     default:
-      throw new Error("Commands: draft, list, approve, revoke, serve. See the top of cli.mjs.");
+      throw new Error("Commands: learn, model, confirm-model, draft, list, approve, revoke, serve. See the top of cli.mjs.");
   }
 }
 

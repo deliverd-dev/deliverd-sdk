@@ -205,7 +205,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.32.1"
+__version__ = "0.32.2"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"

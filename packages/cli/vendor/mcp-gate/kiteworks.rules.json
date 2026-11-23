@@ -1,0 +1,35 @@
+{
+  "$comment": "Rules for the MCP gate in front of the Kiteworks MCP server (kiteworks-mcp 0.9.5). Start the gate with --name kiteworks and DELIVERD_HOOK_RULES pointing here. Kiteworks decides whether the data may move; these rules make the actions that send, share, delete or administer wait for a person's yes first. Reads, searches, mail drafts (compose_email), new folders and forms pass straight through. The last rule catches any write tool a later Kiteworks release adds, so a new tool is checked until you say otherwise. Edit, then run register.mjs with DELIVERD_HOOK_RULES set to this file.",
+  "rules": [
+    {
+      "action": "kiteworks.send",
+      "name": "Send mail or a file request from Kiteworks",
+      "tool": "(^|__)kiteworks__(send_email|request_file_to_folder)$"
+    },
+    {
+      "action": "kiteworks.share",
+      "name": "Change who can open files in Kiteworks",
+      "tool": "(^|__)kiteworks__(manage_members|update_mailbox_members)$"
+    },
+    {
+      "action": "kiteworks.delete",
+      "name": "Delete files, folders or a mailbox in Kiteworks",
+      "tool": "(^|__)kiteworks__(delete_file|delete_folder|delete_mailbox)$"
+    },
+    {
+      "action": "kiteworks.place",
+      "name": "Put, copy or move files in Kiteworks",
+      "tool": "(^|__)kiteworks__(upload_file_from_path|create_file_from_content|copy_file|move_file|move_folder|rename_file|rename_folder)$"
+    },
+    {
+      "action": "kiteworks.admin",
+      "name": "Change Kiteworks users, profiles, mailboxes or policy",
+      "tool": "(^|__)kiteworks__(create_user|update_user|reset_user_totp|create_mailbox|create_user_profile|assign_user_profile|bulk_assign_profile|create_tag|(create|update|delete)_risk_policy)$"
+    },
+    {
+      "action": "kiteworks.change",
+      "name": "Another change through Kiteworks",
+      "tool": "(^|__)kiteworks__(?!create_folder$|create_form$)(create|update|delete|remove|send|set|assign|reset|move|copy|share|manage|request|rename|upload|bulk)_[a-z_]*$"
+    }
+  ]
+}

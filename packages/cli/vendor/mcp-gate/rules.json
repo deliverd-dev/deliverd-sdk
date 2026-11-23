@@ -1,0 +1,25 @@
+{
+  "$comment": "What a coding agent must check with Deliverd first. A rule with `match` is a regular expression over a shell command; a rule with `tool` is a regular expression over an MCP tool's name (as `server__tool` or `mcp__server__tool`). Each names a registered action, and the first rule that matches decides. Anything no rule matches runs without a check. Edit the patterns for your repository, then run register.mjs again.",
+  "rules": [
+    {
+      "action": "coding_agent.release",
+      "name": "Release or deploy from a coding agent",
+      "match": "\\b(npm|pnpm|yarn)\\s+publish\\b|\\b(twine\\s+upload|cargo\\s+publish|gem\\s+push|dotnet\\s+nuget\\s+push)\\b|\\bgh\\s+release\\s+create\\b|\\b(vercel|netlify)\\b.*--prod\\b|\\bfunc\\s+azure\\s+functionapp\\s+publish\\b|\\baz\\s+webapp\\s+deploy\\b"
+    },
+    {
+      "action": "coding_agent.infrastructure",
+      "name": "Change infrastructure from a coding agent",
+      "match": "\\b(terraform|tofu)\\s+(apply|destroy|import)\\b|\\bkubectl\\s+(apply|delete|replace|scale|rollout)\\b|\\bhelm\\s+(install|upgrade|uninstall|rollback)\\b|\\baz\\s+\\S+.*\\s(create|delete|update|set)\\b|\\baws\\s+\\S+\\s+(create|delete|put|update|terminate)-|\\bgcloud\\s+.*\\s(create|delete|deploy|update)\\b|\\bpulumi\\s+(up|destroy)\\b"
+    },
+    {
+      "action": "coding_agent.destructive",
+      "name": "Destructive command from a coding agent",
+      "match": "\\brm\\s+-[a-zA-Z]*r[a-zA-Z]*f?\\s+(/|~|\\$HOME|\\.\\.)|\\bgit\\s+push\\b.*(--force\\b|-f\\b|--delete\\b)|\\b(drop|truncate)\\s+(table|database|schema)\\b|\\bRemove-Item\\b.*-Recurse\\b.*\\s(C:\\\\|\\$HOME|~)"
+    },
+    {
+      "action": "coding_agent.mcp_write",
+      "name": "Change something through an MCP tool",
+      "tool": "(^|__)(create|update|delete|remove|send|merge|publish|deploy|refund|charge|transfer|execute|apply)[a-z_]*$"
+    }
+  ]
+}

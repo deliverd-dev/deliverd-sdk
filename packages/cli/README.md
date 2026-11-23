@@ -139,9 +139,34 @@ break.
 `--task <id>` on `publish` or `update` keeps a report with the task it was
 written for: it is listed on the task and in `deliverd tasks context`.
 
+## Check a local MCP server's tool calls, or an in-house API's
+
+Two parts of Deliverd that run on your own machines come with the CLI, so
+there is nothing else to install and no container.
+
+The MCP gate puts any local MCP server behind your rules: a send, share,
+refund or delete waits for a person's yes. In your MCP client's settings:
+
+```json
+"command": "npx",
+"args": ["-y", "deliverd", "mcp-gate", "--name", "kiteworks", "--rules", "kiteworks", "--", "kiteworks-mcp", "start", "https://your.kiteworks.domain"],
+"env": { "DELIVERD_API_KEY": "dlv_…" }
+```
+
+The gateway runtime turns an in-house application's API into MCP tools and
+checks every call (Node.js 22):
+
+```bash
+npx deliverd gateway-runtime draft --openapi openapi.json --application claims --base-url http://claims.internal:8080
+npx deliverd gateway-runtime --env-file runtime.env serve
+```
+
+`npx deliverd hooks install` puts the coding-agent hooks for Claude Code,
+Codex, Cursor and Antigravity into `.deliverd/`.
+
 ## Requirements
 
-Node.js 20 or later.
+Node.js 20 or later; 22 for the gateway runtime.
 
 ## Documentation
 

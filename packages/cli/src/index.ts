@@ -18,6 +18,7 @@ import { actionCommands } from "./commands/actions.js";
 import { policyCommands } from "./commands/policy.js";
 import { eventCommands } from "./commands/events.js";
 import { auditCommands } from "./commands/audit.js";
+import { localCommands, runPassthrough } from "./commands/local.js";
 import {
   AGENT_NAMES,
   ConfigUnreadable,
@@ -305,5 +306,7 @@ governanceCommands(program);
 complianceCommands(program);
 auditCommands(program);
 eventCommands(program);
+localCommands(program);
 
-program.parseAsync().catch(fail);
+// `mcp-gate` and `gateway-runtime` hand every argument, `--` included, to the script they run.
+if (!runPassthrough(process.argv.slice(2))) program.parseAsync().catch(fail);

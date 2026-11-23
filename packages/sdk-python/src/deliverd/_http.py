@@ -27,9 +27,12 @@ import urllib.parse
 import urllib.request
 import uuid
 from email.utils import parsedate_to_datetime
-from typing import Any, Callable, Dict, Mapping, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping, NamedTuple, Optional
 
 from .errors import DeliverdError
+
+if TYPE_CHECKING:
+    from .oauth import AgentOAuth
 
 DEFAULT_BASE_URL = "https://deliverd.dev"
 USER_AGENT = "deliverd-python"
@@ -115,14 +118,21 @@ class HttpClient:
         timeout: float = DEFAULT_TIMEOUT,
         transport: Optional[Transport] = None,
         backoff: Optional[Callable[[int], float]] = None,
+        oauth: "Optional[AgentOAuth]" = None,
     ) -> None:
-        if not api_key:
-            raise DeliverdError(0, "no_api_key", "An api_key is required.")
+        if not api_key and oauth is None:
+            raise DeliverdError(0, "no_api_key", "An api_key is required, or OAuth options for the agent.")
         self._api_key = api_key
         self.base_url = (base_url or DEFAULT_BASE_URL).rstrip("/")
         self.max_retries = max(1, max_retries)
         self.timeout = timeout
         self._transport: Transport = transport or urllib_transport
+        # OAuth for agents, only when there is no key: a key, when given, is used exactly as before.
+        self._tokens = None
+        if not api_key and oauth is not None:
+            from .oauth import TokenSource
+
+            self._tokens = TokenSource(oauth, self.base_url, self._transport, timeout, USER_AGENT)
         # A seam, not a hack: a caller running a fleet may want a different
         # curve, and a test suite wants none at all. `Retry-After` still wins
         # over whatever this returns, because the server knows better.
@@ -161,7 +171,7 @@ class HttpClient:
 
         encoded = None if body is None else json.dumps(body).encode("utf-8")
         headers: Dict[str, str] = {
-            "Authorization": "Bearer {}".format(self._api_key),
+            "Authorization": "Bearer {}".format(self._tokens.token() if self._tokens else self._api_key),
             "Accept": "text/markdown, application/json" if text else "application/json",
             "User-Agent": USER_AGENT,
             "deliverd-correlation-id": correlation_id,
@@ -172,8 +182,12 @@ class HttpClient:
             headers["Content-Type"] = "application/json"
 
         last_error: Optional[DeliverdError] = None
-        for attempt in range(1, self.max_retries + 1):
-            if attempt > 1:
+        # A cached OAuth token the API no longer accepts is renewed once, not retried as is.
+        renewed = False
+        attempt = 0
+        while attempt < self.max_retries:
+            attempt += 1
+            if attempt > 1 and last_error is not None:
                 time.sleep(_retry_delay(last_error, attempt, self._backoff))
 
             try:
@@ -195,6 +209,14 @@ class HttpClient:
                 )
                 if attempt == self.max_retries:
                     raise last_error
+                continue
+
+            if reply.status == 401 and self._tokens is not None and not renewed:
+                renewed = True
+                self._tokens.invalidate()
+                headers["Authorization"] = "Bearer {}".format(self._tokens.token())
+                attempt -= 1
+                last_error = None
                 continue
 
             if reply.status == 204:

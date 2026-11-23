@@ -1,6 +1,6 @@
 import { DeliverdTimeoutError } from "../errors.js";
 import type { Duration } from "../duration.js";
-import type { ApprovalFactor, ApprovalRisk, Decision, FieldChange } from "../types.js";
+import type { ApprovalFactor, ApprovalRisk, Decision, FieldChange, GateDecision } from "../types.js";
 
 /**
  * What the framework adapters share: how a tool call becomes a request, and
@@ -33,6 +33,18 @@ export interface Approver {
     timeout?: Duration;
     signal?: AbortSignal;
   }): Promise<Decision>;
+  /**
+   * Deliverd's `gate()`, for tools mapped to registered actions with
+   * `actions`. The client has it; a test double may leave it out.
+   */
+  gate?(options: {
+    action: string;
+    input: Record<string, unknown>;
+    externalId: string;
+    flowId?: string;
+    timeout?: Duration;
+    signal?: AbortSignal;
+  }): Promise<GateDecision>;
 }
 
 /** What a person is shown about one tool call. */
@@ -62,6 +74,25 @@ export interface ToolApprovalOptions {
   /** The flow this run belongs to, so every call it asked about is on one timeline. */
   flowId?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Tools that are registered actions in Deliverd, by tool name:
+   * `{ issue_refund: "finance.refund" }`. A mapped call goes to the action's
+   * gate instead of a plain request, so the organisation's rules decide it
+   * (allow, refuse, or a person) and it is on the gate's record, whatever
+   * `when` says. The agent builder writes this map from the workflow.
+   */
+  actions?: Record<string, string>;
+}
+
+/** Whether this call goes to Deliverd: a mapped action always does; otherwise `when` decides. */
+export async function needsAsking(options: Pick<ToolApprovalOptions, "when" | "actions">, toolName: string, input: unknown): Promise<boolean> {
+  if (options.actions?.[toolName]) return true;
+  return !options.when || (await options.when(toolName, input));
+}
+
+/** A gate validates an object against its action's schema. */
+export function gateInput(input: unknown): Record<string, unknown> {
+  return input && typeof input === "object" && !Array.isArray(input) ? { ...(input as Record<string, unknown>) } : { input };
 }
 
 /**
@@ -130,6 +161,8 @@ export async function askAboutCall(
   /** Fields a person may correct. Only for a framework that can run a corrected call. */
   editableFields?: string[]
 ): Promise<CallOutcome> {
+  const action = options.actions?.[toolName];
+  if (action) return askGate(toolName, action, input, externalId, options, signal);
   const described = (options.describe ?? defaultDescription)(toolName, input);
   const structured = structuredInput(input);
   let decision: Decision;
@@ -164,6 +197,37 @@ export async function askAboutCall(
     };
   }
   return { allowed: false, reason: refusalReason(toolName, decision) };
+}
+
+/** A mapped call, decided by its action's gate: the organisation's rules, or a person they name. */
+async function askGate(
+  toolName: string,
+  action: string,
+  input: unknown,
+  externalId: string,
+  options: ToolApprovalOptions,
+  signal?: AbortSignal
+): Promise<CallOutcome> {
+  if (!options.deliverd.gate) {
+    throw new TypeError("`actions` needs a client with gate(): pass `new Deliverd()`.");
+  }
+  let decision: GateDecision;
+  try {
+    decision = await options.deliverd.gate({ action, input: gateInput(input), externalId, flowId: options.flowId, timeout: options.timeout, signal });
+  } catch (err) {
+    if (err instanceof DeliverdTimeoutError) {
+      return { allowed: false, reason: `Nobody decided whether to run ${toolName} in time, so it was not run.` };
+    }
+    throw err;
+  }
+  if (decision.allowed) {
+    return { allowed: true, decidedBy: null, note: null, input: decision.changes.length ? decision.input : null, changes: decision.changes };
+  }
+  if (decision.status === "pending") {
+    return { allowed: false, reason: `Nobody decided whether to run ${toolName} in time, so it was not run.` };
+  }
+  const why = decision.reason ? ` ${decision.reason}` : "";
+  return { allowed: false, reason: `Deliverd did not allow running ${toolName}.${why} Do not retry it; change course or ask how to proceed.` };
 }
 
 export function refusalReason(toolName: string, decision: Pick<Decision, "status" | "note" | "decidedBy">): string {

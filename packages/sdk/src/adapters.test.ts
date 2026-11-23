@@ -1079,3 +1079,47 @@ describe("Vercel's UI SDK agent bridge", () => {
     });
   });
 });
+
+describe("tools mapped to registered actions", () => {
+  const gateAnswer = (allowed: boolean, status: string, reason: string | null = null) => ({
+    allowed,
+    status,
+    reason,
+    rule: null,
+    input: {},
+    changes: [],
+    id: "g1",
+    approvalUrl: null,
+    decisionToken: allowed ? "tok" : null,
+    gate: null,
+  });
+
+  it("sends a mapped call to its action's gate, whatever `when` says, and skips the plain request", async () => {
+    const { deliverd, asked } = approver(decision("approved"));
+    const gated: unknown[] = [];
+    deliverd.gate = async (options) => {
+      gated.push(options);
+      return gateAnswer(true, "approved") as never;
+    };
+    const canUseTool = deliverdCanUseTool({ deliverd, when: () => false, actions: { issue_refund: "finance.refund" } });
+    expect(await canUseTool("issue_refund", { amount: 40 }, { signal, toolUseID: "t9" })).toEqual({
+      behavior: "allow",
+      updatedInput: { amount: 40 },
+    });
+    expect(gated).toEqual([expect.objectContaining({ action: "finance.refund", input: { amount: 40 }, externalId: "claude-agent-sdk:t9" })]);
+    expect(asked).toHaveLength(0);
+    // An unmapped tool still follows `when`.
+    expect((await canUseTool("Read", {}, { signal, toolUseID: "t10" })).behavior).toBe("allow");
+    expect(gated).toHaveLength(1);
+  });
+
+  it("refuses with the gate's reason, and says when a client cannot gate", async () => {
+    const { deliverd } = approver(decision("approved"));
+    deliverd.gate = async () => gateAnswer(false, "denied", "Refunds over the limit are refused.") as never;
+    const result = await deliverdCanUseTool({ deliverd, actions: { issue_refund: "finance.refund" } })("issue_refund", {}, { signal, toolUseID: "t11" });
+    expect(result.behavior).toBe("deny");
+    expect(JSON.stringify(result)).toContain("Refunds over the limit are refused.");
+    const { deliverd: plain } = approver(decision("approved"));
+    await expect(deliverdCanUseTool({ deliverd: plain, actions: { x: "a.b" } })("x", {}, { signal, toolUseID: "t12" })).rejects.toThrow("gate()");
+  });
+});

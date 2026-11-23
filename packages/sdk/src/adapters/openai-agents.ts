@@ -1,4 +1,4 @@
-import { askAboutCall, type ToolApprovalOptions } from "./shared.js";
+import { askAboutCall, type ToolApprovalOptions, needsAsking } from "./shared.js";
 
 /**
  * The OpenAI Agents SDK: a person resolves the run's approval interruptions,
@@ -54,7 +54,7 @@ export async function resolveInterruptions<Item extends OpenAiApprovalItem>(
   for (const item of result.interruptions) {
     const toolName = item.name ?? item.rawItem?.name ?? "a tool";
     const input = parseArguments(item.arguments);
-    if (options.when && !(await options.when(toolName, input))) {
+    if (!(await needsAsking(options, toolName, input))) {
       result.state.approve(item);
       approved += 1;
       continue;

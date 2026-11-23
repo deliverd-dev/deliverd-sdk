@@ -93,7 +93,7 @@ export interface ManagedAgentsClient {
   };
 }
 
-export interface ManagedAgentsApprovalOptions extends ToolApprovalOptions {
+export interface ManagedAgentsApprovalOptions extends Omit<ToolApprovalOptions, "actions"> {
   /**
    * Stop waiting on a person after this and leave the call for a later pass.
    * The session waits indefinitely, so nothing is refused for being slow.

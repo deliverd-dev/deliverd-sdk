@@ -7,6 +7,11 @@ tool call from their inbox, Slack or Teams, and the agent carries on.
 - :mod:`deliverd.adapters.antigravity` — Google Antigravity's SDK: a
   pre-tool-call decide hook, or an ``ask_user`` policy handler, that holds a
   call until a person decides.
+- :mod:`deliverd.adapters.openai_agents` — the OpenAI Agents SDK's approval
+  interruptions, for ``@function_tool(needs_approval=True)``: approved or
+  rejected on the run's state, and the run resumed.
+- :mod:`deliverd.adapters.claude_agent_sdk` — the Claude Agent SDK's
+  ``can_use_tool`` callback, which holds a call until a person decides.
 - :mod:`deliverd.adapters.agent_framework` — Microsoft Agent Framework's
   ``function_approval_request``, for ``@tool(approval_mode="always_require")``
   and MCP tools.
@@ -23,6 +28,8 @@ tool call from their inbox, Slack or Teams, and the agent carries on.
 - :mod:`deliverd.adapters.muse_spark` — the function calls in a Muse Spark
   response from Meta's Model API, over the Responses or Chat Completions API:
   only the approved ones run, and every call gets an output the API accepts.
+  The same works for Llama models served by Llama Stack's OpenAI-compatible
+  Responses endpoint.
 - :mod:`deliverd.adapters.bedrock` — Amazon Bedrock Agents' return of control,
   for action group functions with user confirmation on, answered on the session.
 - :mod:`deliverd.adapters.strands` — Strands Agents' before-tool-call hook, for

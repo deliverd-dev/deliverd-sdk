@@ -2,9 +2,40 @@
 
 > **Now published from a public repository. From 0.26.0, `@deliverd/sdk` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with npm's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.25.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If npm shows a change of provenance or source repository at 0.26.0, this is why.**
 
-## 0.43.2
+## 0.44.0
 
-A patch. 0.43.1 went to npm on 23 November 2026 from deliverd-sdk a38de2d.
+A minor, for an addition. 0.43.1 went to npm on 23 November 2026 from
+deliverd-sdk a38de2d; this was opened as 0.43.2.
+
+### Added
+
+- **Map tools to registered actions** (#398). Every tool approval adapter
+  takes `actions`, a map from tool name to a registered Deliverd action
+  (`{ issue_refund: "finance.refund" }`). A mapped call goes to that action's
+  gate, so the organisation's rules decide it (allow, refuse, or a person) and
+  it is on the gate's record, whatever `when` says. The agent builder writes
+  this map from the workflow.
+
+- **OAuth for agents.** An agent can sign in with short-lived access tokens
+  instead of sending a key on every request. Give the client an `oauth`
+  option, or set `DELIVERD_CLIENT_ID` with `DELIVERD_CLIENT_SECRET` or
+  `DELIVERD_PRIVATE_KEY`, and leave `apiKey` unset:
+
+  ```ts
+  const deliverd = new Deliverd({
+    oauth: { clientId: process.env.DELIVERD_CLIENT_ID, privateKey: process.env.DELIVERD_PRIVATE_KEY },
+  });
+  ```
+
+  The SDK gets a token from `/api/oauth/token` with the client credentials
+  grant (a client secret, or a JWT signed with the agent's own RSA, EC P-256
+  or Ed25519 key), caches it, renews it a minute before it runs out, and
+  renews once if the API refuses it. `oauth: { subjectToken }` exchanges a
+  platform's own token instead (Microsoft Entra Agent ID, an Azure managed
+  identity, AWS, Google Cloud, GitHub Actions, Kubernetes). Create the client
+  under Agents → Agents → the agent → OAuth. A key, when one is set, is used
+  exactly as before. New exports: `agentTokenSource`, `clientAssertion`,
+  `oauthFromEnv`, `AgentOAuthOptions`, `TokenSource`.
 
 ## 0.43.1
 

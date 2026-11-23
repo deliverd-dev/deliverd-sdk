@@ -1,4 +1,4 @@
-import { askAboutCall, type ToolApprovalOptions } from "./shared.js";
+import { askAboutCall, type ToolApprovalOptions, needsAsking } from "./shared.js";
 
 /**
  * The Vercel AI SDK: a person approves tool calls, through Deliverd.
@@ -43,7 +43,7 @@ export function deliverdToolApproval(
   options: ToolApprovalOptions
 ): (call: AiSdkApprovalCall) => Promise<AiSdkApprovalStatus> {
   return async ({ toolCall }) => {
-    if (options.when && !(await options.when(toolCall.toolName, toolCall.input))) {
+    if (!(await needsAsking(options, toolCall.toolName, toolCall.input))) {
       return { type: "not-applicable" };
     }
     const outcome = await askAboutCall(

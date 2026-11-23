@@ -1,4 +1,4 @@
-import { askAboutCall, type ToolApprovalOptions } from "./shared.js";
+import { askAboutCall, type ToolApprovalOptions, needsAsking } from "./shared.js";
 
 /**
  * Meta's Muse Spark, on the Meta Model API: a person approves the function
@@ -123,7 +123,7 @@ export async function approveAndRun(
   prefix = "muse-spark:"
 ): Promise<string> {
   const input = parseArguments(rawArguments);
-  if (!options.when || (await options.when(toolName, input))) {
+  if (await needsAsking(options, toolName, input)) {
     const editable =
       typeof input === "object" && input !== null && !Array.isArray(input)
         ? options.editable?.(toolName, input as Record<string, unknown>)

@@ -1,3 +1,4 @@
+import { oauthFromEnv } from "./oauth.js";
 import { HttpClient, type ClientOptions } from "./http.js";
 import { Approvals, DecisionSessions, FAST_POLL_SCHEDULE, type WaitOptions } from "./approvals.js";
 import { Gates, isUnavailable, unavailableDecision, type GateOptions } from "./gates.js";
@@ -92,6 +93,7 @@ export {
 } from "./webhooks.js";
 export { DeliverdError, DeliverdTimeoutError } from "./errors.js";
 export { DEFAULT_BASE_URL, type ClientOptions } from "./http.js";
+export { agentTokenSource, clientAssertion, oauthFromEnv, type AgentOAuthOptions, type TokenSource } from "./oauth.js";
 export { durationMs, type Duration } from "./duration.js";
 export type { DevelopmentOptions, DevelopmentOutcome } from "./dev.js";
 export type * from "./types.js";
@@ -224,6 +226,8 @@ export class Deliverd {
       ...options,
       // A key is not needed when nothing leaves the machine.
       apiKey: options.apiKey ?? process.env.DELIVERD_API_KEY ?? (this.development ? "dlv_development" : ""),
+      // OAuth for agents: given here, or DELIVERD_CLIENT_ID with a secret or private key in the environment.
+      oauth: options.oauth ?? oauthFromEnv() ?? undefined,
       baseUrl: options.baseUrl ?? process.env.DELIVERD_BASE_URL,
       fetch: this.development ? developmentFetch(options.development) : options.fetch,
     });

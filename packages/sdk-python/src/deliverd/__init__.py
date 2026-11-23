@@ -45,6 +45,7 @@ from .dev import DevelopmentOptions, development_transport
 from .flows import Flow, Flows
 from .duration import Duration, duration_seconds
 from .errors import DeliverdError, DeliverdTimeoutError
+from .oauth import AgentOAuth, client_assertion
 from .paging import Page
 from .reports import Reports
 from .reviews import Review, Reviews
@@ -205,7 +206,7 @@ from .webhooks import (
     verify_signature,
 )
 
-__version__ = "0.32.2"
+__version__ = "0.33.0"
 
 #: How long a request waits for a person before it expires, unless you say.
 DEFAULT_EXPIRY: Duration = "24h"
@@ -217,6 +218,8 @@ DEVELOPMENT_TIMEOUT = 2.0
 
 __all__ = [
     "Deliverd",
+    "AgentOAuth",
+    "client_assertion",
     "deliverd",
     "DecisionTokens",
     "DecisionTokenResult",
@@ -432,6 +435,7 @@ class Deliverd:
         timeout: float = 30.0,
         transport: Optional[Transport] = None,
         development: Optional[DevelopmentOptions] = None,
+        oauth: Optional[AgentOAuth] = None,
     ) -> None:
         resolved_mode = mode or (
             "development" if os.environ.get("DELIVERD_MODE") == "development" else "live"
@@ -452,6 +456,8 @@ class Deliverd:
                 if self.development and transport is None
                 else transport
             ),
+            # OAuth for agents: given here, or DELIVERD_CLIENT_ID with a secret or private key in the environment.
+            oauth=oauth or AgentOAuth.from_env(),
         )
 
         self.approvals = Approvals(self.http)

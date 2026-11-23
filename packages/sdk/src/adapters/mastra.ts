@@ -1,4 +1,4 @@
-import { askAboutCall, type ToolApprovalOptions } from "./shared.js";
+import { askAboutCall, type ToolApprovalOptions, needsAsking } from "./shared.js";
 
 /**
  * Mastra: a person approves an agent's tool calls, through Deliverd.
@@ -84,7 +84,7 @@ export async function resolveMastraApproval<Output extends MastraOutput>(
   const pending = pendingMastraApproval(output);
   if (!pending) return null;
   const { runId, toolCallId, toolName, args } = pending;
-  if (options.when && !(await options.when(toolName, args))) {
+  if (!(await needsAsking(options, toolName, args))) {
     return agent.approveToolCallGenerate({ runId, toolCallId });
   }
   const outcome = await askAboutCall(toolName, args, `mastra:${runId}:${toolCallId}`, options);

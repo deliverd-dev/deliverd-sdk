@@ -1,4 +1,4 @@
-import { askAboutCall, type ToolApprovalOptions } from "./shared.js";
+import { askAboutCall, type ToolApprovalOptions, needsAsking } from "./shared.js";
 
 /**
  * The Claude Agent SDK: a person approves tool calls, through Deliverd.
@@ -59,7 +59,7 @@ export interface ClaudeToolApprovalOptions extends ToolApprovalOptions {
 
 export function deliverdCanUseTool(options: ClaudeToolApprovalOptions): ClaudeCanUseTool {
   return async (toolName, input, context) => {
-    if (options.when && !(await options.when(toolName, input))) {
+    if (!(await needsAsking(options, toolName, input))) {
       return { behavior: "allow", updatedInput: input };
     }
     const id = context.toolUseID ?? `${toolName}:${stableHash(input)}`;

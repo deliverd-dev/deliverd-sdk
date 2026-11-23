@@ -1,5 +1,5 @@
 import { approveAndRun, type MuseToolApprovalOptions, type MuseToolRunner } from "./muse-spark.js";
-import { askAboutCall } from "./shared.js";
+import { askAboutCall, needsAsking } from "./shared.js";
 
 /**
  * Perplexity's Agent API: a person decides the tool calls a run asks to make.
@@ -87,7 +87,7 @@ export async function answerPerplexityApprovals(
     const input = parseArguments(request.arguments);
     let approve = true;
     let reason: string | undefined;
-    if (!options.when || (await options.when(request.name, input))) {
+    if (await needsAsking(options, request.name, input)) {
       const outcome = await askAboutCall(request.name, input, `${PREFIX}${request.id}`, {
         ...options,
         metadata: {

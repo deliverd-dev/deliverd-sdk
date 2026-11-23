@@ -865,6 +865,15 @@ import { deliverdCanUseTool } from "@deliverd/sdk/adapters";
 query({ prompt, options: { canUseTool: deliverdCanUseTool({ deliverd, when: (tool) => tool === "Bash" }) } });
 ```
 
+**Tools that are registered actions** — pass `actions`, a map from a tool's
+name to a registered Deliverd action, and a mapped call goes to that action's
+gate: your organisation's rules decide it (allow, refuse, or a person they
+name), whatever `when` says. The Deliverd agent builder writes the map for you.
+
+```ts
+deliverdCanUseTool({ deliverd, actions: { issue_refund: "finance.refund" } });
+```
+
 **Claude Managed Agents** (hosted, or self-hosted on your own servers) — give the
 toolset `permission_policy: always_ask` (MCP toolsets ask by default), then
 answer the sessions that pause for confirmation:

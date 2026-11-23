@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { DeliverdError } from "./errors.js";
+import { agentTokenSource, type AgentOAuthOptions, type TokenSource } from "./oauth.js";
 
 /**
  * The one place a request is made.
@@ -18,6 +19,12 @@ import { DeliverdError } from "./errors.js";
 export interface ClientOptions {
   /** A `dlv_` key from Settings → API tokens, or an OAuth access token. */
   apiKey: string;
+  /**
+   * OAuth for agents, used when there is no `apiKey`: the SDK gets short-lived
+   * access tokens from the token endpoint with the agent's client (a secret or
+   * a private key), or by exchanging its platform's token, and renews them.
+   */
+  oauth?: AgentOAuthOptions;
   /** Override for self-hosted or preview deployments. */
   baseUrl?: string;
   /** Attempts for a retryable failure, the first included. Default 3. */
@@ -76,19 +83,24 @@ function backoffMs(attempt: number): number {
 export class HttpClient {
   readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly tokens: TokenSource | null;
   private readonly maxRetries: number;
   private readonly timeout: number;
   private readonly doFetch: typeof globalThis.fetch;
 
   constructor(options: ClientOptions) {
-    if (!options.apiKey) {
-      throw new DeliverdError(0, "no_api_key", "An apiKey is required.");
+    if (!options.apiKey && !options.oauth) {
+      throw new DeliverdError(0, "no_api_key", "An apiKey is required, or OAuth options for the agent.");
     }
     this.apiKey = options.apiKey;
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.maxRetries = Math.max(1, options.maxRetries ?? 3);
     this.timeout = options.timeout ?? 30_000;
     this.doFetch = options.fetch ?? globalThis.fetch;
+    // A key wins when both are given: nothing that works with a key changes.
+    this.tokens = !options.apiKey && options.oauth
+      ? agentTokenSource(options.oauth, { baseUrl: this.baseUrl, fetch: this.doFetch, userAgent: USER_AGENT })
+      : null;
   }
 
   async request<T>(options: RequestOptions): Promise<T> {
@@ -110,6 +122,8 @@ export class HttpClient {
     const idempotencyKey =
       options.method === "POST" ? (options.idempotencyKey ?? randomUUID()) : undefined;
     let lastError: DeliverdError | undefined;
+    // A cached OAuth token the API no longer accepts is renewed once, not retried as is.
+    let renewed = false;
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       if (attempt > 1) await sleep(lastError ? retryDelay(lastError, attempt) : backoffMs(attempt), options.signal);
 
@@ -117,12 +131,13 @@ export class HttpClient {
       const timer = AbortSignal.timeout(this.timeout);
       const signal = options.signal ? AbortSignal.any([options.signal, timer]) : timer;
 
+      const bearer = this.tokens ? await this.tokens.token() : this.apiKey;
       let response: Response;
       try {
         response = await this.doFetch(url, {
           method: options.method,
           headers: {
-            Authorization: `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${bearer}`,
             Accept: options.responseType === "text" ? "text/markdown, application/json" : "application/json",
             "User-Agent": USER_AGENT,
             // One id per logical request, kept across retries: it is the
@@ -139,6 +154,14 @@ export class HttpClient {
         if (options.signal?.aborted) throw abortError(options.signal);
         lastError = new DeliverdError(0, "network_error", describeNetworkError(cause), undefined, { cause });
         if (attempt === this.maxRetries) throw lastError;
+        continue;
+      }
+
+      if (response.status === 401 && this.tokens && !renewed) {
+        renewed = true;
+        this.tokens.invalidate();
+        attempt--;
+        lastError = undefined;
         continue;
       }
 

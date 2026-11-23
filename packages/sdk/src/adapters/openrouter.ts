@@ -1,7 +1,7 @@
 import { DeliverdTimeoutError } from "../errors.js";
 import type { Duration } from "../duration.js";
 import type { ApprovalRisk, Decision, RegisterAiSystemInput, UsePolicy, UsePolicyData, UsePolicyDeploymentClass } from "../types.js";
-import { askAboutCall, type Approver, type ToolApprovalOptions } from "./shared.js";
+import { askAboutCall, type Approver, type ToolApprovalOptions, needsAsking } from "./shared.js";
 
 /**
  * OpenRouter's Agent SDK (`@openrouter/agent`): a person approves the tool
@@ -91,7 +91,7 @@ export function deliverdPermissionRequest(options: ToolApprovalOptions): OpenRou
     async handler(payload, context) {
       const toolName = payload.toolName || "a tool";
       const input = payload.toolInput ?? {};
-      if (options.when && !(await options.when(toolName, input))) return { decision: "allow" };
+      if (!(await needsAsking(options, toolName, input))) return { decision: "allow" };
       const base = `openrouter:${context?.sessionId || instance}:${toolName}:${fingerprint(input)}`;
       const occurrence = (seen.get(base) ?? 0) + 1;
       seen.set(base, occurrence);
@@ -143,7 +143,7 @@ export async function resolveOpenRouterApprovals(
   for (const call of pending) {
     const toolName = String(call.name || "a tool");
     const input = parseArguments(call.arguments);
-    if (options.when && !(await options.when(toolName, input))) {
+    if (!(await needsAsking(options, toolName, input))) {
       resume.approveToolCalls.push(call.id);
       continue;
     }

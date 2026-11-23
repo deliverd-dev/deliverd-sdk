@@ -2,9 +2,40 @@
 
 > **Now published from a public repository. From 0.19.0, `deliverd` is built and released from [deliverd-dev/deliverd-sdk](https://github.com/deliverd-dev/deliverd-sdk), Deliverd's public SDK repository, by GitHub Actions with PyPI's trusted publishing, so each release carries provenance linking it to the commit and workflow that built it. Versions up to 0.18.1 were published from a private repository under a single developer's account. Deliverd is growing, and as a company that supports open source it no longer made sense to keep it there: the source is now public, under the MIT licence. If PyPI shows a change of provenance or source repository at 0.19.0, this is why.**
 
-## 0.32.2
+## 0.33.0
 
-A patch. 0.32.1 went to PyPI on 23 November 2026 from deliverd-sdk a38de2d.
+A minor, for an addition. 0.32.1 went to PyPI on 23 November 2026 from
+deliverd-sdk a38de2d; this was opened as 0.32.2.
+
+### Added
+
+- **OpenAI Agents SDK and Claude Agent SDK adapters** (#398).
+  `deliverd.adapters.openai_agents` answers the run's approval interruptions
+  for `@function_tool(needs_approval=True)` (`run_with_deliverd_approvals`,
+  `resolve_interruptions`), and `deliverd.adapters.claude_agent_sdk` gives a
+  `can_use_tool` callback (`deliverd_can_use_tool`) that holds a call until a
+  person decides.
+
+- **OAuth for agents.** An agent can sign in with short-lived access tokens
+  instead of sending a key on every request. Pass `oauth=AgentOAuth(...)`, or
+  set `DELIVERD_CLIENT_ID` with `DELIVERD_CLIENT_SECRET` or
+  `DELIVERD_PRIVATE_KEY`, and leave the API key unset:
+
+  ```python
+  from deliverd import AgentOAuth, Deliverd
+
+  deliverd = Deliverd(oauth=AgentOAuth(client_id="dlvac_…", client_secret="dlvacs_…"))
+  ```
+
+  The SDK gets a token from `/api/oauth/token` with the client credentials
+  grant, caches it, renews it a minute before it runs out, and renews once if
+  the API refuses it. A client can sign with its own private key instead of a
+  secret (`private_key=`, RSA, EC P-256 or Ed25519; needs
+  `pip install cryptography`). `AgentOAuth(subject_token=...)` exchanges a
+  platform's own token instead: Microsoft Entra Agent ID, an Azure managed
+  identity, AWS, Google Cloud, GitHub Actions, Kubernetes. Create the client
+  under Agents → Agents → the agent → OAuth. A key, when one is set, is used
+  exactly as before.
 
 ## 0.32.1
 

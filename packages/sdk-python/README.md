@@ -586,6 +586,53 @@ REST API directly with the async client you already have.
 you already hold, and `to_decision()`, `to_outcome()` and `to_collected()` are
 the same — no request, so no `await`.
 
+## OpenAI Agents SDK
+
+Mark the tools that need a person with `needs_approval=True`, and let Deliverd
+answer the run's interruptions:
+
+```python
+from agents import Agent, function_tool
+from deliverd import Deliverd
+from deliverd.adapters.openai_agents import run_with_deliverd_approvals
+
+@function_tool(needs_approval=True)
+def issue_refund(order_id: str, amount: int) -> str:
+    ...
+
+agent = Agent(name="Billing", instructions="You handle refunds.", tools=[issue_refund])
+result = await run_with_deliverd_approvals(agent, "Refund order 1042", Deliverd(), approvers=["finance"])
+```
+
+Each interruption is one request, keyed by its call id. A yes is
+`state.approve(item)`, a no `state.reject(item)`, and the run resumes until
+nothing is waiting. `resolve_interruptions` does one round, for a loop you own.
+
+## Claude Agent SDK
+
+```python
+from claude_agent_sdk import ClaudeAgentOptions, query
+from deliverd import Deliverd
+from deliverd.adapters.claude_agent_sdk import deliverd_can_use_tool
+
+options = ClaudeAgentOptions(
+    can_use_tool=deliverd_can_use_tool(Deliverd(), approvers=["ops"], when=lambda tool, input: tool == "Bash"),
+)
+async for message in query(prompt="Publish the release notes", options=options):
+    ...
+```
+
+A no reaches the model as the person's reason; a wait that runs out, or any
+error asking, denies the call.
+
+## Tools that are registered actions
+
+Every adapter takes `actions`, a map from a tool's name to a registered
+Deliverd action: `actions={"issue_refund": "finance.refund"}`. A mapped call
+goes to the action's gate, so your organisation's rules decide it (allow,
+refuse, or a person they name) and it is on the gate's record. The Deliverd
+agent builder writes this map for you.
+
 ## Microsoft Agent Framework
 
 Mark the tools that need a person as Agent Framework already has you do, and

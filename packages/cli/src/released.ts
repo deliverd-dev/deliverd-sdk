@@ -548,6 +548,25 @@ export const RELEASED: Record<string, readonly string[]> = {
     "templates", "test", "unarchive", "unshare", "update", "use", "verify",
     "versions", "watch", "who", "workspaces",
   ],
+
+  /*
+   * Opened as 0.23.1 because 0.23.0 is on npm (23 November 2026, from
+   * deliverd-sdk fbba01c).
+   */
+  "0.23.1": [
+    "actions", "activate", "add", "agents", "agents-md", "analytics", "answer",
+    "apply", "approvals", "approve-decision", "archive", "ask", "audit",
+    "cancel", "check", "collect", "comments", "complete", "context", "copy",
+    "create", "data", "events", "evidence", "export", "finding", "flag",
+    "flags", "flows", "gates", "gateway-runtime", "get", "given", "governance",
+    "graph", "hooks", "import", "install", "knowledge", "link", "list", "login",
+    "mcp-gate", "open", "pack", "playbooks", "policy", "publish", "push",
+    "receipt", "register", "release", "rename", "reopen", "replay", "resolve",
+    "retract", "reviews", "rm", "rollback", "schedules", "search", "send",
+    "set", "setup", "share", "show", "side-task", "simulate", "start", "tasks",
+    "templates", "test", "unarchive", "unshare", "update", "use", "verify",
+    "versions", "watch", "who", "workspaces",
+  ],
 };
 
 /**
@@ -620,4 +639,5 @@ export const PUBLISHED_TO_NPM = [
   "0.20.0",
   "0.21.0",
   "0.22.0",
+  "0.23.0",
 ] as const;

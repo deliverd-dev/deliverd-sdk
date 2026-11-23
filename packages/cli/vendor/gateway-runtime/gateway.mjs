@@ -23,6 +23,7 @@
 // No dependencies, Node.js 22 or later.
 
 import { createHash } from "node:crypto";
+import { filesProblems } from "./files.mjs";
 
 export const HOSTED = "https://deliverd.dev";
 export const ACTION_ID = "gateway_runtime.tool_call";
@@ -91,12 +92,18 @@ export function loadConfig(text) {
   if (!config || typeof config !== "object") throw new Error("The tools file must be a JSON object.");
   if (!SLUG.test(config.application ?? "")) problems.push("`application` is the application's short name: lower case letters, digits and hyphens, up to 40.");
   let base;
+  // A files runtime (files.mjs) serves folders, so it has no application address.
+  const filesOnly = config.files !== undefined && config.baseUrl === undefined && config.database === undefined;
+  if (config.files !== undefined) {
+    problems.push(...filesProblems(config.files));
+    if (config.database !== undefined) problems.push("A tools file has `files` or a `database`, not both.");
+  }
   if (config.database !== undefined) {
     // A database instead of a REST API (sql.mjs): every tool carries its own statement.
     if (!SQL_DIALECTS.includes(config.database?.dialect)) problems.push(`\`database.dialect\` is one of ${SQL_DIALECTS.join(", ")}.`);
     if (!/^[A-Z_][A-Z0-9_]{0,63}$/.test(config.database?.env ?? "")) problems.push("`database.env` names the environment variable that holds the connection string, such as DATABASE_URL.");
     if (config.baseUrl !== undefined) problems.push("A tools file has a `database` or a `baseUrl`, not both.");
-  } else {
+  } else if (!filesOnly) {
     try {
       base = new URL(config.baseUrl);
       if (!["http:", "https:"].includes(base.protocol)) throw new Error();
@@ -127,7 +134,7 @@ export function loadConfig(text) {
     }
   }
   if (problems.length) throw new Error(`The tools file has problems:\n- ${problems.join("\n- ")}`);
-  return config.database !== undefined ? { ...config, tools } : { ...config, baseUrl: base.href.replace(/\/+$/, ""), tools };
+  return config.database !== undefined || !base ? { ...config, tools } : { ...config, baseUrl: base.href.replace(/\/+$/, ""), tools };
 }
 
 const removedOrOff = (tool) => tool?.removed === true;

@@ -36,6 +36,12 @@
 //   node cli.mjs revoke <tool> [--tools gateway.json]
 //       Switches a tool off.
 //
+//   node cli.mjs files [--tools gateway.json]
+//       For a files runtime: writes the four tools for each root in `files`
+//       into the tools file. New tools start off. Run it again after changing
+//       the roots: a tool whose folder moved switches itself off until it is
+//       approved again.
+//
 //   node cli.mjs serve [--tools gateway.json]
 //       Runs the MCP server. Settings come from the environment (README.md).
 
@@ -45,6 +51,7 @@ import { authSettings } from "./auth.mjs";
 import { RISKS, fingerprint, loadConfig, whyOff } from "./gateway.mjs";
 import { introspect, openDatabase } from "./db.mjs";
 import { draftTools, mergeDraft } from "./openapi.mjs";
+import { loadScreen, mergeFileTools } from "./files.mjs";
 import { draftSoapTools } from "./soap.mjs";
 import { deliverdApi, start } from "./server.mjs";
 import { confirmModel, contextProposal, describeModel, draftSqlTools, learnModel, mergeModel } from "./sql.mjs";
@@ -88,7 +95,7 @@ export function revoke(config, name) {
 }
 
 export function describe(config) {
-  const lines = [`${config.application} at ${config.database ? `a ${config.database.dialect} database (${config.database.env})` : config.baseUrl}`];
+  const lines = [config.files ? `${config.application}: ${config.files.roots.map((r) => `${r.name} (${r.path})`).join(", ")}` : `${config.application} at ${config.database ? `a ${config.database.dialect} database (${config.database.env})` : config.baseUrl}`];
   for (const t of config.tools) {
     const off = whyOff(t);
     const who = (t.callers ?? []).length ? (t.callers.includes("*") ? "any agent" : t.callers.join(", ")) : "nobody";
@@ -192,6 +199,19 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
       console.log(`Wrote ${path}. Read each tool, fix any description that would mislead a model, then approve the ones you want on.`);
       return;
     }
+    case "files": {
+      const existing = readJson(path);
+      if (!existing.files) throw new Error(`${path} has no \`files\` section. See README.md, "Windows file shares".`);
+      const { config, report } = mergeFileTools(loadConfig(existing));
+      loadConfig(config);
+      write(path, config);
+      const say = (label, names) => names.length && console.log(`${label}: ${names.join(", ")}`);
+      say("New, off until approved", report.added);
+      say("Changed, off until approved again", report.changed);
+      say("Root gone, off", report.removed);
+      console.log(`Wrote ${path}. Approve the tools you want on, here or in Deliverd (DELIVERD_REGISTRY=true).`);
+      return;
+    }
     case "list":
       console.log(describe(loadConfig(readJson(path))));
       return;
@@ -214,13 +234,19 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
       const auth = authSettings(env);
       if (!auth.entra && !auth.clientKeys.size) throw new Error("Set ENTRA_TENANT_ID and ENTRA_AUDIENCE, or GATEWAY_CLIENT_KEYS for a trial, so the runtime knows who is calling.");
       if (config.credential?.env && !env[config.credential.env]) console.warn(`[gateway-runtime] ${config.credential.env} is not set, so calls go to the application with no credential.`);
+      let screen = null;
+      if (config.files) {
+        screen = await loadScreen(config.files);
+        if (!screen && config.files.screening !== "off") throw new Error("This runtime reads files, and screening is on, but @deliverd/screen is not installed. Run npm install @deliverd/screen beside it (the Docker image has it), or set files.screening to off.");
+        if (!env.FILES_CACHE_DIR) console.warn("[gateway-runtime] FILES_CACHE_DIR is not set, so every file is converted again each time it is read.");
+      }
       const db = config.database ? await openDatabase(config.database.dialect, env[config.database.env]) : null;
-      const { stop } = start({ config, env, auth, db });
+      const { stop } = start({ config, env, auth, db, screen });
       for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => stop().then(() => process.exit(0)));
       return;
     }
     default:
-      throw new Error("Commands: learn, model, confirm-model, draft, list, approve, revoke, serve. See the top of cli.mjs.");
+      throw new Error("Commands: learn, model, confirm-model, draft, files, list, approve, revoke, serve. See the top of cli.mjs.");
   }
 }
 

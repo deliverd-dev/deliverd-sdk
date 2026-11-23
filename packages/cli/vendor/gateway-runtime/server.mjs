@@ -32,8 +32,9 @@ import {
 import { SOAP_KEY, buildSoapRequest, readSoapResponse } from "./soap.mjs";
 import { compileCall, runCall } from "./sql.mjs";
 import { EVENTS_EXTENSION, eventRelay, eventsEnabled, relayedNames } from "./events.mjs";
+import { callFileTool, fileCache } from "./files.mjs";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const MAX_BODY = 1_000_000;
 const MAX_RESULT = 200_000;
@@ -240,7 +241,7 @@ export async function handleMessage(message, ctx) {
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
           capabilities: { tools: { listChanged: false }, ...(ctx.events ? { extensions: { [EVENTS_EXTENSION]: {} } } : {}) },
           serverInfo: { name: `deliverd-gateway-${config.application}`, title: config.title ?? config.application, version: VERSION },
-          instructions: `Tools for ${config.title ?? config.application}. Every call is checked by Deliverd; when one needs a person's approval, stop and tell the user, then make the same call again once it is approved.`,
+          instructions: `Tools for ${config.title ?? config.application}.${config.files ? " They read files on your organisation's shares, as markdown. Start with list_folder or find_files, then read_as_markdown." : ""} Every call is checked by Deliverd; when one needs a person's approval, stop and tell the user, then make the same call again once it is approved.`,
         },
       };
     }
@@ -256,6 +257,8 @@ export async function handleMessage(message, ctx) {
       if (!tool) return toolError(id, `There is no tool called ${String(name).slice(0, 64)} for you here.`);
       if (!args || typeof args !== "object" || Array.isArray(args)) return toolError(id, `The arguments for ${tool.name} should be an object.`);
       if (!ctx.allowRate(tool, caller)) return toolError(id, `${tool.name} has been called too often in the last minute. Wait, then try again.`);
+      // A files runtime's tools read folders (files.mjs); every other tool calls the application.
+      if (tool.files) return callFileTool({ ...ctx, tool, args, rpcId: id, sessionId });
       return callTool({ ...ctx, tool, args, rpcId: id, sessionId });
     }
     case "events/list":
@@ -297,7 +300,7 @@ function send(res, status, body, headers = {}) {
 }
 
 /** The request handler. Everything it needs comes in, so tests run it without a network. */
-export function createHandler({ db = null, config: source, env, auth, keyFor = null, fetchImpl = fetch, api = deliverdApi(env, fetchImpl), queue = outcomeQueue(api), log = () => {}, registry = null, events = eventsEnabled(env) ? eventRelay({ api, env, log }) : null }) {
+export function createHandler({ db = null, config: source, env, auth, keyFor = null, fetchImpl = fetch, api = deliverdApi(env, fetchImpl), queue = outcomeQueue(api), log = () => {}, registry = null, events = eventsEnabled(env) ? eventRelay({ api, env, log }) : null, screen = null, cache = fileCache(null) }) {
   const current = () => (typeof source === "function" ? source() : source);
   const allowRate = rateLimiter();
   const keys = keyFor ?? (auth.entra ? entraKeys(auth.entra.tenantId, fetchImpl) : async () => null);
@@ -339,7 +342,7 @@ export function createHandler({ db = null, config: source, env, auth, keyFor = n
       if (Array.isArray(message)) return send(res, 400, rpcError(null, -32600, "Send one message at a time."));
       const sessionId = (req.headers["mcp-session-id"] ?? "").toString().slice(0, 100) || (message?.method === "initialize" ? randomUUID() : null);
       if (message?.method === "events/stream" && events) return streamEvents(req, res, message, events, sessionId, log);
-      const answer = await handleMessage(message, { config, env, caller: who.caller, sessionId, api, queue, fetchImpl, allowRate, events, db });
+      const answer = await handleMessage(message, { config, env, caller: who.caller, sessionId, api, queue, fetchImpl, allowRate, events, db, screen, cache });
       if (message?.method === "tools/call") log(`${who.caller.agent}${who.caller.user ? ` for ${who.caller.user}` : ""} ${message.params?.name} ${answer?.result?.isError ? "refused or failed" : "ok"}`);
       const headers = sessionId ? { "mcp-session-id": sessionId } : {};
       if (answer === null) return send(res, 202, undefined, headers);
@@ -410,12 +413,13 @@ export function registrySync({ config, api, queue, version = VERSION, log = () =
 }
 
 /** Starts the runtime. Returns the server and a stop function. */
-export function start({ config, env, auth, db = null, port = Number(env.PORT ?? 8080), log = (line) => console.log(`[gateway-runtime] ${line}`) }) {
+export function start({ config, env, auth, db = null, port = Number(env.PORT ?? 8080), log = (line) => console.log(`[gateway-runtime] ${line}`), screen = null }) {
   const api = deliverdApi(env);
   const queue = outcomeQueue(api, env.EVIDENCE_QUEUE_FILE || null, log);
   const registry = env.DELIVERD_REGISTRY === "true" ? registrySync({ config, api, queue, log }) : null;
   const events = eventsEnabled(env) ? eventRelay({ api, env, log }) : null;
-  const server = createServer(createHandler({ config: registry ? registry.current : config, env, auth, api, queue, log, registry, events, db }));
+  const cache = config.files ? fileCache(env.FILES_CACHE_DIR || null) : fileCache(null);
+  const server = createServer(createHandler({ config: registry ? registry.current : config, env, auth, api, queue, log, registry, events, db, screen, cache }));
   const timers = [setInterval(() => queue.flush().catch(() => {}), 30_000)];
   if (registry) {
     const every = Math.max(15, Number(env.DELIVERD_SYNC_SECONDS ?? 60)) * 1000;
